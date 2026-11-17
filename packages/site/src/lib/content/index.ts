@@ -270,7 +270,10 @@ export async function sitemap(): Promise<Response> {
 }
 
 /**
- * Erzeugt beim Build die `robots.txt` mit dem Verweis auf die Sitemap. Gehört
+ * Erzeugt beim Build die `robots.txt` mit dem Verweis auf die Sitemap. Hat der
+ * Kunde im CRM „Nicht bei Google anzeigen“ gewählt, fehlt der Verweis; ein
+ * `Disallow` steht trotzdem nicht darin, sonst sähe Google das `noindex` der
+ * Seiten nie. Gehört
  * in `src/routes/robots.txt/+server.ts` — eine der zwei erlaubten
  * `+server.ts`-Dateien.
  *
@@ -284,8 +287,8 @@ export async function sitemap(): Promise<Response> {
  */
 export function robots(): Response {
 	assertBuildTime('robots');
-	const { url } = getSiteData().site;
+	const { site, seo } = getSiteData();
 	const lines = ['User-agent: *', 'Allow: /'];
-	if (url) lines.push('', `Sitemap: ${url}/sitemap.xml`);
+	if (site.url && !seo.noindex) lines.push('', `Sitemap: ${site.url}/sitemap.xml`);
 	return new Response(`${lines.join('\n')}\n`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }

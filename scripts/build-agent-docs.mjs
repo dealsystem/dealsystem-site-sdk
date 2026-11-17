@@ -43,6 +43,7 @@ const COMPONENT_GROUPS = [
 	['Karte', ['MapEmbed']],
 	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
 	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
+	['Google und Teilen', ['Seo', 'SiteHead']],
 ];
 
 /** Skills des Starters in der Reihenfolge, in der sie meist gebraucht werden. */
@@ -71,6 +72,8 @@ const COMPONENTS = [
 	'Impressum',
 	'Datenschutz',
 	'SiteFooterLegal',
+	'Seo',
+	'SiteHead',
 ];
 
 const read = (file) => readFile(file, 'utf8');
@@ -344,6 +347,7 @@ async function build() {
 		['konfiguration.md', 'Formulare und Sammlungen in dealsystem.config.ts'],
 		['gestaltung.md', 'Farben, Schrift, Bilder, Barrierefreiheit'],
 		['rechtstexte.md', 'Impressum, Datenschutz, Cookie-Hinweis'],
+		['seo.md', 'Titel, Beschreibung, Vorschaubild, Favicon, nicht bei Google'],
 		['regeln.md', 'alle Prüfregeln mit Korrektur'],
 		['befehle.md', 'alle Befehle mit Optionen'],
 	];

@@ -940,6 +940,42 @@ const CASES: Record<string, RuleCase[]> = {
 			],
 		},
 	],
+	'CNT-004': [
+		{
+			stage: S,
+			pass: [
+				// Eigener Kopf ohne die Tags von <Seo> ist in Ordnung.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head>\n\t<link rel="canonical" href="https://muster.de/" />\n</svelte:head>\n<Text key="start.titel" default="Willkommen" as="h1" />',
+					),
+				},
+			],
+			fail: [
+				{
+					'src/routes/kontakt/+page.svelte':
+						'<svelte:head>\n\t<title>Kontakt</title>\n\t<meta name="description" content="Schreiben Sie uns." />\n</svelte:head>\n<h1>Kontakt</h1>\n',
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head>\n\t<meta property="og:image" content="/bild.jpg" />\n</svelte:head>\n<Text key="start.titel" default="Willkommen" as="h1" />',
+					),
+				},
+				{
+					'src/routes/+layout.svelte': baseText('src/routes/+layout.svelte').replace(
+						'<SiteHead favicon="/favicon.svg" />',
+						'',
+					),
+				},
+				{
+					'src/app.html': baseText('src/app.html').replace(
+						'%sveltekit.head%',
+						'<link rel="icon" href="%sveltekit.assets%/favicon.svg" />\n\t\t%sveltekit.head%',
+					),
+				},
+			],
+		},
+	],
 	'CNT-003': [
 		{
 			stage: S,
@@ -1015,6 +1051,23 @@ describe('Zuordnung der SDK-Meldungen aus validateSiteConfig', () => {
 				.split('\n')
 				.findIndex((l) => l.includes("type: 'textarea'")) + 1,
 		);
+	});
+});
+
+describe('CNT-004: Titel und Favicon aus dem CRM', () => {
+	it('meldet jeden festen Tag mit Datei und Zeile, als Warnung', async () => {
+		const found = (
+			await findingsFor('source', {
+				'src/routes/kontakt/+page.svelte':
+					'<svelte:head>\n\t<title>Kontakt</title>\n\t<meta name="description" content="Schreiben Sie uns." />\n</svelte:head>\n<h1>Kontakt</h1>\n',
+			})
+		).filter((f) => f.rule === 'CNT-004');
+		expect(found.map((f) => [f.severity, f.file, f.line])).toEqual([
+			['warning', 'src/routes/kontakt/+page.svelte', 2],
+			['warning', 'src/routes/kontakt/+page.svelte', 3],
+		]);
+		expect(found[0]!.message).toContain('Google und Teilen');
+		expect(found[0]!.fix).toContain('<Seo title="…" description="…" />');
 	});
 });
 

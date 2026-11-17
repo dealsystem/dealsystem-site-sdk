@@ -13,7 +13,9 @@ export { default as MapEmbed, type MapEmbedProps } from './components/MapEmbed.s
 export { default as MediaImage, type MediaImageProps } from './components/MediaImage.svelte';
 export { default as MediaVideo, type MediaVideoProps } from './components/MediaVideo.svelte';
 export { default as RichText, type RichTextProps } from './components/RichText.svelte';
+export { default as Seo, type SeoProps } from './components/Seo.svelte';
 export { default as SiteFooterLegal, type SiteFooterLegalProps } from './components/SiteFooterLegal.svelte';
+export { default as SiteHead, type SiteHeadProps } from './components/SiteHead.svelte';
 export { default as Text, type TextElement, type TextProps } from './components/Text.svelte';
 export { default as Tracking } from './components/Tracking.svelte';
 

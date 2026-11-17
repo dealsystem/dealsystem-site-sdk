@@ -150,4 +150,20 @@ export const FILLED_SNAPSHOT = {
 			],
 		},
 	},
+	// „Google und Teilen“: Titel für /kontakt, Vorgabe-Beschreibung, Favicon, nicht bei Google.
+	seo: {
+		noindex: true,
+		defaults: { title: 'Vorgabe-Titel', description: 'Vorgabe aus dem CRM <b>fett</b>', image: null },
+		pages: {
+			'/kontakt': { title: 'Jetzt anfragen <script>alert(1)</script>', description: null, image: null },
+		},
+		favicon: {
+			id: 'f1',
+			icons: [32, 180, 192, 512].map((size) => ({
+				url: `/_ds/media/s1/f1/icon-${size}.png`,
+				size,
+				type: 'image/png',
+			})),
+		},
+	},
 };

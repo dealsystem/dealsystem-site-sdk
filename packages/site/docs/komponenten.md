@@ -598,6 +598,80 @@ export interface SiteFooterLegalProps {
 }
 ```
 
+## Seo
+
+Titel, Beschreibung und Vorschaubild einer Seite: `<title>`, `meta description`,
+die Angaben für WhatsApp, Facebook und LinkedIn (`og:*`) und `twitter:card`.
+Gehört einmal auf jede Seite, statt `<title>` und `meta description` selbst in
+`<svelte:head>` zu schreiben. Sonst stünden die Tags doppelt da, und der Kunde
+könnte sie im CRM nicht ändern.
+
+Was gilt, wird je Angabe entschieden: was der Kunde im CRM unter Eigene Website
+→ Einstellungen → Google und Teilen für diese Seite eingetragen hat, sonst
+`title`/`description`/`image` von hier, sonst seine Vorgabe für alle Seiten,
+beim Titel zuletzt der Name der Website. Alles wird als Text ausgegeben, nie als
+HTML.
+
+```svelte
+<script lang="ts">
+	import { Seo } from '@dealsystem/site';
+	let { data } = $props();
+</script>
+
+<Seo
+	title="Kontakt – {data.site.name}"
+	description="Schreiben Sie uns. Wir melden uns schnell bei Ihnen zurück."
+/>
+```
+
+Auf einer Detailseite mit Bild aus dem CMS:
+
+```svelte
+<Seo title={angebot.data.titel} description={angebot.data.kurztext} image={angebot.media.bilder[0]} />
+```
+
+Eigenschaften:
+
+```ts
+export interface SeoProps {
+  /** Titel dieser Seite (Tab, Google), solange im CRM keiner eingetragen ist. Je Seite ein eigener. */
+  title?: string | null;
+  /** Beschreibung für Google und Vorschauen, ein bis zwei Sätze. */
+  description?: string | null;
+  /** Vorschaubild beim Teilen: Bild aus dem CMS oder Pfad bzw. Import eines Bildes im Projekt. */
+  image?: MediaRef | string | null;
+  /** Was auf dem Vorschaubild zu sehen ist (nur nötig, wenn `image` ein Pfad ist). */
+  imageAlt?: string | null;
+}
+```
+
+## SiteHead
+
+Angaben im Kopf jeder Seite, die für die ganze Website gelten. Gehört einmal in
+`src/routes/+layout.svelte`.
+
+- Favicon: Hat der Kunde im CRM unter Eigene Website → Einstellungen → Google und
+  Teilen eins hochgeladen, gelten dessen Größen (32 px im Tab, 180 px für iOS,
+  192 und 512 px im Web-Manifest). Sonst das Favicon aus dem Code, das du mit
+  `favicon` angibst. Schreib den Favicon-Link nicht zusätzlich in `src/app.html`.
+- „Nicht bei Google anzeigen“: Hat der Kunde das eingestellt, steht auf jeder
+  Seite `<meta name="robots" content="noindex">`.
+
+Titel und Beschreibung je Seite setzt `<Seo>`.
+
+```svelte
+<SiteHead favicon="/favicon.svg" />
+```
+
+Eigenschaften:
+
+```ts
+export interface SiteHeadProps {
+  /** Favicon aus dem Projekt (Pfad unter `static/`), solange im CRM keins hochgeladen ist. */
+  favicon?: string;
+}
+```
+
 ## consent
 
 ### consent

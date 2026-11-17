@@ -84,6 +84,20 @@ describe('Starter ohne Inhalte aus dem CRM (erster Tag)', () => {
 		expect(await page(project.dir, 'angebote.html')).toContain('Zurzeit haben wir kein Angebot online.');
 	});
 
+	it('ohne „Google und Teilen“: eigene Titel, Favicon aus dem Code, Sitemap in robots.txt', async () => {
+		const kontakt = await page(project.dir, 'kontakt.html');
+		expect(kontakt.match(/<title>/g)).toHaveLength(1);
+		expect(kontakt).toContain('<title>Kontakt – Meine Website</title>');
+		expect(kontakt.match(/name="description"/g)).toHaveLength(1);
+		expect(kontakt).toContain('<link rel="icon" href="/favicon.svg" type="image/svg+xml"');
+		expect(kontakt).not.toContain('name="robots"');
+		expect(kontakt).not.toContain('rel="manifest"');
+		expect(await readdir(join(project.dir, 'build'))).not.toContain('manifest.webmanifest');
+		expect(await page(project.dir, 'robots.txt')).toContain(
+			'Sitemap: https://muster-immobilien.de/sitemap.xml',
+		);
+	});
+
 	it('zeigt statt eines erfundenen Rechtstexts den Hinweis, wo der Kunde ihn einträgt', async () => {
 		const impressum = await page(project.dir, 'impressum.html');
 		expect(impressum).toContain('Der Impressumstext fehlt.');
@@ -257,9 +271,35 @@ describe('Starter mit Inhalten aus dem CRM', () => {
 		]) {
 			expect(sitemap).toContain(`<loc>https://muster-immobilien.de${path}</loc>`);
 		}
-		expect(await page(project.dir, 'robots.txt')).toContain(
-			'Sitemap: https://muster-immobilien.de/sitemap.xml',
+	});
+
+	it('übernimmt „Google und Teilen“: Titel je Seite, Vorgabe, Favicon, noindex', async () => {
+		const kontakt = await page(project.dir, 'kontakt.html');
+		expect(kontakt.match(/<title>/g)).toHaveLength(1);
+		// Klartext aus dem CRM, auch mit Skript darin nur als Text.
+		expect(kontakt).toContain('<title>Jetzt anfragen &lt;script>alert(1)&lt;/script></title>');
+		expect(withoutCsp(kontakt)).not.toContain('<script>alert');
+		// Die eigene Beschreibung der Seite geht vor der Vorgabe aus dem CRM.
+		expect(kontakt).toContain('content="Schreiben Sie uns. Wir melden uns schnell bei Ihnen zurück."');
+		expect(kontakt).toContain('property="og:url" content="https://muster-immobilien.de/kontakt"');
+
+		const start = await page(project.dir, 'index.html');
+		expect(start).toContain('<meta name="robots" content="noindex"');
+		expect(start).toContain(
+			'<link rel="icon" type="image/png" sizes="32x32" href="/_ds/media/s1/f1/icon-32.png"',
 		);
+		expect(start).toContain(
+			'<link rel="apple-touch-icon" sizes="180x180" href="/_ds/media/s1/f1/icon-180.png"',
+		);
+		expect(start).toContain('<link rel="manifest" href="/manifest.webmanifest"');
+		expect(start).not.toContain('favicon.svg');
+
+		const manifest = JSON.parse(await page(project.dir, 'manifest.webmanifest'));
+		expect(manifest.icons.map((i: { sizes: string }) => i.sizes)).toEqual(['192x192', '512x512']);
+		// Nicht bei Google: kein Verweis auf die Sitemap, aber auch kein Disallow.
+		const robots = await page(project.dir, 'robots.txt');
+		expect(robots).not.toContain('Sitemap');
+		expect(robots).not.toContain('Disallow');
 	});
 
 	it('bindet Tracking-Kennungen aus dem CRM nicht ins HTML ein', async () => {

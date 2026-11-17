@@ -18,6 +18,8 @@ export const COMPONENT = {
 	impressum: 'Impressum',
 	datenschutz: 'Datenschutz',
 	siteFooterLegal: 'SiteFooterLegal',
+	seo: 'Seo',
+	siteHead: 'SiteHead',
 } as const;
 
 /** Marker im gerenderten HTML (Attribute ohne Wert), gesetzt von den SDK-Komponenten. `ConsentGate` rendert

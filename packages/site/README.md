@@ -81,6 +81,8 @@ export {};
 | `<Tracking />`                                  | Meta Pixel und Google Tag, nur in `<ConsentGate category="marketing">`    |
 | `<Impressum />`, `<Datenschutz />`              | geben den Rechtstext des Kunden aus dem CRM aus; das Paket erzeugt keinen |
 | `<SiteFooterLegal />`                           | Pflicht-Links und „Cookie-Einstellungen“                                  |
+| `<Seo title description image />`               | Titel, Beschreibung, Vorschaubild je Seite; das CRM kann sie ersetzen     |
+| `<SiteHead favicon />`                          | Favicon und `noindex` aus dem CRM, einmal im Layout                       |
 
 Jede Komponente und Funktion trägt ihre Beschreibung mit Beispiel im Quelltext.
 

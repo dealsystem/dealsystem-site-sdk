@@ -33,5 +33,11 @@ export function emptySiteData(): SiteData {
 		collections: {},
 		slots: {},
 		richtext: {},
+		seo: {
+			noindex: false,
+			defaults: { title: null, description: null, image: null },
+			pages: {},
+			favicon: null,
+		},
 	};
 }

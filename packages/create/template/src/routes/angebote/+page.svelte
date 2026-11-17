@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { Text } from '@dealsystem/site';
+	import { Seo, Text } from '@dealsystem/site';
 	import AngebotKarte from '$lib/AngebotKarte.svelte';
 
 	let { data } = $props();
 </script>
 
-<svelte:head>
-	<title>Angebote – {data.site.name || 'Meine Website'}</title>
-	<meta name="description" content="Alle aktuellen Immobilien-Angebote im Überblick." />
-</svelte:head>
+<Seo
+	title="Angebote – {data.site.name || 'Meine Website'}"
+	description="Alle aktuellen Immobilien-Angebote im Überblick."
+/>
 
 <section class="section">
 	<div class="page">

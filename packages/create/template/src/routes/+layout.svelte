@@ -2,12 +2,15 @@
 	import { resolve } from '$app/paths';
 	import '@fontsource-variable/inter';
 	import '../app.css';
-	import { ConsentGate, CookieBanner, SiteFooterLegal, Tracking } from '@dealsystem/site';
+	import { ConsentGate, CookieBanner, SiteFooterLegal, SiteHead, Tracking } from '@dealsystem/site';
 
 	let { data, children } = $props();
 
 	const name = $derived(data.site.name || 'Meine Website');
 </script>
+
+<!-- Favicon und „Nicht bei Google anzeigen“ aus dem CRM; ohne Favicon im CRM gilt static/favicon.svg. -->
+<SiteHead favicon="/favicon.svg" />
 
 <a class="skip-link" href="#inhalt">Zum Inhalt springen</a>
 

@@ -417,5 +417,61 @@ const cnt003 = sourceRule('CNT-003', (ctx) => {
 	return out;
 });
 
-export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001, cnt002, cnt003];
+// ------------------------------------------------------------------ CNT-004
+
+/** Tags, die `<Seo>` setzt. Stehen sie zusätzlich im Kopf der Seite, gibt es sie doppelt. */
+function seoTag(name: string, attrs: Map<string, string | true | null>): string | null {
+	if (name === 'title') return '<title>';
+	if (name !== 'meta') return null;
+	const meta = String(attrs.get('name') ?? attrs.get('property') ?? '').toLowerCase();
+	if (meta === 'description' || meta.startsWith('og:') || meta.startsWith('twitter:'))
+		return `<meta ${meta}>`;
+	return null;
+}
+
+const cnt004 = sourceRule('CNT-004', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.svelteFiles()) {
+		if (!/^src\/routes\/(?:.*\/)?\+(?:page|layout|error)(?:@[^.]*)?\.svelte$/.test(path)) continue;
+		for (const el of ctx.svelte(path)?.elements ?? []) {
+			if (el.kind !== 'element' || !el.ancestors.includes('svelte:head')) continue;
+			const attrs = new Map(
+				el.attributes.filter((a) => a.kind === 'attribute').map((a) => [a.name.toLowerCase(), a.value]),
+			);
+			const tag = seoTag(el.name.toLowerCase(), attrs);
+			if (!tag) continue;
+			out.push(
+				ctx.at(
+					path,
+					el.start,
+					`\`${tag}\` steht fest in \`<svelte:head>\` von \`${path}\`. Was der Kunde unter Eigene Website → Einstellungen → Google und Teilen einträgt, wirkt hier nicht, und mit \`<Seo>\` stünde der Tag doppelt da.`,
+				),
+			);
+		}
+	}
+	const layout = 'src/routes/+layout.svelte';
+	if (
+		ctx.files.has(layout) &&
+		!ctx.svelte(layout)?.elements.some((e) => e.kind === 'component' && e.name === COMPONENT.siteHead)
+	) {
+		out.push({
+			file: layout,
+			message: `\`<${COMPONENT.siteHead} />\` fehlt im Haupt-Layout: Favicon und „Nicht bei Google anzeigen“ aus dem CRM wirken nicht.`,
+		});
+	}
+	const appHtml = ctx.text('src/app.html');
+	const icon = appHtml ? /<link\b[^>]*\brel=["']?(?:shortcut )?icon\b/i.exec(appHtml) : null;
+	if (appHtml && icon) {
+		out.push({
+			file: 'src/app.html',
+			line: appHtml.slice(0, icon.index).split('\n').length,
+			message:
+				'Der Favicon-Link steht in `src/app.html`. Lädt der Kunde im CRM ein Favicon hoch, gäbe es zwei.',
+			fix: 'Entferne den Link aus `src/app.html` und gib das Favicon `<SiteHead favicon="/favicon.svg" />` mit.',
+		});
+	}
+	return out;
+});
+
+export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001, cnt002, cnt003, cnt004];
 export const qualityOutputRules: OutputRule[] = [qua001, qua002, qua003, qua004];

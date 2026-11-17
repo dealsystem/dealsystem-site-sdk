@@ -291,6 +291,31 @@ export interface TrackingConfig {
 	googleTagId: string | null;
 }
 
+/** Titel, Beschreibung und Vorschaubild aus „Google und Teilen“. `null` = nicht gesetzt. Klartext, nie HTML. */
+export interface SeoMeta {
+	title: string | null;
+	description: string | null;
+	image: MediaRef | null;
+}
+
+/** Favicon aus dem CRM: fertige PNGs (32, 180, 192, 512), Pfade der eigenen Seite. */
+export interface SeoFavicon {
+	id: string;
+	icons: { url: string; size: number; type: 'image/png' }[];
+}
+
+/** „Google und Teilen“ aus dem CRM (`seo` im Schnappschuss). Fehlt der Block, ist alles leer. */
+export interface SeoConfig {
+	/** Suchmaschinen sollen die Seite nicht aufnehmen. */
+	noindex: boolean;
+	/** Gilt für Seiten ohne eigene Angabe. */
+	defaults: SeoMeta;
+	/** Je statische Route (`/kontakt`), nur Seiten mit mindestens einer Angabe. */
+	pages: Record<string, SeoMeta>;
+	/** `null`: Es gilt das Favicon aus dem Code. */
+	favicon: SeoFavicon | null;
+}
+
 /** Angaben zur Seite. */
 export interface SiteInfo {
 	id: string;
@@ -309,6 +334,7 @@ export interface ContentSnapshot {
 	funnels: { key: string; active: boolean }[];
 	slots: Record<string, SlotOverride>;
 	collections: Record<string, { source: string; schemaHash: string; entries: RawCollectionEntry[] }>;
+	seo: SeoConfig;
 }
 
 /** Eintrag, wie ihn Schnappschuss und Site-API liefern. */
@@ -348,4 +374,6 @@ export interface SiteData {
 	slots: Record<string, SlotOverride>;
 	/** Fertiges HTML je Richtext-Slot: Text aus dem CRM, sonst der Standardtext aus dem Code. */
 	richtext: Record<string, string>;
+	/** „Google und Teilen“ aus dem CRM. */
+	seo: SeoConfig;
 }

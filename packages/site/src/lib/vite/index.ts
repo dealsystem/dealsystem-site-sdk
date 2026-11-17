@@ -3,6 +3,7 @@
 //    Firmendaten, Formulare, Zugang zur Site-API),
 //  - sammelt die Content-Slots aus dem Quelltext,
 //  - schreibt das Manifest, das der Build ans CRM meldet,
+//  - legt `manifest.webmanifest` an, wenn im CRM ein Favicon hochgeladen ist,
 //  - beantwortet in der Entwicklung die Site-API aus der lokalen Kopie.
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
@@ -12,6 +13,7 @@ import { readSnapshot } from '../content/index.js';
 import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
 import { defaultRichtextToHtml, sanitizeRichtextHtml } from '../richtext/server.js';
 import { resolveTextSlot } from '../slots.js';
+import { WEB_MANIFEST_PATH, webManifest } from '../internal/seo.js';
 import type { ContentSlotDef, ContentSnapshot, SiteConfig, SiteData, SiteManifest } from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
@@ -128,6 +130,7 @@ export function buildSiteData(
 		),
 		slots: snapshot.slots,
 		richtext,
+		seo: snapshot.seo,
 	};
 }
 
@@ -262,10 +265,11 @@ export function dealsystem(config: SiteConfig): Plugin {
 
 	let root = process.cwd();
 	let code: Record<string, string> | null = null;
+	let snapshot: ContentSnapshot | null = null;
 	const loadedIds = new Set<string>();
 
 	async function refresh(): Promise<SiteManifest> {
-		const snapshot = await readSnapshot(root);
+		snapshot = await readSnapshot(root);
 		const { slots, routes } = await collectSlots(root);
 		const module = (value: unknown) => `export default ${JSON.stringify(value)};`;
 		code = {
@@ -303,6 +307,13 @@ export function dealsystem(config: SiteConfig): Plugin {
 			await writeManifest(await refresh());
 		},
 
+		generateBundle() {
+			// Nur in den Teil, der ausgeliefert wird; adapter-static kopiert ihn nach `build/`.
+			if (this.environment?.name !== 'client' || !snapshot) return;
+			const source = webManifest(snapshot.seo, snapshot.site.name);
+			if (source) this.emitFile({ type: 'asset', fileName: WEB_MANIFEST_PATH.slice(1), source });
+		},
+
 		async load(id) {
 			const match = EMBEDDED_MODULE.exec(id);
 			if (!match) return null;
@@ -313,6 +324,13 @@ export function dealsystem(config: SiteConfig): Plugin {
 
 		configureServer(server) {
 			devSiteApi(server, config, root);
+			server.middlewares.use(WEB_MANIFEST_PATH, async (_req, res, next) => {
+				const current = await readSnapshot(root);
+				const source = webManifest(current.seo, current.site.name);
+				if (!source) return next();
+				res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+				res.end(source);
+			});
 
 			const contentFile = resolve(root, process.env[CONTENT_FILE_ENV] || LOCAL_CONTENT_FILE);
 			server.watcher.add(contentFile);

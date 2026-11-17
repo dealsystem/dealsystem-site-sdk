@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { LeadForm, Text } from '@dealsystem/site';
+	import { LeadForm, Seo, Text } from '@dealsystem/site';
 
 	let { data } = $props();
 </script>
 
-<svelte:head>
-	<title>Kontakt – {data.site.name || 'Meine Website'}</title>
-	<meta name="description" content="Schreiben Sie uns. Wir melden uns schnell bei Ihnen zurück." />
-</svelte:head>
+<Seo
+	title="Kontakt – {data.site.name || 'Meine Website'}"
+	description="Schreiben Sie uns. Wir melden uns schnell bei Ihnen zurück."
+/>
 
 <section class="section">
 	<div class="page kontakt">

@@ -1,16 +1,17 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { MediaImage, RichText, Text } from '@dealsystem/site';
+	import { MediaImage, RichText, Seo, Text } from '@dealsystem/site';
 
 	let { data } = $props();
 
 	const angebot = $derived(data.angebot);
 </script>
 
-<svelte:head>
-	<title>{angebot.data.titel} – {data.site.name || 'Meine Website'}</title>
-	<meta name="description" content={angebot.data.kurztext || `Angebot: ${angebot.data.titel}`} />
-</svelte:head>
+<Seo
+	title="{angebot.data.titel} – {data.site.name || 'Meine Website'}"
+	description={angebot.data.kurztext || `Angebot: ${angebot.data.titel}`}
+	image={angebot.media.bilder?.[0]}
+/>
 
 <article class="section">
 	<div class="page">

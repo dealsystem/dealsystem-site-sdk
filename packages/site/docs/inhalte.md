@@ -128,7 +128,10 @@ async function sitemap(): Promise<Response>;
 
 ### robots()
 
-Erzeugt beim Build die `robots.txt` mit dem Verweis auf die Sitemap. Gehört
+Erzeugt beim Build die `robots.txt` mit dem Verweis auf die Sitemap. Hat der
+Kunde im CRM „Nicht bei Google anzeigen“ gewählt, fehlt der Verweis; ein
+`Disallow` steht trotzdem nicht darin, sonst sähe Google das `noindex` der
+Seiten nie. Gehört
 in `src/routes/robots.txt/+server.ts` — eine der zwei erlaubten
 `+server.ts`-Dateien.
 

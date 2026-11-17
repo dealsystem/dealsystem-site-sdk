@@ -1,18 +1,16 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
-	import { RichText, Text } from '@dealsystem/site';
+	import { RichText, Seo, Text } from '@dealsystem/site';
 	import AngebotKarte from '$lib/AngebotKarte.svelte';
 
 	let { data } = $props();
 </script>
 
-<svelte:head>
-	<title>{data.site.name || 'Startseite'}</title>
-	<meta
-		name="description"
-		content="Immobilien in Ihrer Region: aktuelle Angebote ansehen oder direkt Kontakt aufnehmen."
-	/>
-</svelte:head>
+<!-- Titel, Beschreibung und Vorschaubild kann der Kunde im CRM ersetzen (Eigene Website → Einstellungen → Google und Teilen). -->
+<Seo
+	title={data.site.name || 'Startseite'}
+	description="Immobilien in Ihrer Region: aktuelle Angebote ansehen oder direkt Kontakt aufnehmen."
+/>
 
 <section class="section hero">
 	<div class="page">

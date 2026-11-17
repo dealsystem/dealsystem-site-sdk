@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { Datenschutz } from '@dealsystem/site';
+	import { Datenschutz, Seo } from '@dealsystem/site';
 
 	let { data } = $props();
 </script>
 
-<svelte:head>
-	<title>Datenschutz – {data.site.name || 'Meine Website'}</title>
-	<meta name="description" content="Datenschutzerklärung dieser Website." />
-</svelte:head>
+<Seo
+	title="Datenschutz – {data.site.name || 'Meine Website'}"
+	description="Datenschutzerklärung dieser Website."
+/>
 
 <!-- Der Text kommt aus dem CRM (Eigene Website → Rechtliches), nie aus dem Code. -->
 <div class="section page">

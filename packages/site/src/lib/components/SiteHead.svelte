@@ -1,0 +1,54 @@
+<!--
+@component
+Angaben im Kopf jeder Seite, die für die ganze Website gelten. Gehört einmal in
+`src/routes/+layout.svelte`.
+
+- Favicon: Hat der Kunde im CRM unter Eigene Website → Einstellungen → Google und
+  Teilen eins hochgeladen, gelten dessen Größen (32 px im Tab, 180 px für iOS,
+  192 und 512 px im Web-Manifest). Sonst das Favicon aus dem Code, das du mit
+  `favicon` angibst. Schreib den Favicon-Link nicht zusätzlich in `src/app.html`.
+- „Nicht bei Google anzeigen“: Hat der Kunde das eingestellt, steht auf jeder
+  Seite `<meta name="robots" content="noindex">`.
+
+Titel und Beschreibung je Seite setzt `<Seo>`.
+
+```svelte
+<SiteHead favicon="/favicon.svg" />
+```
+-->
+<script lang="ts" module>
+	export interface SiteHeadProps {
+		/** Favicon aus dem Projekt (Pfad unter `static/`), solange im CRM keins hochgeladen ist. */
+		favicon?: string;
+	}
+</script>
+
+<script lang="ts">
+	import { getSiteData } from '../internal/siteData.js';
+	import { faviconLinks, iconType, WEB_MANIFEST_PATH } from '../internal/seo.js';
+
+	let { favicon }: SiteHeadProps = $props();
+
+	const { seo } = getSiteData();
+	const crm = seo.favicon ? faviconLinks(seo.favicon) : null;
+	const hasManifest = seo.favicon?.icons.some((i) => i.size >= 192) ?? false;
+</script>
+
+<svelte:head>
+	{#if seo.noindex}
+		<meta name="robots" content="noindex" />
+	{/if}
+	{#if crm}
+		{#if crm.icon}
+			<link rel="icon" type="image/png" sizes="32x32" href={crm.icon} />
+		{/if}
+		{#if crm.apple}
+			<link rel="apple-touch-icon" sizes="180x180" href={crm.apple} />
+		{/if}
+		{#if hasManifest}
+			<link rel="manifest" href={WEB_MANIFEST_PATH} />
+		{/if}
+	{:else if favicon}
+		<link rel="icon" href={favicon} type={iconType(favicon)} />
+	{/if}
+</svelte:head>

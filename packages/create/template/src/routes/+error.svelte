@@ -1,13 +1,10 @@
 <script lang="ts">
-	import { Text } from '@dealsystem/site';
+	import { Seo, Text } from '@dealsystem/site';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 </script>
 
-<svelte:head>
-	<title>Seite nicht gefunden</title>
-	<meta name="description" content="Diese Seite gibt es nicht." />
-</svelte:head>
+<Seo title="Seite nicht gefunden" description="Diese Seite gibt es nicht." />
 
 <section class="section">
 	<div class="page">

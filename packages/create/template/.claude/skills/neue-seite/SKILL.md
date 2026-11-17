@@ -11,7 +11,10 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/komponenten.md`, `gestaltung.m
    und nenne ihn in einem Satz.
 2. Lege `src/routes/<adresse>/+page.svelte` an. Die Adresse ist klein geschrieben, ohne Umlaute und
    Leerzeichen (`ueber-uns`).
-3. Jede Seite beginnt mit `<svelte:head>`: ein eigener `<title>` und eine eigene `meta description`.
+3. Jede Seite beginnt mit `<Seo title="…" description="…" />` (Import aus `@dealsystem/site`): ein eigener
+   Titel und eine eigene Beschreibung. Nicht `<title>` oder `meta description` in `<svelte:head>` schreiben,
+   sonst wirkt nicht, was der Kunde unter Eigene Website → Einstellungen → Google und Teilen einträgt
+   (`seo.md`).
 4. Genau eine Überschrift der ersten Ebene (`as="h1"`), darunter `h2`, dann `h3`.
 5. Jeder sichtbare Text, auch eine kurze Überschrift wie „Anfahrt“, ist ein `<Text>` (kurz) oder
    `<RichText>` (formatiert) mit festem `key` nach dem

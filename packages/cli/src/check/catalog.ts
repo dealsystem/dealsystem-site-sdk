@@ -331,6 +331,14 @@ export const RULES: readonly RuleMeta[] = [
 		title: 'kein `\\n` im `default` von `<Text>`/`<RichText>`: im Attribut ist es kein Zeilenumbruch',
 		fix: "Setz den Text in geschweifte Klammern, dann ist `\\n` ein echter Zeilenumbruch: `default={'1. Erster Schritt\\n2. Zweiter Schritt'}`. Leerzeile (`\\n\\n`) = neuer Absatz. Bei `<Text>` zusätzlich `multiline`. Beispiele: komponenten.md, `<Text>` und `<RichText>`.",
 	},
+	{
+		id: 'CNT-004',
+		severity: 'warning',
+		stages: ['source'],
+		title:
+			'Titel und Beschreibung über `<Seo>`, Favicon und `noindex` über `<SiteHead>`, damit „Google und Teilen“ im CRM wirkt',
+		fix: 'Ersetze `<title>` und `<meta name="description">` in `<svelte:head>` durch `<Seo title="…" description="…" />` (Import aus `@dealsystem/site`). Ins Haupt-Layout gehört `<SiteHead favicon="/favicon.svg" />`, der Favicon-Link nicht nach `src/app.html`.',
+	},
 	// ------------------------------------------------- Meldungen des Build-Hosts
 	{
 		id: 'BLD-001',

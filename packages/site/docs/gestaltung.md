@@ -72,7 +72,7 @@ Nie `<img>` schreiben, immer `<MediaImage>` (`A11Y-002`).
 Die Bausteine sind darauf ausgelegt. Für eigene Teile der Seite gilt:
 
 - Genau eine `h1` je Seite, darunter `h2`, dann `h3`, ohne eine Ebene zu überspringen.
-- Jede Seite hat einen eigenen `<title>` und eine eigene `meta description` in `<svelte:head>`.
+- Jede Seite hat einen eigenen Titel und eine eigene Beschreibung, gesetzt mit `<Seo>` (`seo.md`).
 - Links und Schaltflächen haben einen Text, der für sich verständlich ist. Nicht „hier klicken“.
 - Alles ist mit der Tastatur erreichbar. Den sichtbaren Fokus nie entfernen (`outline: none` ist verboten).
 - Bedienelemente sind mindestens 44 × 44 Pixel groß.
