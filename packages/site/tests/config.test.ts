@@ -1,4 +1,4 @@
-import { defineSite, validateSiteConfig } from '../src/lib/config/index.js';
+import { defineSite, handleHttpError, validateSiteConfig } from '../src/lib/config/index.js';
 
 const valid = {
 	siteId: 's1',
@@ -89,5 +89,22 @@ describe('defineSite', () => {
 			'funnels',
 			'collections',
 		]);
+	});
+});
+
+describe('handleHttpError', () => {
+	const details = { status: 404, referrer: '/', message: '404 /x (linked from /)' };
+
+	it('lässt Medien aus dem CRM durch, die es beim Build noch nicht gibt', () => {
+		expect(() => handleHttpError({ ...details, path: '/_ds/media/s1/a1/480.jpg' })).not.toThrow();
+	});
+
+	it('bricht bei jedem anderen toten Link mit einer Anleitung ab', () => {
+		expect(() => handleHttpError({ ...details, path: '/kontackt' })).toThrow(
+			/Der Link \/kontackt auf der Seite \/ führt ins Leere/,
+		);
+		expect(() => handleHttpError({ ...details, path: '/_dsx/a.jpg', referrer: null })).toThrow(
+			/führt ins Leere/,
+		);
 	});
 });

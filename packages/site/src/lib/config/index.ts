@@ -245,3 +245,38 @@ export function defineSite<const T extends SiteConfig>(config: T): T {
 	}
 	return config;
 }
+
+/** Pfad, unter dem der Edge die Medien aus dem CRM ausliefert. */
+export const MEDIA_PATH_PREFIX = '/_ds/';
+
+/**
+ * Für `kit.prerender.handleHttpError` in `svelte.config.js`. Bilder aus dem CRM
+ * (`/_ds/media/…`) liefert erst der DealSystem-Server aus; beim Build gibt es
+ * sie nicht. Diese Funktion lässt genau das durch und bricht bei jedem anderen
+ * toten Link weiter mit einer Fehlermeldung ab.
+ *
+ * @example
+ * // svelte.config.js
+ * import adapter from '@sveltejs/adapter-static';
+ * import { handleHttpError } from '@dealsystem/site/config';
+ *
+ * export default {
+ * 	kit: {
+ * 		adapter: adapter({ fallback: '404.html' }),
+ * 		prerender: { handleHttpError },
+ * 	},
+ * };
+ */
+export function handleHttpError(details: {
+	status: number;
+	path: string;
+	referrer: string | null;
+	message: string;
+}): void {
+	if (details.path.startsWith(MEDIA_PATH_PREFIX)) return;
+	throw new Error(
+		`[dealsystem] ${details.message}\n` +
+			`Der Link ${details.path}${details.referrer ? ` auf der Seite ${details.referrer}` : ''} führt ins Leere. ` +
+			'Lege die Seite an oder korrigiere den Link.',
+	);
+}
