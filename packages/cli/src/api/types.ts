@@ -70,6 +70,21 @@ export interface PreparedUpload {
 	uploadHeaders: Record<string, string>;
 }
 
+/** Quellpaket einer Version (`GET …/versions/{id}/source`). */
+export interface SourceDownload {
+	versionId: string;
+	versionNumber: number;
+	/** `content` = Inhalts-Version; geliefert wird dann der Code von `codeVersion*`. */
+	trigger: string;
+	codeVersionId: string;
+	codeVersionNumber: number | null;
+	sha256: string;
+	bytes: number;
+	/** Signierte Adresse, kurz gültig; ohne Anmelde-Header abrufen. */
+	url: string;
+	expiresAt: string | null;
+}
+
 export interface ReleaseResult {
 	liveVersionId: string;
 	/** `false`, wenn die Version schon live war (`release: null`). */
@@ -92,6 +107,10 @@ export interface DeployApi {
 	getVersion(id: string, versionId: string): Promise<Version>;
 	publish(id: string, versionId: string): Promise<ReleaseResult>;
 	rollback(id: string, versionId?: string): Promise<ReleaseResult>;
+	/** Signierte Download-Adresse des Quellpakets (Recht „Website verwalten“). */
+	getSourceDownload(id: string, versionId: string): Promise<SourceDownload>;
+	/** Lädt das Quellpaket; bricht ab, sobald mehr als `maxBytes` kommen. */
+	downloadSource(source: SourceDownload, maxBytes: number): Promise<Uint8Array>;
 	/** Probe-Einsendung aus `dealsystem dev` (immer `dryRun` im Core). Antwort wird unverändert durchgereicht. */
 	devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }>;
 }

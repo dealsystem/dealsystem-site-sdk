@@ -7,6 +7,7 @@ import type {
 	DeployApi,
 	PreparedUpload,
 	ReleaseResult,
+	SourceDownload,
 	Version,
 	VersionCheckResult,
 	VersionSummary,
@@ -64,6 +65,13 @@ const FIXES: Record<string, string> = {
 	version_not_ready:
 		'Die Version ist noch nicht fertig gebaut. Warte mit `npx dealsystem status`, bis sie `ready` ist.',
 	invalid_token: 'Führe `npx dealsystem login` aus.',
+	source_not_uploaded:
+		'Diese Version wurde nie vollständig hochgeladen. Wähle eine andere mit `--version <nummer>` (Liste: `npx dealsystem status --site <id>`).',
+	source_expired:
+		'Der Quellcode dieser Version ist nach der Aufbewahrungsfrist gelöscht. Nimm die Live-Version (ohne `--version`) oder eine neuere.',
+	source_unavailable:
+		'Der Quellcode dieser Version ist nicht mehr vorhanden. Nimm die Live-Version (ohne `--version`) oder eine neuere.',
+	rate_limited: 'Zu viele Abrufe in kurzer Zeit. Warte eine Minute und versuche es erneut.',
 };
 
 function fixFor(status: number, code: string): string {
@@ -344,6 +352,114 @@ export class HttpDeployApi implements DeployApi {
 			confirm: true,
 		});
 		return this.release(raw, versionId ?? '');
+	}
+
+	async getSourceDownload(id: string, versionId: string): Promise<SourceDownload> {
+		const o = obj(
+			await this.call(
+				'GET',
+				`/websites/${encodeURIComponent(id)}/versions/${encodeURIComponent(versionId)}/source`,
+			),
+		);
+		const download = obj(o.download);
+		const url = str(download.url);
+		const sha256 = str(o.sha256);
+		const bytes = num(o.bytes);
+		if (!url || !sha256 || !/^[0-9a-f]{64}$/.test(sha256) || bytes === null) {
+			throw new CliError(
+				'bad_response',
+				'Die API hat keine gültige Download-Adresse geliefert.',
+				'Versuche es erneut.',
+				EXIT.api,
+			);
+		}
+		return {
+			versionId: str(o.versionId) ?? versionId,
+			versionNumber: num(o.versionNumber) ?? 0,
+			trigger: str(o.trigger) ?? 'upload',
+			codeVersionId: str(o.codeVersionId) ?? versionId,
+			codeVersionNumber: num(o.codeVersionNumber),
+			sha256,
+			bytes,
+			url,
+			expiresAt: str(download.expiresAt),
+		};
+	}
+
+	async downloadSource(source: SourceDownload, maxBytes: number): Promise<Uint8Array> {
+		// Nur https (http allein für localhost wie bei der API-Adresse): die Antwort wird entpackt.
+		let target: URL;
+		try {
+			target = new URL(source.url);
+		} catch {
+			target = new URL('invalid:');
+		}
+		const loopback = ['localhost', '127.0.0.1', '[::1]'].includes(target.hostname);
+		if (target.protocol !== 'https:' && !(target.protocol === 'http:' && loopback)) {
+			throw new CliError(
+				'bad_response',
+				'Die API hat eine unsichere Download-Adresse geliefert.',
+				'Versuche es erneut. Bleibt der Fehler, melde ihn an DealSystem.',
+				EXIT.api,
+			);
+		}
+		const tooLarge = (): CliError =>
+			new CliError(
+				'download_too_large',
+				`Das Quellpaket ist größer als erwartet (mehr als ${maxBytes} Bytes).`,
+				'Nichts wurde geschrieben. Versuche es erneut; bleibt der Fehler, melde ihn an DealSystem.',
+				EXIT.api,
+			);
+		let res: Response;
+		try {
+			// Signierte Adresse: kein Authorization-Header (der Token gehört nicht zum Speicher).
+			res = await this.fetchImpl(target.toString(), { method: 'GET', redirect: 'error' });
+		} catch (e) {
+			throw new CliError(
+				'download_failed',
+				`Herunterladen fehlgeschlagen (${(e as Error).message}).`,
+				'Führe `npx dealsystem pull` erneut aus.',
+				EXIT.api,
+			);
+		}
+		if (!res.ok) {
+			await res.body?.cancel().catch(() => {});
+			throw new CliError(
+				'download_failed',
+				`Herunterladen fehlgeschlagen (Status ${res.status}).`,
+				res.status === 403
+					? 'Die Download-Adresse ist abgelaufen. Führe `npx dealsystem pull` erneut aus.'
+					: 'Führe `npx dealsystem pull` erneut aus.',
+				EXIT.api,
+			);
+		}
+		const announced = Number(res.headers.get('content-length') ?? NaN);
+		if (Number.isFinite(announced) && announced > maxBytes) {
+			await res.body?.cancel().catch(() => {});
+			throw tooLarge();
+		}
+		const chunks: Uint8Array[] = [];
+		let total = 0;
+		const reader = res.body?.getReader();
+		if (reader) {
+			for (;;) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				total += value.byteLength;
+				if (total > maxBytes) {
+					await reader.cancel().catch(() => {});
+					throw tooLarge();
+				}
+				chunks.push(value);
+			}
+		}
+		const out = new Uint8Array(total);
+		let at = 0;
+		for (const c of chunks) {
+			out.set(c, at);
+			at += c.byteLength;
+		}
+		return out;
 	}
 
 	async devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }> {

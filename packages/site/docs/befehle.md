@@ -70,6 +70,14 @@ Auf eine frühere Version zurückschalten (mit Bestätigung).
 - `--version <id|nummer>` – Standard: die vorige Freigabe
 - `--confirm` – der Nutzer hat zugestimmt
 
+## `dealsystem pull [ordner] [--site <id|slug>] [--version <nummer|id>]`
+
+Quellcode einer Version in einen neuen Ordner holen (z. B. auf einem neuen Rechner); Standard: die Live-Version.
+
+- `[ordner]` – neuer oder leerer Ordner (Standard: ./<slug der Seite>); vorhandene Dateien werden nie überschrieben
+- `--site <id|slug>` – Seite wählen, wenn der Workspace mehrere hat
+- `--version <nummer|id>` – diese Version statt der Live-Version
+
 ## `dealsystem status`
 
 Seite, Live-Version, Rechtstexte, letzte Versionen, Domains.

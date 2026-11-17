@@ -55,6 +55,22 @@ export interface MockState {
 	logExcerpt: string;
 	publishError: { status: number; code: string; message: string; [extra: string]: unknown } | null;
 	refreshCount: number;
+	/** Quellpakete je Versions-ID für `…/source` und den signierten Download. */
+	sources: Record<string, MockSource>;
+	/** Fehler der Route `…/source` statt einer Adresse. */
+	sourceError: { status: number; code: string; message: string } | null;
+}
+
+export interface MockSource {
+	archive: Buffer;
+	/** Was der Download wirklich ausliefert (Standard: `archive`). */
+	served?: Buffer;
+	/** Angekündigte Werte (Standard: aus `archive`). */
+	sha256?: string;
+	bytes?: number;
+	/** Inhalts-Version: Code stammt aus dieser Version. */
+	codeVersionId?: string;
+	codeVersionNumber?: number;
 }
 
 export interface MockServer {
@@ -128,6 +144,8 @@ export async function startMockServer(): Promise<MockServer> {
 		logExcerpt: 'vite build: Fehler',
 		publishError: null,
 		refreshCount: 0,
+		sources: {},
+		sourceError: null,
 	};
 	let deviceIssued = false;
 
@@ -226,6 +244,18 @@ export async function startMockServer(): Promise<MockServer> {
 				return res.end();
 			}
 
+			// ---------------------------------------------------------------- Download (signiert)
+			const down = /^\/download\/([^/]+)$/.exec(url.pathname);
+			if (down && req.method === 'GET') {
+				const src = state.sources[down[1]!];
+				if (!src || url.searchParams.get('sig') !== 'ok') return error(403, 'signature', 'bad signature');
+				res.writeHead(200, {
+					'Content-Type': 'application/gzip',
+					'Content-Disposition': 'attachment; filename="quellcode.tar.gz"',
+				});
+				return res.end(src.served ?? src.archive);
+			}
+
 			// ---------------------------------------------------------------- API v1
 			if (!url.pathname.startsWith('/api/v1/')) return error(404, 'not_found', 'Nicht gefunden');
 			const auth = req.headers.authorization ?? '';
@@ -317,6 +347,31 @@ export async function startMockServer(): Promise<MockServer> {
 						version.checkResult = { passed: true, ruleSetVersion: '1', errors: [], warnings: [] };
 				}
 				return reply(200, { data: full(version) });
+			}
+			if (version && rest[2] === 'source' && rest.length === 3 && req.method === 'GET') {
+				if (state.sourceError) {
+					const { status: st, code, message } = state.sourceError;
+					return error(st, code, message);
+				}
+				const src = state.sources[version.id];
+				if (!src) return error(410, 'source_unavailable', 'Quellpaket fehlt');
+				return reply(200, {
+					data: {
+						versionId: version.id,
+						versionNumber: version.number,
+						trigger: version.trigger,
+						codeVersionId: src.codeVersionId ?? version.id,
+						codeVersionNumber: src.codeVersionNumber ?? version.number,
+						sha256: src.sha256 ?? createHash('sha256').update(src.archive).digest('hex'),
+						bytes: src.bytes ?? src.archive.length,
+						fileName: `quellcode-version-${version.number}.tar.gz`,
+						download: {
+							url: `${base()}/download/${version.id}?sig=ok`,
+							method: 'GET',
+							expiresAt: '2026-11-17T10:05:00Z',
+						},
+					},
+				});
 			}
 			if ((rest[0] === 'publish' || rest[0] === 'rollback') && req.method === 'POST') {
 				const b = jsonBody();

@@ -123,6 +123,25 @@ seinem Domain-Anbieter setzen muss, und prüft sie. Du kannst erklären, wo man 
 Anbieter findet, und mit `npx dealsystem status` nachsehen, ob die Domain schon verbunden ist. Das
 Zertifikat für https richtet DealSystem selbst ein.
 
+## Auf einem neuen Rechner weiterarbeiten
+
+Fehlt der Projektordner (neuer Rechner, Laptop kaputt), holt `pull` den Quellcode aus DealSystem:
+
+```bash
+npx dealsystem login --start            # wie in Schritt 2, dann --wait
+npx dealsystem pull                     # Live-Version nach ./<slug der Seite>
+npx dealsystem pull meine-website --version 7   # oder eine bestimmte Version in einen eigenen Ordner
+cd <ordner>
+npm install
+npx dealsystem sync
+```
+
+`pull` schreibt nur in einen neuen oder leeren Ordner, nie über vorhandene Dateien, und trägt die Kennung
+der Seite in `dealsystem.config.ts` ein: `deploy` lädt danach in dieselbe Seite hoch. Bei einer Version, die
+nur neue Inhalte aus dem CRM enthält, kommt der Code der Version, auf der sie beruht. Gibt es mehrere Seiten,
+`--site <name>` angeben. Das Herunterladen braucht das Recht „Website verwalten“. Ist der Quellcode einer
+alten Version nach der Aufbewahrungsfrist gelöscht, nimm die Live-Version.
+
 ## Was nur der Mensch kann
 
 | Aufgabe                                             | Wo                                                        |

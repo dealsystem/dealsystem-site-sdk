@@ -26,6 +26,8 @@ Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
 5. **Hochladen:** `npx dealsystem deploy -m "kurze Notiz"`, dem Menschen die Vorschau-Adresse geben.
 6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja.**
 
+Projektordner fehlt (neuer Rechner)? `npx dealsystem pull` holt den Code der Live-Version (`ablauf.md`).
+
 ### Was nur der Mensch kann
 
 Sag ihm klar, was er tun soll und wo. Umgehe es nie.

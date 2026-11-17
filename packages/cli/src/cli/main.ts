@@ -9,6 +9,7 @@ import { checkCommand } from '../commands/check.js';
 import { deployCommand, publishCommand, rollbackCommand } from '../commands/deploy.js';
 import { devCommand } from '../commands/dev.js';
 import { loginCommand, logoutCommand } from '../commands/login.js';
+import { pullCommand } from '../commands/pull.js';
 import { initCommand, statusCommand } from '../commands/site.js';
 import { syncCommand } from '../commands/sync.js';
 import { CommandContext, type CommandResult, type OptionValues } from './context.js';
@@ -129,6 +130,19 @@ export const COMMANDS: Record<string, CommandDef> = {
 		options: { version: { type: 'string' }, confirm: { type: 'boolean' } },
 		flags: ['--version <id|nummer>  Standard: die vorige Freigabe', '--confirm  der Nutzer hat zugestimmt'],
 		run: rollbackCommand,
+	},
+	pull: {
+		summary:
+			'Quellcode einer Version in einen neuen Ordner holen (z. B. auf einem neuen Rechner); Standard: die Live-Version',
+		usage: 'dealsystem pull [ordner] [--site <id|slug>] [--version <nummer|id>]',
+		options: { version: { type: 'string' } },
+		flags: [
+			'[ordner]  neuer oder leerer Ordner (Standard: ./<slug der Seite>); vorhandene Dateien werden nie überschrieben',
+			'--site <id|slug>  Seite wählen, wenn der Workspace mehrere hat',
+			'--version <nummer|id>  diese Version statt der Live-Version',
+		],
+		run: pullCommand,
+		positionals: true,
 	},
 	status: {
 		summary: 'Seite, Live-Version, Rechtstexte, letzte Versionen, Domains',

@@ -26,7 +26,15 @@ async function chooseSite(ctx: CommandContext): Promise<{ site: Website; created
 		}
 		return { site: await api.createWebsite({ name, slug }), created: true };
 	}
-	const sites = await api.listWebsites();
+	return { site: await selectExistingSite(ctx, 'init'), created: false };
+}
+
+/**
+ * Vorhandene Seite: `--site <id|slug>`, sonst die einzige des Workspaces; bei mehreren ein Fehler mit
+ * Liste (für `init` und `pull`).
+ */
+export async function selectExistingSite(ctx: CommandContext, command: 'init' | 'pull'): Promise<Website> {
+	const sites = await ctx.api().listWebsites();
 	const wanted = ctx.str('site');
 	if (wanted) {
 		const site = sites.find((s) => s.id === wanted || s.slug === wanted);
@@ -34,14 +42,16 @@ async function chooseSite(ctx: CommandContext): Promise<{ site: Website; created
 			throw new CliError(
 				'site_not_found',
 				`Die Seite \`${wanted}\` gibt es in diesem Workspace nicht.`,
-				'Wähle eine der Seiten aus `data.sites` oder lege eine an mit `--create --name … --slug …`.',
+				command === 'init'
+					? 'Wähle eine der Seiten aus `data.sites` oder lege eine an mit `--create --name … --slug …`.'
+					: 'Wähle eine der Seiten aus `data.sites`.',
 				EXIT.usage,
 				{ sites },
 			);
 		}
-		return { site, created: false };
+		return site;
 	}
-	if (sites.length === 1) return { site: sites[0]!, created: false };
+	if (sites.length === 1) return sites[0]!;
 	if (sites.length === 0) {
 		throw new CliError(
 			'no_sites',
@@ -54,7 +64,7 @@ async function chooseSite(ctx: CommandContext): Promise<{ site: Website; created
 	throw new CliError(
 		'site_ambiguous',
 		`Es gibt mehrere Seiten:\n${sites.map(siteLine).join('\n')}`,
-		'Wähle eine mit `npx dealsystem init --site <id oder slug>`.',
+		`Wähle eine mit \`npx dealsystem ${command} --site <id oder slug>\`.`,
 		EXIT.usage,
 		{ sites },
 	);
