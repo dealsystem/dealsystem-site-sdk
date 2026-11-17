@@ -1,5 +1,6 @@
 // Einwilligung des Besuchers. Eine Quelle für <CookieBanner>, <ConsentGate>
 // und <Tracking>. Gespeichert wird nur die Wahl selbst (technisch nötig).
+import { untrack } from 'svelte';
 import { captureFirstTouch, forgetStoredFirstTouch } from '../client/attribution.js';
 import { reloadPage } from '../internal/reload.js';
 
@@ -28,6 +29,8 @@ const state = $state({
 	decided: false,
 	granted: { ...NONE } as Granted,
 	settingsOpen: false,
+	/** Wie viele Bausteine auf der Seite gerade eine Einwilligung je Zweck brauchen. */
+	required: { statistics: 0, marketing: 0, media: 0 } as Record<ConsentCategory, number>,
 });
 
 function read(): { granted: Granted } | null {
@@ -94,6 +97,35 @@ export const consent = {
 	get settingsOpen(): boolean {
 		return state.settingsOpen;
 	},
+	/**
+	 * Zwecke, nach denen die Seite gerade fragen muss: was ein Baustein auf der Seite braucht
+	 * (`<ConsentGate>`, `<MapEmbed>`, `<Tracking>` mit Kennung) oder der Besucher schon erlaubt hat.
+	 */
+	get relevant(): ConsentCategory[] {
+		return CONSENT_CATEGORIES.filter((c) => state.required[c] > 0 || state.granted[c]);
+	},
+	/**
+	 * Gibt es etwas, wofür die Seite eine Einwilligung braucht oder das der Besucher widerrufen kann?
+	 * Nur dann erscheinen der Hinweis und „Cookie-Einstellungen“. Ohne solche Inhalte ist keiner nötig.
+	 */
+	get needed(): boolean {
+		return CONSENT_CATEGORIES.some((c) => state.required[c] > 0 || state.granted[c]);
+	},
+	/**
+	 * Meldet, dass ein Baustein eine Einwilligung für diesen Zweck braucht. Gibt die Abmeldung zurück.
+	 * Die Bausteine des SDK rufen das selbst auf.
+	 * @internal
+	 */
+	require(category: ConsentCategory): () => void {
+		// Ohne untrack hinge ein `$effect`, der das aufruft, von dem Zähler ab, den er selbst erhöht.
+		untrack(() => (state.required[category] += 1));
+		let released = false;
+		return () => {
+			if (released) return;
+			released = true;
+			untrack(() => (state.required[category] = Math.max(0, state.required[category] - 1)));
+		};
+	},
 	/** `true` nur, wenn der Besucher diesem Zweck zugestimmt hat. */
 	has(category: ConsentCategory): boolean {
 		return state.ready && state.granted[category] === true;
@@ -144,5 +176,6 @@ export const consent = {
 		state.decided = false;
 		state.granted = { ...NONE };
 		state.settingsOpen = false;
+		state.required = { statistics: 0, marketing: 0, media: 0 };
 	},
 };

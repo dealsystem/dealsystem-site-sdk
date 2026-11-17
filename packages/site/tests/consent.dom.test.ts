@@ -8,6 +8,7 @@ import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
 import MapEmbed from '../src/lib/components/MapEmbed.svelte';
 import GateHarness from './fixtures/GateHarness.svelte';
 import LayoutHarness from './fixtures/LayoutHarness.svelte';
+import StarterLayoutHarness from './fixtures/StarterLayoutHarness.svelte';
 import { testSiteData } from './helpers.js';
 
 vi.mock('../src/lib/internal/reload.js', () => ({ reloadPage: vi.fn() }));
@@ -91,6 +92,57 @@ describe('vor der Entscheidung', () => {
 	});
 });
 
+describe('nur bei Bedarf', () => {
+	it('ohne Tracking-Kennung und ohne gesperrte Inhalte: kein Hinweis, nichts einzustellen, nichts gespeichert', async () => {
+		setSiteDataForTests(testSiteData());
+		render(StarterLayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cookie-Einstellungen' })).toBeNull();
+		expect(document.querySelector('[data-ds-cookie-banner]')).not.toBeNull();
+		expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
+		expect(localStorage.length).toBe(0);
+	});
+
+	it('mit Tracking-Kennung fragt er nur nach „Marketing“', async () => {
+		const user = userEvent.setup();
+		render(StarterLayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+		expect(screen.getByRole('checkbox', { name: /Marketing/ })).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: /Statistik/ })).toBeNull();
+		expect(screen.queryByRole('checkbox', { name: /Externe Inhalte/ })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
+	});
+
+	it('eine Karte auf der Seite braucht ihn auch ohne Tracking', async () => {
+		setSiteDataForTests(testSiteData());
+		const user = userEvent.setup();
+		render(StarterLayoutHarness, { props: { map: true } });
+		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+		expect(screen.getByRole('checkbox', { name: /Externe Inhalte/ })).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: /Marketing/ })).toBeNull();
+	});
+
+	it('verschwindet mit dem letzten Baustein, der ihn braucht', async () => {
+		setSiteDataForTests(testSiteData());
+		const view = render(StarterLayoutHarness, { props: { map: true } });
+		expect(await screen.findByRole('dialog')).toBeInTheDocument();
+		await view.rerender({ map: false });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('wer schon zugestimmt hat, kann auf jeder Seite widerrufen', async () => {
+		setSiteDataForTests(testSiteData());
+		localStorage.setItem(
+			'ds-consent',
+			JSON.stringify({ v: 1, at: Date.now(), granted: { statistics: false, marketing: false, media: true } }),
+		);
+		render(StarterLayoutHarness);
+		expect(await screen.findByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+});
+
 describe('Ablehnen', () => {
 	it('speichert die Wahl, schließt den Hinweis und lädt weiterhin nichts', async () => {
 		const user = userEvent.setup();
@@ -127,7 +179,8 @@ describe('Akzeptieren', () => {
 		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
 
 		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(stored()?.granted).toEqual({ statistics: true, marketing: true, media: true });
+		// Nur die Zwecke, die die Seite nutzt: Tracking und den gesperrten Inhalt, keine Statistik.
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: true, media: true });
 		await waitFor(() =>
 			expect(externalRequests().sort()).toEqual([
 				'https://connect.facebook.net/en_US/fbevents.js',

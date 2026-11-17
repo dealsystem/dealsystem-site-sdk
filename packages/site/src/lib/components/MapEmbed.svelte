@@ -63,7 +63,10 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 	});
 	const linkUrl = $derived(`${ORIGIN}/?mlat=${lat}&mlon=${lon}#map=${level}/${lat}/${lon}`);
 
-	onMount(() => consent.init());
+	onMount(() => {
+		consent.init();
+		return consent.require('media');
+	});
 </script>
 
 {#if valid}

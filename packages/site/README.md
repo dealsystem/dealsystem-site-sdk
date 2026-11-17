@@ -77,7 +77,7 @@ export {};
 | `<MediaVideo media title>`                      | Video mit Bedienelementen                                                 |
 | `<MapEmbed lat lon title>`                      | Karte von OpenStreetMap, lädt erst nach Zustimmung                        |
 | `<CollectionList collection entries>`           | Liste von CMS-Einträgen                                                   |
-| `<CookieBanner />`, `<ConsentGate category>`    | Einwilligung; vorher lädt nichts von Dritten                              |
+| `<CookieBanner />`, `<ConsentGate category>`    | Einwilligung, nur wenn nötig; vorher lädt nichts von Dritten              |
 | `<Tracking />`                                  | Meta Pixel und Google Tag, nur in `<ConsentGate category="marketing">`    |
 | `<Impressum />`, `<Datenschutz />`              | geben den Rechtstext des Kunden aus dem CRM aus; das Paket erzeugt keinen |
 | `<SiteFooterLegal />`                           | Pflicht-Links und „Cookie-Einstellungen“                                  |

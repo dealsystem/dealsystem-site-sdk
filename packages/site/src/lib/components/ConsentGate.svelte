@@ -50,10 +50,18 @@ Eigener Inhalt, der erst nach der Zustimmung erscheinen soll, mit Ersatz davor:
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { consent } from '../consent/consent.svelte.js';
+	import { siteHasTracking } from '../internal/consentNeed.js';
 
 	let { category, children, fallback }: ConsentGateProps = $props();
 
 	onMount(() => consent.init());
+
+	// Meldet dem Cookie-Hinweis, dass hier eine Einwilligung nötig ist. „Marketing“ nur mit Tracking-Kennung:
+	// Ohne sie lädt <Tracking> nichts, und andere Werbe-Dienste erlauben die Sicherheitsregeln nicht.
+	$effect(() => {
+		if (category === 'marketing' && !siteHasTracking()) return;
+		return consent.require(category);
+	});
 </script>
 
 {#if consent.has(category)}

@@ -1,6 +1,9 @@
 <!--
 @component
 Hinweis zur Einwilligung. Gehört einmal in `src/routes/+layout.svelte`.
+Er erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht:
+Tracking mit Kennung aus dem CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video
+eines anderen Anbieters. Sonst bleibt er unsichtbar, und es wird nichts gespeichert.
 „Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Die Wahl wird im
 Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
 `<SiteFooterLegal />`.
@@ -9,7 +12,7 @@ Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
 <CookieBanner />
 ```
 
-Nutzt die Seite nur manche Zwecke, nenne sie:
+Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lassen sie sich so:
 
 ```svelte
 <CookieBanner categories={['marketing']} />
@@ -19,7 +22,7 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 	import type { ConsentCategory } from '../consent/consent.svelte.js';
 
 	export interface CookieBannerProps {
-		/** Zwecke, die die Seite nutzt. Standard: alle. */
+		/** Zwecke, nach denen gefragt wird. Standard: die, die Bausteine auf der Seite brauchen. */
 		categories?: readonly ConsentCategory[];
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
@@ -45,7 +48,9 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 	import { onMount, tick } from 'svelte';
 	import { CONSENT_CATEGORIES, consent } from '../consent/consent.svelte.js';
 
-	let { categories = CONSENT_CATEGORIES, privacyHref = '/datenschutz' }: CookieBannerProps = $props();
+	let { categories: fixed, privacyHref = '/datenschutz' }: CookieBannerProps = $props();
+
+	const categories = $derived(fixed ?? consent.relevant);
 
 	const uid = $props.id();
 
@@ -58,7 +63,8 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 	});
 	let returnFocusTo: HTMLElement | null = null;
 
-	const visible = $derived(consent.ready && (!consent.decided || consent.settingsOpen));
+	// Ohne etwas, das eine Einwilligung braucht, ist kein Hinweis nötig.
+	const visible = $derived(consent.ready && consent.needed && (!consent.decided || consent.settingsOpen));
 	const showDetails = $derived(detailsOpen || consent.settingsOpen);
 
 	onMount(() => consent.init());

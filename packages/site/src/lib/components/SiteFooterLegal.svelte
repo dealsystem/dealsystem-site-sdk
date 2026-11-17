@@ -2,6 +2,8 @@
 @component
 Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellungen“
 (Widerruf der Einwilligung). Gehört in den Footer von `src/routes/+layout.svelte`.
+„Cookie-Einstellungen“ erscheint nur, wenn es etwas einzustellen gibt (wie beim
+`<CookieBanner />`).
 
 ```svelte
 <footer>
@@ -21,19 +23,25 @@ Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellunge
 
 <script lang="ts">
 	import { consent } from '../consent/consent.svelte.js';
+	import { siteHasTracking } from '../internal/consentNeed.js';
 
 	let {
 		impressumHref = '/impressum',
 		datenschutzHref = '/datenschutz',
 		class: className,
 	}: SiteFooterLegalProps = $props();
+
+	// Mit Tracking-Kennung schon im fertigen HTML; sonst erst, wenn ein Baustein eine Einwilligung braucht.
+	const hasTracking = siteHasTracking();
 </script>
 
 <nav class={['ds-footer-legal', className]} aria-label="Rechtliches" data-ds-footer-legal>
 	<ul role="list">
 		<li><a href={impressumHref}>Impressum</a></li>
 		<li><a href={datenschutzHref}>Datenschutz</a></li>
-		<li><button type="button" onclick={() => consent.openSettings()}>Cookie-Einstellungen</button></li>
+		{#if hasTracking || consent.needed}
+			<li><button type="button" onclick={() => consent.openSettings()}>Cookie-Einstellungen</button></li>
+		{/if}
 	</ul>
 </nav>
 
