@@ -1,10 +1,15 @@
 // Die Anleitungen für Agenten werden aus dem Code erzeugt. Dieser Test wird rot,
 // wenn sie nicht mehr zum Code passen oder der Block in AGENTS.md zu groß wird.
-import { readFile } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { COMMANDS, RULES } from 'dealsystem';
-import { AGENTS_BLOCK_MAX_BYTES, diffAgentDocs } from '../../../scripts/build-agent-docs.mjs';
+import {
+	AGENTS_BLOCK_MAX_BYTES,
+	AGENTS_MD_WARN_BYTES,
+	agentsMdSizeWarning,
+	diffAgentDocs,
+} from '../../../scripts/build-agent-docs.mjs';
 
 const ROOT = fileURLToPath(new URL('../../..', import.meta.url));
 const docs = (file: string) => readFile(join(ROOT, 'packages/site/docs', file), 'utf8');
@@ -41,6 +46,16 @@ describe('erzeugte Anleitungen', () => {
 		const agents = await readFile(join(ROOT, 'packages/create/template/AGENTS.md'));
 		expect(agents.byteLength).toBe(diff.agentsMdBytes);
 		expect(agents.byteLength).toBeLessThanOrEqual(AGENTS_BLOCK_MAX_BYTES);
+	});
+
+	it('warnt ab 7500 Bytes, bevor die Grenze erreicht ist', () => {
+		expect(AGENTS_MD_WARN_BYTES).toBe(7500);
+		expect(agentsMdSizeWarning(7500)).toBeNull();
+		expect(agentsMdSizeWarning(7501)).toMatch(
+			/Warnung: AGENTS\.md des Starters hat 7501 Bytes.*Skill oder nach docs\//,
+		);
+		// Heute ist Platz: Die Datei liegt unter der Warnschwelle.
+		expect(agentsMdSizeWarning(diff.agentsMdBytes)).toBeNull();
 	});
 
 	it('AGENTS.md des Starters trägt den Block mit der Version des Pakets zwischen den Markern', async () => {
@@ -117,10 +132,46 @@ describe('Inhalt des Blocks', () => {
 		const exported = [...index.matchAll(/export \{ default as (\w+)/g)].map((m) => m[1]!);
 		expect(exported.length).toBeGreaterThan(10);
 		for (const name of exported) expect(block, name).toContain(`\`<${name}>\``);
-		for (const name of Object.keys(COMMANDS)) expect(block, name).toContain(`npx dealsystem ${name}`);
+		const befehle = block.slice(block.indexOf('### Befehle'), block.indexOf('### Nachschlagen'));
+		expect(befehle).toContain('`npx dealsystem <befehl>`');
+		expect(befehle).toContain('`befehle.md`');
+		for (const name of Object.keys(COMMANDS)) expect(befehle, name).toContain(`\`${name}\``);
 		for (const file of [...block.matchAll(/^- `([a-z-]+\.md)`/gm)].map((m) => m[1]!)) {
 			expect((await docs(file)).length, file).toBeGreaterThan(500);
 		}
+	});
+});
+
+describe('Wegweiser', () => {
+	it('nennt jeden Skill des Starters mit Pfad', async () => {
+		const skills = await readdir(join(ROOT, 'packages/create/template/.claude/skills'));
+		expect(skills.length).toBeGreaterThan(4);
+		expect(block).toContain('.claude/skills/<name>/SKILL.md');
+		const section = block.slice(block.indexOf('### Skills'), block.indexOf('### Bausteine'));
+		for (const name of skills) expect(section, name).toMatch(new RegExp(`^- \`${name}\` – `, 'm'));
+	});
+
+	it('verweist für ausgelagerte Einzelheiten auf die Stelle, wo sie stehen', async () => {
+		// Slot-Schlüssel: Regel im Skill und in komponenten.md, in AGENTS.md nur der Verweis.
+		expect(block).toContain('Schlüssel-Regeln: `komponenten.md`');
+		expect(await docs('komponenten.md')).toContain('`ueberuns.team.titel`');
+		const neueSeite = await readFile(
+			join(ROOT, 'packages/create/template/.claude/skills/neue-seite/SKILL.md'),
+			'utf8',
+		);
+		expect(neueSeite).toContain('`ueberuns.team.titel`');
+		// Fotos zum Selbst-Tauschen: gestaltung.md.
+		expect(block).toContain('Eigene Website → Inhalte');
+		expect(await docs('gestaltung.md')).toContain('Eigene Website → Inhalte');
+		// Ausnahmen beim Server-Code, Barrierefreiheit, Anmelden mit init-Optionen.
+		expect(await docs('regeln.md')).toContain('außer sitemap.xml/robots.txt');
+		expect(await docs('gestaltung.md')).toContain('Tastatur');
+		expect(await docs('ablauf.md')).toContain('--create --name');
+	});
+
+	it('nennt die Rechtstexte nur unter „Eigene Website → Rechtliches“', () => {
+		expect(block).toContain('unter Eigene Website → Rechtliches eintragen');
+		expect(block).not.toMatch(/Website → Einstellungen ein/);
 	});
 });
 

@@ -21,8 +21,39 @@ const TEMPLATE = join(ROOT, 'packages/create/template');
 
 /** Obergrenze der ganzen AGENTS.md des Starters (Kopf, Marker und Block), in Bytes. Der Block allein bleibt darunter. */
 export const AGENTS_BLOCK_MAX_BYTES = 8192;
+/** Ab hier warnt der Generator: Der Platz für künftige Regeln wird knapp. Details gehören in Skills und docs/. */
+export const AGENTS_MD_WARN_BYTES = 7500;
+
+/** Warnung, wenn AGENTS.md über `AGENTS_MD_WARN_BYTES` wächst, sonst `null`. */
+export function agentsMdSizeWarning(bytes) {
+	if (bytes <= AGENTS_MD_WARN_BYTES) return null;
+	return (
+		`Warnung: AGENTS.md des Starters hat ${bytes} Bytes (Warnschwelle ${AGENTS_MD_WARN_BYTES}, Grenze ${AGENTS_BLOCK_MAX_BYTES}). ` +
+		'Verschiebe Einzelheiten in einen Skill oder nach docs/ und lass in AGENTS.md nur einen Verweis.'
+	);
+}
 const DOCS_PATH = 'node_modules/@dealsystem/site/docs';
 const GENERATED = '<!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand ändern. -->';
+
+/** Gruppen der Bausteine im kompakten Index von AGENTS.md. Jede Komponente steht in genau einer Gruppe. */
+const COMPONENT_GROUPS = [
+	['Text', ['Text', 'RichText', 'Link']],
+	['Bild und Video', ['MediaImage', 'MediaVideo']],
+	['Formular und Listen', ['LeadForm', 'CollectionList']],
+	['Karte', ['MapEmbed']],
+	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
+	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
+];
+
+/** Skills des Starters in der Reihenfolge, in der sie meist gebraucht werden. */
+const SKILLS = [
+	['neue-seite', 'neue Seite oder neuer Abschnitt, Texte und austauschbare Fotos'],
+	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
+	['angebote-einbauen', 'Angebote, Referenzen und andere Sammlungen aus dem CRM'],
+	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
+	['veroeffentlichen', 'hochladen, Vorschau zeigen, nach dem Ja veröffentlichen'],
+	['domain-verbinden', 'eigene Domain des Kunden'],
+];
 
 /** Reihenfolge und Gruppen der Komponenten in der Übersicht. */
 const COMPONENTS = [
@@ -298,6 +329,14 @@ async function build() {
 	);
 
 	// --- agents-block.md
+	const grouped = COMPONENT_GROUPS.flatMap(([, names]) => names);
+	if (grouped.length !== COMPONENTS.length || COMPONENTS.some((name) => !grouped.includes(name))) {
+		throw new Error('COMPONENT_GROUPS muss jede Komponente aus COMPONENTS genau einmal enthalten.');
+	}
+	const skillDirs = (await readdir(join(TEMPLATE, '.claude/skills'))).sort();
+	if (JSON.stringify(SKILLS.map(([name]) => name).sort()) !== JSON.stringify(skillDirs)) {
+		throw new Error(`SKILLS passt nicht zu den Skills des Starters: ${skillDirs.join(', ')}.`);
+	}
 	const docsIndex = [
 		['ablauf.md', 'der ganze Weg bis zur veröffentlichten Seite'],
 		['komponenten.md', 'alle Bausteine mit Pflichtangaben und Beispielen'],
@@ -317,12 +356,16 @@ async function build() {
 		.replaceAll('{{DOCS}}', DOCS_PATH)
 		.replace(
 			'{{BAUSTEINE}}',
-			components.map((c) => `- \`<${c.name}>\` – ${firstSentence(c.summary)}`).join('\n'),
+			COMPONENT_GROUPS.map(
+				([title, names]) => `- ${title}: ${names.map((name) => `\`<${name}>\``).join(', ')}`,
+			).join('\n'),
 		)
 		.replace(
 			'{{BEFEHLE}}',
-			commands.map(([name, c]) => `- \`npx dealsystem ${name}\` – ${c.summary.replace(/`/g, '')}`).join('\n'),
+			`\`npx dealsystem <befehl>\`: ${commands.map(([name]) => `\`${name}\``).join(', ')}. ` +
+				'Was sie tun, Optionen und Exit-Codes: `befehle.md`.',
 		)
+		.replace('{{SKILLS}}', SKILLS.map(([name, text]) => `- \`${name}\` – ${text}`).join('\n'))
 		.replace('{{NACHSCHLAGEN}}', docsIndex.map(([file, text]) => `- \`${file}\` – ${text}`).join('\n'))
 		.trim();
 	if (/\{\{[A-Z]+\}\}/.test(block)) throw new Error('In agents-block.md steht ein unbekannter Platzhalter.');
@@ -360,13 +403,9 @@ async function build() {
 		);
 	}
 	files.set(join(TEMPLATE, 'AGENTS.md'), agentsMd);
+	const warning = agentsMdSizeWarning(agentsMdBytes);
+	if (warning) console.warn(warning);
 	return { files, bytes, agentsMdBytes, version };
-}
-
-function firstSentence(text) {
-	// Satzende: Punkt nach einem Wort mit mindestens zwei Zeichen (nicht „z. B.“), danach Großbuchstabe oder Ende.
-	const match = /^(.*?[^\s.]{2,}[.!?])(?=\s+[A-ZÄÖÜ„`<]|$)/.exec(text);
-	return (match ? match[1] : text).replace(/\.$/, '');
 }
 
 // ---------------------------------------------------------------- Ausführen
