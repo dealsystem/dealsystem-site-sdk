@@ -4,7 +4,16 @@ import globals from 'globals';
 import ts from 'typescript-eslint';
 
 export default ts.config(
-	{ ignores: ['**/dist/', '**/node_modules/', '**/.svelte-kit/', '**/coverage/'] },
+	{
+		// Fixture-Projekte der CLI sind Prüfgegenstand von `dealsystem check`, kein Code dieses Repos.
+		ignores: [
+			'**/dist/',
+			'**/node_modules/',
+			'**/.svelte-kit/',
+			'**/coverage/',
+			'packages/cli/tests/fixtures/',
+		],
+	},
 	js.configs.recommended,
 	...ts.configs.recommended,
 	...svelte.configs.recommended,

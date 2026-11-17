@@ -1,0 +1,48 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`sync > speichert den Schnappschuss deterministisch und erzeugt keine Typen > content-json 1`] = `
+"{
+	"collections": {
+		"angebote": {
+			"entries": [
+				{
+					"data": {
+						"titel": "Altbau"
+					},
+					"media": {},
+					"publishedAt": "2026-11-01T00:00:00Z",
+					"slug": "altbau"
+				}
+			],
+			"schemaHash": "h",
+			"source": "cms"
+		}
+	},
+	"funnels": [
+		{
+			"active": true,
+			"fields": [],
+			"key": "kontakt"
+		}
+	],
+	"site": {
+		"id": "3f1c2b9a-6d4e-4c1a-9b7e-2a5d8c0f1e23",
+		"locale": "de",
+		"name": "Muster Immobilien",
+		"primaryHost": "muster.sites.example",
+		"slug": "muster"
+	},
+	"slots": {
+		"crm.nur.hier": {
+			"type": "text",
+			"value": "x"
+		},
+		"start.hero.titel": {
+			"type": "text",
+			"value": "Aus dem CRM"
+		}
+	},
+	"snapshotVersion": 1
+}
+"
+`;
