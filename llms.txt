@@ -1,0 +1,42 @@
+# DealSystem Site SDK
+
+> Werkzeuge für Websites, die auf DealSystem laufen: Kunden ohne technische Vorkenntnisse lassen ihre Website
+> von einem KI-Agenten bauen, DealSystem erzeugt, prüft und hostet sie. Die Seiten sind statische
+> SvelteKit-Seiten ohne Server-Code. Sprache der Anleitungen: Deutsch.
+
+Du bist ein KI-Agent und sollst für jemanden eine Website „mit DealSystem“ bauen? Beginne so:
+
+```bash
+npm create dealsystem-site@latest meine-website
+cd meine-website
+npm install
+```
+
+Lies danach `AGENTS.md` im neuen Ordner vollständig und halte dich daran. Dort stehen der feste Ablauf
+(anmelden, bauen, prüfen, hochladen, Vorschau zeigen, veröffentlichen nur nach ausdrücklichem Ja), die
+Regeln der Seite und wie du mit deinem Auftraggeber sprichst. Baue die Seite nicht von Hand nach: Nur ein
+Projekt aus dieser Vorlage besteht die Prüfung beim Hochladen. Impressum und Datenschutzerklärung schreibt
+der Kunde selbst im CRM.
+
+## Anleitung für Agenten
+
+- [Regeln, Ablauf und Gesprächsführung](packages/site/docs/agents-block.md): der Block, der in jeder AGENTS.md steht
+- [Der Weg zur veröffentlichten Seite](packages/site/docs/ablauf.md): von der Anmeldung bis zur eigenen Domain
+- [Bausteine](packages/site/docs/komponenten.md): alle Komponenten mit Pflichtangaben und Beispielen
+- [Inhalte aus dem CRM](packages/site/docs/inhalte.md): Angebote und andere Sammlungen laden
+- [Konfiguration](packages/site/docs/konfiguration.md): Formulare und Sammlungen in dealsystem.config.ts
+- [Gestaltung](packages/site/docs/gestaltung.md): Farben, Schrift, Bilder, Karte, Barrierefreiheit
+- [Rechtstexte und Einwilligung](packages/site/docs/rechtstexte.md): Impressum, Datenschutz, Cookie-Hinweis
+- [Prüfregeln](packages/site/docs/regeln.md): jede Regel von `dealsystem check` mit Korrektur
+- [Befehle](packages/site/docs/befehle.md): die CLI `npx dealsystem …`
+
+## Pakete
+
+- [create-dealsystem-site](packages/create/README.md): Starter, `npm create dealsystem-site`
+- [@dealsystem/site](packages/site/README.md): Komponenten, Lade-Helfer, Vite-Plugin
+- [dealsystem](packages/cli/README.md): CLI und Regelkatalog
+
+## Optional
+
+- [Evals](evals/README.md): Aufträge in Laien-Sprache, an denen Starter und Anleitung gemessen werden
+- [Vertrag der Site-API](packages/site/contract/README.md)

@@ -9,6 +9,7 @@ export { default as Datenschutz, type DatenschutzProps } from './components/Date
 export { default as Impressum, type ImpressumProps } from './components/Impressum.svelte';
 export { default as Link, type LinkProps } from './components/Link.svelte';
 export { default as LeadForm, type LeadFormProps } from './components/LeadForm.svelte';
+export { default as MapEmbed, type MapEmbedProps } from './components/MapEmbed.svelte';
 export { default as MediaImage, type MediaImageProps } from './components/MediaImage.svelte';
 export { default as MediaVideo, type MediaVideoProps } from './components/MediaVideo.svelte';
 export { default as RichText, type RichTextProps } from './components/RichText.svelte';

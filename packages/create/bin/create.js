@@ -19,7 +19,8 @@ try {
 	const shown = relative(process.cwd(), dir) || '.';
 	console.log(
 		`Die Website liegt in ${shown}.\n\n` +
-			'Nächste Schritte (dein KI-Agent führt sie aus, die Anleitung steht in AGENTS.md):\n' +
+			`KI-Agent: Lies jetzt ${shown}/AGENTS.md vollständig und halte dich daran. Arbeite ab hier in ${shown}.\n\n` +
+			'Nächste Schritte:\n' +
 			`  cd ${shown}\n` +
 			'  npm install\n' +
 			'  npx dealsystem login --start   # ein Mensch bestätigt die Anmeldung im Browser\n' +

@@ -197,7 +197,7 @@ export async function deployCommand(ctx: CommandContext): Promise<CommandResult>
 		return {
 			exitCode: EXIT.ok,
 			data: { ...data, published: false },
-			text: `${preview}\nNoch nicht live. Wenn der Nutzer zufrieden ist: \`npx dealsystem publish --version ${version.id}\`.`,
+			text: `${preview}\nNoch nicht live. Zeig dem Nutzer diese Vorschau. Nur nach seinem ausdrücklichen Ja zu genau dieser Vorschau: \`npx dealsystem publish --version ${version.id} --confirm\`. Lädst du danach noch einmal hoch, gilt das Ja nicht mehr: neue Vorschau zeigen, neu fragen.`,
 		};
 	}
 	ctx.progress(preview);

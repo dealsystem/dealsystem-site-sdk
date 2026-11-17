@@ -33,6 +33,7 @@ const COMPONENTS = [
 	'MediaVideo',
 	'LeadForm',
 	'CollectionList',
+	'MapEmbed',
 	'CookieBanner',
 	'ConsentGate',
 	'Tracking',

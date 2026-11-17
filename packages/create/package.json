@@ -3,6 +3,16 @@
 	"version": "0.1.0",
 	"description": "Starter für Self-Service-Websites auf DealSystem: npm create dealsystem-site",
 	"license": "MIT",
+	"author": "DealSystem (https://dealsystem.io)",
+	"homepage": "https://github.com/dealsystem/dealsystem-site-sdk/tree/main/packages/create#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dealsystem/dealsystem-site-sdk.git",
+		"directory": "packages/create"
+	},
+	"bugs": {
+		"url": "https://github.com/dealsystem/dealsystem-site-sdk/issues"
+	},
 	"type": "module",
 	"bin": {
 		"create-dealsystem-site": "./bin/create.js"

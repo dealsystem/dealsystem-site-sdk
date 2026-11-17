@@ -3,6 +3,16 @@
 	"version": "0.1.0",
 	"description": "Komponenten, Lade-Helfer und Vite-Plugin für Self-Service-Websites auf DealSystem",
 	"license": "MIT",
+	"author": "DealSystem (https://dealsystem.io)",
+	"homepage": "https://github.com/dealsystem/dealsystem-site-sdk/tree/main/packages/site#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dealsystem/dealsystem-site-sdk.git",
+		"directory": "packages/site"
+	},
+	"bugs": {
+		"url": "https://github.com/dealsystem/dealsystem-site-sdk/issues"
+	},
 	"keywords": [
 		"dealsystem",
 		"svelte",

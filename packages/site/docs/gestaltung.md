@@ -37,7 +37,8 @@ npm install @fontsource-variable/inter
 ```
 
 Dazu in `app.css`: `--font-sans: 'Inter Variable', system-ui, sans-serif;`. Andere Schriften gibt es als
-`@fontsource/<name>` und `@fontsource-variable/<name>`.
+`@fontsource/<name>` und `@fontsource-variable/<name>`. Wechselst du die Schrift, entferne die alte mit
+`npm uninstall @fontsource-variable/inter`, damit sie nicht ungenutzt im Projekt bleibt.
 
 ## Bilder
 
@@ -89,10 +90,39 @@ Fehler in `npm run check`, statt als toter Link auf der Seite zu landen.
 Links nach außen sind gewöhnliche `<a href="https://…">`. Öffnen sie in einem neuen Tab, dann mit
 `target="_blank" rel="noopener noreferrer"`.
 
+## Karte
+
+Für die Anfahrt gibt es genau eine Karte: `<MapEmbed>` mit OpenStreetMap.
+
+```svelte
+<script lang="ts">
+	import { MapEmbed, Text } from '@dealsystem/site';
+
+	let { data } = $props();
+</script>
+
+<Text key="kontakt.anfahrt.titel" default="Anfahrt" as="h2" label="Überschrift Anfahrt" group="Kontakt" />
+{#if data.site.address}<p>{data.site.address}</p>{/if}
+<MapEmbed lat={53.8676} lon={10.6866} title="Unser Büro in der Lübecker Altstadt" />
+```
+
+- `lat` und `lon` sind die Koordinaten als Dezimalzahlen. Kennst du sie nicht sicher, frag den Kunden: Er
+  findet sie auf openstreetmap.org (Adresse suchen, Rechtsklick auf den Ort, „Adresse anzeigen“). Rate sie
+  nicht; eine Markierung am falschen Haus ist schlimmer als keine Karte.
+- Die Karte lädt erst nach „Karte anzeigen“. Der Link „Karte in OpenStreetMap öffnen“ steht immer da.
+- Die Adresse daneben kommt aus dem CRM (`data.site.address`), nicht aus dem Code.
+- **Google Maps geht nicht**, auch nicht in `<ConsentGate>`: Die Sicherheitsregeln der Seite erlauben den
+  Anbieter nicht, die Karte bliebe leer, und `npx dealsystem check` meldet es (`SEC-008`). Wünscht der Kunde
+  ausdrücklich Google Maps, sag ihm in einem Satz, dass hier OpenStreetMap eingebaut ist, und biete einen
+  Link „Route mit Google Maps planen“ als gewöhnliches `<a href="https://www.google.com/maps/…">` an.
+
 ## Fremde Inhalte
 
-Alles, was beim Laden Daten an andere Anbieter schickt (Karten, eingebettete Videos, Bewertungs-Widgets),
-steht in `<ConsentGate category="media">` mit einem `fallback`, der erklärt, was geladen wird. Tracking
-läuft nur über `<Tracking />` in `<ConsentGate category="marketing">`; die Kennungen stehen im CRM.
-Wird ein fremder Dienst gebraucht, den die Sicherheitsregeln der Seite nicht kennen, lässt er sich nicht
-einbinden. Sag das dem Kunden, statt die Regeln zu lockern.
+Einbetten lässt sich nur, was die Sicherheitsregeln der Seite (CSP in `svelte.config.js`) erlauben: Tracking
+über `<Tracking />` in `<ConsentGate category="marketing">` (die Kennungen stehen im CRM) und die Karte über
+`<MapEmbed />`. `<ConsentGate>` allein macht einen Dienst nicht erlaubt.
+
+Alles andere, was Daten an fremde Anbieter schickt (Google Maps, YouTube, Bewertungs-Widgets,
+Terminbuchung), bindest du nicht ein. Setze stattdessen einen gewöhnlichen Link zum Anbieter und sag dem
+Kunden in einem Satz, dass sich dieser Dienst auf der Seite nicht einbetten lässt. Lockere dafür nie die
+Regeln in `svelte.config.js`; `npx dealsystem check` lehnt das ab (`SEC-005`, `SEC-008`).

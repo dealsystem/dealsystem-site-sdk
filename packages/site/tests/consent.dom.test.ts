@@ -5,6 +5,7 @@ import { resetTrackingForTests } from '../src/lib/client/tracking.js';
 import { consent } from '../src/lib/consent/consent.svelte.js';
 import { reloadPage } from '../src/lib/internal/reload.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
+import MapEmbed from '../src/lib/components/MapEmbed.svelte';
 import GateHarness from './fixtures/GateHarness.svelte';
 import LayoutHarness from './fixtures/LayoutHarness.svelte';
 import { testSiteData } from './helpers.js';
@@ -246,6 +247,46 @@ describe('<ConsentGate>', () => {
 		await waitFor(() => expect(consent.ready).toBe(true));
 		expect(container.querySelector('iframe')).toBeNull();
 		expect(container.textContent?.trim()).toBe('');
+	});
+});
+
+describe('<MapEmbed>', () => {
+	const props = { lat: 53.8676, lon: 10.6866, title: 'Unser Büro in der Lübecker Altstadt', zoom: 15 };
+
+	it('zeigt vor der Zustimmung nur den Hinweis und lädt die Karte erst nach „Karte anzeigen“', async () => {
+		const user = userEvent.setup();
+		const { container } = render(MapEmbed, { props });
+
+		const button = await screen.findByRole('button', { name: 'Karte anzeigen' });
+		expect(container.querySelector('iframe')).toBeNull();
+		expect(externalRequests()).toEqual([]);
+		expect(
+			screen.getByText(/Daten, zum Beispiel Ihre IP-Adresse, an\s+OpenStreetMap übertragen/),
+		).toBeInTheDocument();
+
+		await user.click(button);
+		const frame = container.querySelector('iframe')!;
+		expect(frame).toHaveAttribute('title', props.title);
+		const src = new URL(frame.getAttribute('src')!);
+		// Genau die Herkunft, die die Sicherheitsregeln des Starters erlauben.
+		expect(src.origin).toBe('https://www.openstreetmap.org');
+		expect(src.pathname).toBe('/export/embed.html');
+		expect(src.searchParams.get('marker')).toBe('53.8676,10.6866');
+		const [west, south, east, north] = src.searchParams.get('bbox')!.split(',').map(Number);
+		expect(west!).toBeLessThan(props.lon);
+		expect(east!).toBeGreaterThan(props.lon);
+		expect(south!).toBeLessThan(props.lat);
+		expect(north!).toBeGreaterThan(props.lat);
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: true });
+		expect(screen.queryByRole('button', { name: 'Karte anzeigen' })).toBeNull();
+	});
+
+	it('bietet den Link zur Karte auch ohne Zustimmung an', async () => {
+		render(MapEmbed, { props });
+		const link = await screen.findByRole('link', { name: /Karte in OpenStreetMap öffnen/ });
+		expect(link).toHaveAttribute('href', expect.stringContaining('mlat=53.8676'));
+		expect(link).toHaveAttribute('target', '_blank');
+		expect(link).toHaveAccessibleName(/neues Fenster.*Unser Büro/);
 	});
 });
 

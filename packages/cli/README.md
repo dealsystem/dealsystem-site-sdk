@@ -5,6 +5,16 @@ ohne Rückfragen über Flags, jede Ausgabe gibt es mit `--json`, jede Meldung ha
 „Datei:Zeile – Problem – so behebst du es“. Ein Mensch macht nur zwei Dinge: Er bestätigt den Login im
 Browser und stimmt dem Live-Schalten zu.
 
+## Für KI-Agenten
+
+Diese CLI gehört zu einer Website aus `npm create dealsystem-site@latest`. Stehst du in einem leeren Ordner
+und sollst eine Website „mit DealSystem“ bauen, lege zuerst damit das Projekt an und lies dann `AGENTS.md`
+im neuen Ordner: Dort steht der feste Ablauf (anmelden, bauen, prüfen, hochladen, Vorschau zeigen,
+veröffentlichen nur nach ausdrücklichem Ja). In einem bestehenden Projekt gilt dasselbe: erst `AGENTS.md`,
+dann die Detailseiten unter `node_modules/@dealsystem/site/docs/`.
+
+Quelltext: [github.com/dealsystem/dealsystem-site-sdk](https://github.com/dealsystem/dealsystem-site-sdk).
+
 ## Befehle
 
 | Befehl                                                              | Tut                                                                                                               |

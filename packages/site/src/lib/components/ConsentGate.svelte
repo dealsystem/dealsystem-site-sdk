@@ -1,15 +1,29 @@
 <!--
 @component
-Zeigt seinen Inhalt erst, wenn der Besucher dem Zweck zugestimmt hat. Alles,
-was Daten an Dritte schickt (Tracking, Karten, eingebettete Videos, fremde
-Skripte), gehört hier hinein. Vorher wird der Inhalt gar nicht erzeugt — auch
-nicht beim Build.
+Zeigt seinen Inhalt erst, wenn der Besucher dem Zweck zugestimmt hat. Vorher
+wird der Inhalt gar nicht erzeugt, auch nicht beim Build.
+
+Wichtig: `<ConsentGate>` allein macht einen fremden Dienst nicht erlaubt. Die
+Sicherheitsregeln der Seite (CSP in `svelte.config.js`) lassen nur wenige
+Anbieter zu; alles andere blockiert der Browser auch nach der Zustimmung, und
+`npx dealsystem check` meldet es (`SEC-008`). Freigegeben sind:
+
+- Tracking über `<Tracking />` (Google Tag, Meta Pixel)
+- die Karte über `<MapEmbed />` (OpenStreetMap; fragt selbst nach der Zustimmung)
+
+Jeden anderen fremden Inhalt (Google Maps, YouTube, Bewertungs-Widgets) ersetzt
+du durch einen gewöhnlichen Link zum Anbieter und sagst dem Kunden, dass sich
+dieser Dienst hier nicht einbetten lässt.
 
 ```svelte
 <ConsentGate category="marketing">
 	<Tracking />
 </ConsentGate>
+```
 
+Eigener Inhalt, der erst nach der Zustimmung erscheinen soll, mit Ersatz davor:
+
+```svelte
 <ConsentGate category="media">
 	<iframe title="Anfahrt" src="https://www.openstreetmap.org/export/embed.html?bbox=…"></iframe>
 	{#snippet fallback({ accept })}

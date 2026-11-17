@@ -3,6 +3,16 @@
 	"version": "0.1.0",
 	"description": "CLI für Self-Service-Websites auf DealSystem: Login, Sync, Prüfung und Deploy",
 	"license": "MIT",
+	"author": "DealSystem (https://dealsystem.io)",
+	"homepage": "https://github.com/dealsystem/dealsystem-site-sdk/tree/main/packages/cli#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dealsystem/dealsystem-site-sdk.git",
+		"directory": "packages/cli"
+	},
+	"bugs": {
+		"url": "https://github.com/dealsystem/dealsystem-site-sdk/issues"
+	},
 	"type": "module",
 	"bin": {
 		"dealsystem": "./dist/bin.js"

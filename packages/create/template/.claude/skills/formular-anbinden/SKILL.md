@@ -18,7 +18,9 @@ LeadForm).
    `<LeadForm funnel="ankauf-anfrage" submitLabel="Anfrage senden" successMessage="Danke, wir melden uns." />`
 5. Schreibe kein eigenes `<form>` und kein eigenes `fetch`. Beschriftungen, Fehlermeldungen, Spam-Schutz und
    Versand bringt `<LeadForm>` mit.
-6. Prüfen: `npm run check` (ein Tippfehler im Schlüssel ist ein Fehler), `npx dealsystem check`.
+6. Prüfen: `npm run check` (ein Tippfehler im Schlüssel ist ein Fehler), `npm run build`,
+   `npx dealsystem check --output build`. Das geht ohne Anmeldung. „Geprüft“ sagst du dem Kunden nur, wenn
+   die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 7. Ausprobieren mit `npm run dev`: Die Einsendung wird geprüft, aber nicht gespeichert.
 8. Nach dem Hochladen erscheint das Formular im CRM unter Website → Formulare. Dort legt der Kunde fest,
    was mit einer Anfrage geschieht (Liste, Deal, Benachrichtigung). Sag ihm das in einem Satz.

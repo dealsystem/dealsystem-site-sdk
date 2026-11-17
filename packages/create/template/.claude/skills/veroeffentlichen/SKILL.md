@@ -7,7 +7,8 @@ description: Den aktuellen Stand der Website hochladen, dem Kunden die Vorschau 
 
 Nachschlagen: `node_modules/@dealsystem/site/docs/ablauf.md`.
 
-1. Prüfen: `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alle Fehler beheben.
+1. Prüfen: `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alle Fehler beheben, bis
+   die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 2. Hochladen: `npx dealsystem deploy -m "kurze Notiz, was sich geändert hat"`. Der Befehl wartet, bis
    DealSystem die Seite erzeugt hat, und nennt die Adresse der Vorschau.
 3. Lehnt der Server den Stand ab, stehen die Gründe in der Ausgabe. Beheben und erneut hochladen.
@@ -17,8 +18,12 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/ablauf.md`.
    Ein „sieht gut aus“ ohne klare Zustimmung zum Veröffentlichen reicht nicht: Frag einmal nach.
 6. Meldet der Befehl fehlende Angaben (Impressum, Datenschutzerklärung, Firmenname, E-Mail): Der Kunde trägt
    sie im CRM unter Website → Einstellungen ein. Du schreibst diese Texte nicht. Danach
-   `npx dealsystem sync` und zurück zu Schritt 2.
+   `npx dealsystem sync` und zurück zu Schritt 2: neu hochladen, die **neue** Vorschau nennen und **erneut
+   fragen**. Das frühere Ja galt dem alten Stand.
 7. Bestätige in einem Satz, dass die Seite online ist, und nenne die Adresse.
+
+**Jede neue Vorschau braucht ein neues ausdrückliches Ja.** Sobald du noch einmal hochlädst, ist die
+Zustimmung verbraucht, egal wie klein die Änderung war. Sag nie „ein neues Ja brauche ich nicht“.
 
 Rückgängig: `npx dealsystem rollback --confirm` schaltet auf den vorigen Stand zurück, ebenfalls nur nach
 einem ausdrücklichen Ja.

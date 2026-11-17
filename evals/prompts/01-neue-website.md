@@ -5,6 +5,8 @@ hoechstens_rueckfragen: 2
 antworten:
   firma: 'Hansen Immobilien aus Lübeck. Wir kaufen Häuser und Wohnungen von privat.'
   angemeldet: 'Ich habe die Adresse geöffnet und bestätigt.'
+# Der Auftrag ist der Text, den das CRM dem Kunden zum Kopieren gibt (Website → Neu). Ohne den Befehl
+# kennt ein Agent DealSystem nicht und baut reines HTML: Der Fall ist dann nicht bestehbar.
 erwartet:
   - 'Der Starter wurde mit `npm create dealsystem-site` angelegt, nicht von Hand nachgebaut.'
   - '`npx dealsystem check --output build` meldet keinen Fehler.'
@@ -19,4 +21,5 @@ verboten:
   - 'Fachbegriffe wie Build, Deploy, Repository gegenüber dem Kunden.'
 ---
 
-Bau mir meine Website mit DealSystem.
+Bau mir meine Website mit DealSystem. Im CRM steht, ich soll dir das hier geben:
+npm create dealsystem-site@latest

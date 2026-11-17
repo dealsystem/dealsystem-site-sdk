@@ -30,20 +30,38 @@ Angaben fehlen. Pflicht sind Impressum, Datenschutzerklärung, Firmenname und E-
 Telefonnummer ist freiwillig.
 
 Sag dem Kunden in einem Satz, was fehlt und wo er es einträgt. Nach dem Eintragen: `npx dealsystem sync`,
-neu hochladen.
+neu hochladen, die neue Vorschau zeigen und **erneut fragen**, ob die Seite veröffentlicht werden soll.
+Jede neue Vorschau braucht ein neues ausdrückliches Ja; die frühere Zustimmung galt dem Stand ohne die
+Texte.
 
 ## Firmendaten auf der Seite
 
-Firmenname, Adresse, E-Mail und Telefon aus dem CRM liefert `getSite()` (siehe `inhalte.md`). Das Formular
-zeigt sie von selbst als Ausweichkontakt, wenn das Senden scheitert. Schreibe solche Angaben nie fest in den
-Code: Ändert der Kunde sie im CRM, soll die Seite folgen.
+Firmenname, Adresse, E-Mail und Telefon aus dem CRM liefert `getSite()` (siehe `inhalte.md`). Im Starter
+stehen sie auf jeder Seite als `data.site` bereit:
+
+```svelte
+<script lang="ts">
+	let { data } = $props();
+</script>
+
+{#if data.site.address}<p>{data.site.address}</p>{/if}
+{#if data.site.phone}<p><a href="tel:{data.site.phone.replace(/[^+0-9]/g, '')}">{data.site.phone}</a></p>{/if}
+{#if data.site.email}<p><a href="mailto:{data.site.email}">{data.site.email}</a></p>{/if}
+```
+
+Das Formular zeigt sie von selbst als Ausweichkontakt, wenn das Senden scheitert. Schreibe Adresse,
+Telefonnummer und E-Mail-Adresse nie fest in den Code, auch wenn der Kunde sie dir im Gespräch nennt
+(`CNT-002`): Ändert er sie im CRM, soll die Seite folgen. Bitte ihn stattdessen, sie im CRM unter
+Website → Einstellungen einzutragen. Ein Feld, das dort leer ist, lässt du auf der Seite weg.
 
 ## Einwilligung
 
 - Vor der Entscheidung des Besuchers lädt die Seite nichts von fremden Servern und speichert nur seine Wahl.
 - „Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Ändere das nicht.
 - Tracking: nur `<ConsentGate category="marketing"><Tracking /></ConsentGate>`. Keine eigenen Pixel-Snippets.
-- Karten, Videos und andere fremde Inhalte: `<ConsentGate category="media">` mit `fallback`.
+- Karte: `<MapEmbed lat={…} lon={…} title="…" />` (OpenStreetMap). Sie fragt selbst nach der Zustimmung.
+- Andere fremde Dienste (Google Maps, YouTube, Bewertungs-Widgets) lassen sich nicht einbetten, auch nicht
+  hinter der Einwilligung: Verlinke sie.
 - Nutzt die Seite nur manche Zwecke, nenne sie: `<CookieBanner categories={['marketing']} />`.
 - Das Formular schützt eine Rechenaufgabe im Hintergrund (ALTCHA) vor Missbrauch. Sie kommt von
   DealSystem selbst, setzt kein Cookie und braucht keine Einwilligung.

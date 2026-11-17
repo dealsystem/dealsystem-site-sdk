@@ -42,7 +42,7 @@ function parseJson(text: string): unknown {
 /** Korrektur-Anweisungen für bekannte Fehlercodes der API. */
 const FIXES: Record<string, string> = {
 	legal_profile_incomplete:
-		'Bitte den Inhaber, im CRM unter „Website → Einstellungen“ die Firmendaten (Impressum) vollständig einzutragen.',
+		'Bitte den Inhaber, im CRM unter „Website → Einstellungen“ die fehlenden Angaben einzutragen: Impressum, Datenschutzerklärung, Firmenname und E-Mail-Adresse. Diese Texte schreibt er selbst. Danach `npx dealsystem sync`, neu hochladen, die neue Vorschau zeigen und neu fragen.',
 	plan_limit_reached:
 		'Das Limit des Abos ist erreicht. Bitte den Inhaber, das Abo zu erweitern, oder lösche alte Seiten.',
 	app_disabled:

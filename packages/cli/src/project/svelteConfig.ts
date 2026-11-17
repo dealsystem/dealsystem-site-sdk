@@ -30,7 +30,8 @@ const config = {
 					'https://www.googletagmanager.com',
 					'https://www.facebook.com',
 				],
-				'frame-src': ['self'],
+				// Karte über <MapEmbed> aus dem SDK (OpenStreetMap), nur nach Einwilligung.
+				'frame-src': ['self', 'https://www.openstreetmap.org'],
 				'worker-src': ['self'],
 				'object-src': ['none'],
 				'base-uri': ['self'],
@@ -46,7 +47,7 @@ export default config;
 export const VITE_CONFIG_TEMPLATE = `import { sveltekit } from '@sveltejs/kit/vite';
 import { dealsystem } from '@dealsystem/site/vite';
 import { defineConfig } from 'vite';
-import site from './dealsystem.config';
+import site from './dealsystem.config.ts';
 
 export default defineConfig({
 	plugins: [dealsystem(site), sveltekit()],

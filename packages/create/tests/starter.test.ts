@@ -1,7 +1,7 @@
 // Der Starter, so wie ein Kunde ihn bekommt: Er muss ohne jede Änderung
 // `dealsystem check` bestehen, sich bauen lassen und typrein sein.
 import { execFile } from 'node:child_process';
-import { readFile, readdir } from 'node:fs/promises';
+import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { runCheck, type CheckResult } from 'dealsystem/check';
@@ -124,6 +124,62 @@ describe('Starter ohne Inhalte aus dem CRM (erster Tag)', () => {
 			{ cwd: project.dir },
 		).catch((error: { stdout: string }) => ({ stdout: error.stdout }));
 		expect(stdout).toMatch(/COMPLETED \d+ FILES 0 ERRORS 0 WARNINGS/);
+	});
+});
+
+describe('Karte auf der Kontaktseite', () => {
+	let project: StarterProject;
+	const kontakt = () => join(project.dir, 'src/routes/kontakt/+page.svelte');
+
+	beforeAll(async () => {
+		project = await createStarter();
+		await simulateInstallAndInit(project.dir);
+	});
+
+	afterAll(() => project.remove());
+
+	async function withMarkup(script: string, markup: string): Promise<string[]> {
+		const original = await readFile(kontakt(), 'utf8');
+		const changed = original
+			.replace("import { LeadForm, Text } from '@dealsystem/site';", script)
+			.replace('</section>', `${markup}\n</section>`);
+		expect(changed).not.toBe(original);
+		await writeFile(kontakt(), changed);
+		try {
+			return problems(await runCheck({ projectDir: project.dir, stages: ['source'] }));
+		} finally {
+			await writeFile(kontakt(), original);
+		}
+	}
+
+	it('die freigegebene Karte <MapEmbed> besteht die Prüfung mit der CSP des Starters', async () => {
+		const found = await withMarkup(
+			"import { LeadForm, MapEmbed, Text } from '@dealsystem/site';",
+			'<MapEmbed lat={53.8676} lon={10.6866} title="Unser Büro in der Lübecker Altstadt" />',
+		);
+		expect(found).toEqual([]);
+	});
+
+	it('eine Google-Karte hinter der Einwilligung wird abgelehnt, mit dem Weg zur Lösung', async () => {
+		const found = await withMarkup(
+			"import { ConsentGate, LeadForm, Text } from '@dealsystem/site';",
+			'<ConsentGate category="media">\n\t<iframe title="Karte" src="https://www.google.com/maps?q=Breite+Stra%C3%9Fe+12&output=embed"></iframe>\n</ConsentGate>',
+		);
+		expect(found).toHaveLength(1);
+		expect(found[0]).toMatch(/^SEC-008 error src\/routes\/kontakt\/\+page\.svelte:\d+ `<iframe>` lädt/);
+		expect(found[0]).toContain('www.google.com');
+		expect(found[0]).toContain('auch nach der Einwilligung');
+	});
+
+	it('feste Überschrift und feste Adresse werden gemeldet', async () => {
+		const found = await withMarkup(
+			"import { LeadForm, Text } from '@dealsystem/site';",
+			'<h2 id="anfahrt">Anfahrt</h2>\n<p>Breite Straße 12, 23552 Lübeck</p>',
+		);
+		expect(found.map((f) => f.split(' ').slice(0, 2).join(' ')).sort()).toEqual([
+			'CNT-001 warning',
+			'CNT-002 warning',
+		]);
 	});
 });
 

@@ -4,6 +4,7 @@ import { render as renderLazy } from 'svelte/server';
 import Datenschutz from '../src/lib/components/Datenschutz.svelte';
 import Impressum from '../src/lib/components/Impressum.svelte';
 import LeadForm from '../src/lib/components/LeadForm.svelte';
+import MapEmbed from '../src/lib/components/MapEmbed.svelte';
 import Link from '../src/lib/components/Link.svelte';
 import MediaImage from '../src/lib/components/MediaImage.svelte';
 import MediaVideo from '../src/lib/components/MediaVideo.svelte';
@@ -259,6 +260,31 @@ describe('<MediaVideo>', () => {
 		expect(body).toContain('controls');
 		expect(body).toContain('aria-label="Rundgang"');
 		expect(body).not.toContain('autoplay');
+	});
+});
+
+describe('<MapEmbed>', () => {
+	const props = { lat: 53.8676, lon: 10.6866, title: 'Unser Büro in der Lübecker Altstadt' };
+
+	it('lädt beim Build keine Karte, bietet aber den Link zur Karte an', () => {
+		const { body } = render(MapEmbed, { props });
+		expect(body).toContain('data-ds-map');
+		expect(body).not.toContain('<iframe');
+		expect(body).not.toContain('export/embed.html');
+		expect(body).toContain(
+			'href="https://www.openstreetmap.org/?mlat=53.8676&amp;mlon=10.6866#map=16/53.8676/10.6866"',
+		);
+		expect(body).toContain('rel="noopener noreferrer"');
+		expect(body).toContain('Karte in OpenStreetMap öffnen');
+	});
+
+	it('scheitert beim Build mit einer Anleitung, wenn Koordinaten oder Titel fehlen', () => {
+		expect(() => render(MapEmbed, { props: { ...props, lat: Number.NaN } })).toThrow(
+			/lat und lon müssen Koordinaten/,
+		);
+		expect(() => render(MapEmbed, { props: { ...props, lat: 153 } })).toThrow(/Koordinaten/);
+		expect(() => render(MapEmbed, { props: { ...props, lat: '53.8' as never } })).toThrow(/Koordinaten/);
+		expect(() => render(MapEmbed, { props: { ...props, title: ' ' } })).toThrow(/braucht einen title/);
 	});
 });
 

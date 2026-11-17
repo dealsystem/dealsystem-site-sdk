@@ -181,7 +181,8 @@ const str005 = sourceRule('STR-005', (ctx) =>
 		.map((p) => ({
 			file: 'dealsystem.config.ts',
 			line: p.line,
-			message: p.message,
+			// Die Meldung des SDK nennt die Korrektur schon; sie soll nicht zweimal dastehen.
+			message: p.message.replace(/\s*Führe `npx dealsystem init` aus\.$/, ''),
 			...(p.fix ? { fix: p.fix } : {}),
 		})),
 );

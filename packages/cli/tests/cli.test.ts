@@ -360,7 +360,9 @@ describe('deploy', () => {
 		expect(r.code).toBe(4);
 		expect(r.json.error).toMatchObject({
 			code: 'legal_profile_incomplete',
-			fix: expect.stringContaining('Firmendaten'),
+			fix: expect.stringMatching(
+				/Impressum, Datenschutzerklärung, Firmenname und E-Mail-Adresse[\s\S]*neu fragen/,
+			),
 		});
 	});
 });

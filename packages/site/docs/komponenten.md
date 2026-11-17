@@ -345,6 +345,37 @@ export interface CollectionListProps<K extends CollectionKey> {
 }
 ```
 
+## MapEmbed
+
+Eine Karte von OpenStreetMap mit einer Markierung, z. B. für die Anfahrt. Das
+ist die eine freigegebene Karte: Andere Kartendienste lassen sich auf der Seite
+nicht einbetten. Die Karte lädt erst, wenn der Besucher zustimmt; vorher steht
+dort ein Hinweis mit der Schaltfläche „Karte anzeigen“. Der Link „Karte in
+OpenStreetMap öffnen“ funktioniert immer.
+
+`lat` und `lon` sind die Koordinaten des Ortes als Dezimalzahlen. Kennst du sie
+nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie nie.
+
+```svelte
+<MapEmbed lat={53.8676} lon={10.6866} title="Unser Büro in der Lübecker Altstadt" />
+```
+
+Eigenschaften:
+
+```ts
+export interface MapEmbedProps {
+  /** Breitengrad des Ortes, z. B. `53.8676`. */
+  lat: number;
+  /** Längengrad des Ortes, z. B. `10.6866`. */
+  lon: number;
+  /** Was die Karte zeigt, z. B. „Unser Büro in der Lübecker Altstadt“. Für Vorleseprogramme. */
+  title: string;
+  /** Zoomstufe von 3 (Kontinent) bis 18 (Hausnummer). Standard 16. */
+  zoom?: number;
+  class?: string;
+}
+```
+
 ## CookieBanner
 
 Hinweis zur Einwilligung. Gehört einmal in `src/routes/+layout.svelte`.
@@ -375,16 +406,30 @@ export interface CookieBannerProps {
 
 ## ConsentGate
 
-Zeigt seinen Inhalt erst, wenn der Besucher dem Zweck zugestimmt hat. Alles,
-was Daten an Dritte schickt (Tracking, Karten, eingebettete Videos, fremde
-Skripte), gehört hier hinein. Vorher wird der Inhalt gar nicht erzeugt — auch
-nicht beim Build.
+Zeigt seinen Inhalt erst, wenn der Besucher dem Zweck zugestimmt hat. Vorher
+wird der Inhalt gar nicht erzeugt, auch nicht beim Build.
+
+Wichtig: `<ConsentGate>` allein macht einen fremden Dienst nicht erlaubt. Die
+Sicherheitsregeln der Seite (CSP in `svelte.config.js`) lassen nur wenige
+Anbieter zu; alles andere blockiert der Browser auch nach der Zustimmung, und
+`npx dealsystem check` meldet es (`SEC-008`). Freigegeben sind:
+
+- Tracking über `<Tracking />` (Google Tag, Meta Pixel)
+- die Karte über `<MapEmbed />` (OpenStreetMap; fragt selbst nach der Zustimmung)
+
+Jeden anderen fremden Inhalt (Google Maps, YouTube, Bewertungs-Widgets) ersetzt
+du durch einen gewöhnlichen Link zum Anbieter und sagst dem Kunden, dass sich
+dieser Dienst hier nicht einbetten lässt.
 
 ```svelte
 <ConsentGate category="marketing">
 	<Tracking />
 </ConsentGate>
+```
 
+Eigener Inhalt, der erst nach der Zustimmung erscheinen soll, mit Ersatz davor:
+
+```svelte
 <ConsentGate category="media">
 	<iframe title="Anfahrt" src="https://www.openstreetmap.org/export/embed.html?bbox=…"></iframe>
 	{#snippet fallback({ accept })}

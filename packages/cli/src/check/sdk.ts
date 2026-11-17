@@ -11,6 +11,7 @@ export const COMPONENT = {
 	mediaImage: 'MediaImage',
 	mediaVideo: 'MediaVideo',
 	collectionList: 'CollectionList',
+	map: 'MapEmbed',
 	cookieBanner: 'CookieBanner',
 	consentGate: 'ConsentGate',
 	tracking: 'Tracking',
@@ -31,6 +32,7 @@ export const MARKER = {
 	richText: 'data-ds-richtext',
 	image: 'data-ds-image',
 	collection: 'data-ds-collection',
+	map: 'data-ds-map',
 	slot: 'data-ds-slot',
 } as const;
 

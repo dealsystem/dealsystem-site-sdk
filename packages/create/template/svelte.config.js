@@ -25,7 +25,8 @@ const config = {
 					'https://www.googletagmanager.com',
 					'https://www.facebook.com',
 				],
-				'frame-src': ['self'],
+				// Karte über <MapEmbed> aus dem SDK (OpenStreetMap), nur nach Einwilligung.
+				'frame-src': ['self', 'https://www.openstreetmap.org'],
 				'worker-src': ['self'],
 				'object-src': ['none'],
 				'base-uri': ['self'],

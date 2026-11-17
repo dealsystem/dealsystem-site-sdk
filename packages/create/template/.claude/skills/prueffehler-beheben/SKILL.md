@@ -18,9 +18,12 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/regeln.md` (jede Regel mit Kor
    - nicht freigegebenes Paket → entfernen; die Liste zeigt `npx dealsystem check --allowed`
    - `<img>` → `<MediaImage>` mit `alt`
    - eigenes `<form>` oder `fetch` → `<LeadForm>`
-   - fremde Schrift oder fremdes Skript → lokal ablegen oder in `<ConsentGate>`
+   - fremde Schrift → lokal ablegen (`@fontsource/…`)
+   - Karte oder fremder Inhalt, den die Sicherheitsregeln blockieren (`SEC-008`) → `<MapEmbed>` für Karten,
+     sonst ein gewöhnlicher Link zum Anbieter
+   - feste Adresse, Telefonnummer oder E-Mail (`CNT-002`) → `{data.site.address}` usw. aus dem CRM
    - zwei `h1` oder übersprungene Ebene → Überschriften ordnen
    - langer fester Text → `<Text>` oder `<RichText>` mit `key` und `default`
-5. Erneut prüfen, bis kein Fehler mehr gemeldet wird.
+5. Erneut prüfen, bis die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 6. Dem Kunden zeigst du die Meldungen nicht. Erst wenn eine Meldung nach drei Versuchen bleibt, sag ihm in
    einem Satz, was nicht geht.

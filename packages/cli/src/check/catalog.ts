@@ -5,7 +5,7 @@
 
 import type { RuleMeta } from './types.js';
 
-export const RULE_SET_VERSION = '1';
+export const RULE_SET_VERSION = '2';
 
 /** Bereich von `@dealsystem/site`, den dieser Regelkatalog kennt. Der Build-Host gibt seinen eigenen mit. */
 export const DEFAULT_SDK_RANGE = '>=0.1.0 <2.0.0';
@@ -61,7 +61,7 @@ export const RULES: readonly RuleMeta[] = [
 		severity: 'error',
 		stages: ['source'],
 		title: 'Vite-Plugin `dealsystem(site)` vor `sveltekit()` in vite.config.ts',
-		fix: "Schreibe in vite.config.ts `plugins: [dealsystem(site), sveltekit()]` mit `import { dealsystem } from '@dealsystem/site/vite'` und `import site from './dealsystem.config'`.",
+		fix: "Schreibe in vite.config.ts `plugins: [dealsystem(site), sveltekit()]` mit `import { dealsystem } from '@dealsystem/site/vite'` und `import site from './dealsystem.config.ts'`.",
 	},
 	{
 		id: 'STR-006',
@@ -141,6 +141,14 @@ export const RULES: readonly RuleMeta[] = [
 		stages: ['source'],
 		title: 'Formulare nur über `<LeadForm>`, kein eigenes `<form>`',
 		fix: 'Ersetze das `<form>` durch `<LeadForm funnel="…" />` und lege das Formular in dealsystem.config.ts unter `funnels` an.',
+	},
+	{
+		id: 'SEC-008',
+		severity: 'error',
+		stages: ['source', 'output'],
+		title:
+			'eingebettete fremde Inhalte (`<iframe>`, `<script>`) sind von der Content-Security-Policy der Seite erlaubt',
+		fix: 'Für eine Karte nutze `<MapEmbed lat={…} lon={…} title="…" />` aus `@dealsystem/site`. Jeden anderen fremden Inhalt ersetzt du durch einen Link zum Anbieter. Lockere nicht die Regeln in svelte.config.js.',
 	},
 	// --------------------------------------------------------------- Datenschutz
 	{
@@ -304,8 +312,15 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'CNT-001',
 		severity: 'warning',
 		stages: ['source'],
-		title: 'längere Texte als Content-Slot statt fest im Code',
-		fix: 'Lege den Text als Slot an, damit er im CRM änderbar ist: `<Text key="seite.bereich.name" default="…" />` (mehrzeilig: `multiline`, mit Formatierung: `<RichText>`).',
+		title: 'Überschriften und längere Texte als Content-Slot statt fest im Code',
+		fix: 'Lege den Text als Slot an, damit er im CRM änderbar ist: `<Text key="seite.bereich.name" default="…" />` (Überschrift: `as="h2"`, mehrzeilig: `multiline`, mit Formatierung: `<RichText>`).',
+	},
+	{
+		id: 'CNT-002',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'Adresse, Telefonnummer und E-Mail-Adresse kommen aus dem CRM, nicht aus dem Code',
+		fix: 'Nimm die Angabe aus dem CRM: `getSite()` aus `@dealsystem/site/content` liefert `company`, `address`, `email` und `phone` (im Starter als `data.site` auf jeder Seite). Gib sie mit `{data.site.address}` aus. Ändert der Kunde sie im CRM, folgt die Seite.',
 	},
 	// ------------------------------------------------- Meldungen des Build-Hosts
 	{

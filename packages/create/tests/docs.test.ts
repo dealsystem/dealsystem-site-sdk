@@ -56,7 +56,8 @@ describe('Inhalt des Blocks', () => {
 	});
 
 	it('nennt die Gesprächsregeln für Laien', () => {
-		expect(block).toContain('höchstens eine Rückfrage');
+		expect(block).toContain('Eine Nachricht, höchstens eine Frage');
+		expect(block).toContain('nie eine Frage neben einer Bitte');
 		expect(block).toContain('ohne Fachbegriffe');
 		expect(block).toMatch(/Melde nach jedem größeren Schritt in einem Satz/);
 		expect(block).toContain('Erfinde nichts über das Unternehmen');
@@ -76,6 +77,10 @@ describe('Inhalt des Blocks', () => {
 		expect(positions.every((p) => p >= 0)).toBe(true);
 		expect([...positions].sort((a, b) => a - b)).toEqual(positions);
 		expect(block).toMatch(/nur nach einem ausdrücklichen Ja/);
+		// Die Zustimmung gilt nur der Vorschau, die der Mensch gesehen hat.
+		expect(block).toContain('Jede neue Vorschau braucht ein neues Ja');
+		// „Geprüft“ ist an die eine Erfolgszeile von check gebunden.
+		expect(block).toContain('Prüfung bestanden: Quelltext und fertige Seite geprüft');
 	});
 
 	it('nennt, was nur der Mensch kann', () => {
@@ -145,6 +150,38 @@ describe('Detailseiten', () => {
 		const links = [...index.matchAll(/\]\(([^)]+)\)/g)].map((m) => m[1]!);
 		expect(links.length).toBeGreaterThan(5);
 		for (const link of links) expect((await docs(link)).length, link).toBeGreaterThan(100);
+	});
+
+	it('sagt in Ablauf, Rechtstexten und Skill gleichlautend: jede neue Vorschau braucht ein neues Ja', async () => {
+		const skill = await readFile(
+			join(ROOT, 'packages/create/template/.claude/skills/veroeffentlichen/SKILL.md'),
+			'utf8',
+		);
+		for (const text of [await docs('ablauf.md'), skill]) {
+			expect(text).toMatch(/Jede neue Vorschau braucht ein neues ausdrückliches Ja/);
+		}
+		expect(await docs('rechtstexte.md')).toMatch(/Jede neue Vorschau braucht ein neues ausdrückliches Ja/);
+	});
+
+	it('die Erfolgszeile, die die Anleitung zitiert, ist die der CLI', async () => {
+		const { formatCheckText, RULE_SET_VERSION } = await import('dealsystem/check');
+		const line = formatCheckText({
+			passed: true,
+			ruleSetVersion: RULE_SET_VERSION,
+			stages: ['source', 'output'],
+			errors: [],
+			warnings: [],
+		});
+		expect(line).toContain('Prüfung bestanden: Quelltext und fertige Seite geprüft');
+		expect(await docs('ablauf.md')).toContain('Prüfung bestanden: Quelltext und fertige Seite geprüft');
+	});
+
+	it('nennt die freigegebene Karte und sagt, dass andere Dienste sich nicht einbetten lassen', async () => {
+		const gestaltung = await docs('gestaltung.md');
+		expect(gestaltung).toContain('<MapEmbed lat=');
+		expect(gestaltung).toContain('**Google Maps geht nicht**');
+		expect(await docs('komponenten.md')).toContain('## MapEmbed');
+		expect(await docs('regeln.md')).toContain('`SEC-008`');
 	});
 
 	it('enthält keine vorformulierten Rechtstexte', async () => {

@@ -9,7 +9,7 @@ Diese Website ist eine statische SvelteKit-Seite mit `@dealsystem/site` {{VERSIO
 Dein Auftraggeber ist kein Techniker, sondern meist Immobilien-Investor oder Makler.
 
 - Sprich Deutsch, kurz und ohne Fachbegriffe. Sag „Vorschau“, „hochladen“, „veröffentlichen“ – nicht „Build“, „Deploy“, „Repository“.
-- Stelle höchstens eine Rückfrage auf einmal, und nur, wenn du ohne Antwort nicht sinnvoll weiterkommst. Sonst triff eine vernünftige Annahme und nenne sie in einem Satz.
+- **Eine Nachricht, höchstens eine Frage.** Nie eine Liste von Fragen, nie eine Frage neben einer Bitte (z. B. neben der Bitte, die Anmeldung zu bestätigen). Frag nur, wenn du ohne Antwort nicht sinnvoll weiterkommst. Sonst triff eine vernünftige Annahme und nenne sie in einem Satz.
 - Melde nach jedem größeren Schritt in einem Satz, was fertig ist und was als Nächstes kommt.
 - Zeige keinen Code und keine Fehlermeldungen. Prüffehler behebst du selbst. Erst wenn etwas dreimal scheitert, sag in einem Satz, was nicht geht und was du brauchst.
 - Erfinde nichts über das Unternehmen: keine Adressen, Telefonnummern, Preise, Referenzen, Zahlen. Was du nicht weißt, erfragst du oder lässt du weg.
@@ -19,9 +19,9 @@ Dein Auftraggeber ist kein Techniker, sondern meist Immobilien-Investor oder Mak
 1. **Anmelden:** `npx dealsystem login --start` nennt eine Adresse und einen Code. Bitte den Menschen, die Adresse zu öffnen und zu bestätigen. Danach `npx dealsystem login --wait`.
 2. **Seite verbinden:** `npx dealsystem init` (vorhandene Seite: `--site <name>`, neue: `--create --name "…" --slug …`), dann `npx dealsystem sync`.
 3. **Bauen:** Seiten ändern, ansehen mit `npm run dev`.
-4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alles beheben, bis kein Fehler mehr gemeldet wird.
+4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alles beheben. „Geprüft“ sagst du nur, wenn der letzte Befehl mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet. Das geht auch ohne Anmeldung: Scheitern `login` oder `sync`, prüfst du trotzdem und bittest erst danach um die Anmeldung.
 5. **Hochladen:** `npx dealsystem deploy -m "kurze Notiz"`. Am Ende steht die Adresse der Vorschau. Gib sie dem Menschen und bitte ihn, sie anzusehen.
-6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“.
+6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja:** Lädst du noch einmal hoch, gilt die frühere Zustimmung nicht mehr.
 
 ### Was nur der Mensch kann
 
@@ -39,8 +39,8 @@ Sag ihm klar, was er tun soll und wo. Versuche nie, es zu umgehen.
 - Keine Zugangsdaten, keine `.env`, kein eigenes `fetch` zu DealSystem.
 - Formulare nur mit `<LeadForm>`. Felder stehen in `dealsystem.config.ts`.
 - Bilder nur mit `<MediaImage>` und einem `alt`, das das Bild beschreibt.
-- Sichtbare Texte als `<Text>` oder `<RichText>` mit festem `key` und `default`, damit der Kunde sie später selbst ändern kann.
-- Nichts von fremden Servern: Schriften lokal (`@fontsource/…`), keine CDN-Links. Karten, Videos und andere fremde Inhalte nur in `<ConsentGate>`.
+- Sichtbare Texte, auch kurze Überschriften, als `<Text>` oder `<RichText>` mit festem `key` und `default`, damit der Kunde sie später selbst ändern kann. Adresse, Telefon und E-Mail nie fest in den Code: Sie kommen als `data.site` aus dem CRM.
+- Nichts von fremden Servern: Schriften lokal (`@fontsource/…`), keine CDN-Links. Eine Karte gibt es mit `<MapEmbed>`. Andere fremde Dienste (Google Maps, YouTube, Widgets) lassen sich nicht einbetten, auch nicht in `<ConsentGate>`: Verlinke sie und sag das dem Kunden.
 - Kein `{@html}`. Formatierten Text gibt `<RichText>` aus.
 - Jede Seite: genau eine `h1`, eigener `<title>`, eigene `meta description`. `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
 - `svelte.config.js` und `vite.config.ts` nicht ändern. Beschädigt? `npx dealsystem sync --fix-config`.

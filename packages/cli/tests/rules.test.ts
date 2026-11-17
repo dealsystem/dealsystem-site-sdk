@@ -765,6 +765,74 @@ const CASES: Record<string, RuleCase[]> = {
 			],
 		},
 	],
+	'SEC-008': [
+		{
+			stage: S,
+			pass: [
+				// Die CSP erlaubt den Anbieter ausdrücklich.
+				{
+					'svelte.config.js': baseText('svelte.config.js').replace(
+						"'object-src': ['none'],",
+						"'object-src': ['none'],\n\t\t\t\t'frame-src': ['self', 'https://www.openstreetmap.org'],",
+					),
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<ConsentGate category="media">\n\t<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=1,2,3,4" title="Karte"></iframe>\n</ConsentGate>\n<MapEmbed lat={53.87} lon={10.69} title="Anfahrt" />',
+						"\timport { MapEmbed } from '@dealsystem/site';\n",
+					),
+				},
+				// Ein Link auf den Anbieter ist keine Einbettung.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<a href="https://www.google.com/maps?q=L%C3%BCbeck">Karte öffnen</a>',
+					),
+				},
+			],
+			fail: [
+				// Hinter der Einwilligung, aber von der CSP blockiert: Die Karte bliebe leer.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<ConsentGate category="media">\n\t<iframe src="https://www.google.com/maps?q=L%C3%BCbeck&output=embed" title="Karte"></iframe>\n</ConsentGate>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<ConsentGate category="media">\n\t<script src="https://widget.example.com/w.js"></script>\n</ConsentGate>',
+					),
+				},
+				// `<MapEmbed>` ohne die Freigabe in der CSP (ältere oder veränderte svelte.config.js).
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<MapEmbed lat={53.87} lon={10.69} title="Anfahrt" />',
+						"\timport { MapEmbed } from '@dealsystem/site';\n",
+					),
+				},
+			],
+		},
+		{
+			stage: O,
+			pass: [
+				{
+					'index.html': page({
+						head: `<meta http-equiv="content-security-policy" content="default-src 'self'; frame-src 'self' https://www.openstreetmap.org">`,
+						body: '<iframe src="https://www.openstreetmap.org/export/embed.html" title="Karte"></iframe>',
+					}),
+				},
+			],
+			fail: [
+				{
+					'index.html': page({
+						head: `<meta http-equiv="content-security-policy" content="default-src 'self'; frame-src 'self'">`,
+						body: '<iframe src="https://www.google.com/maps?output=embed" title="Karte"></iframe>',
+					}),
+				},
+				{
+					'index.html': page({
+						head: `<meta http-equiv="content-security-policy" content="default-src 'self'">\n<script src="https://widget.example.com/w.js"></script>`,
+					}),
+				},
+			],
+		},
+	],
 	'CNT-001': [
 		{
 			stage: S,
@@ -774,11 +842,60 @@ const CASES: Record<string, RuleCase[]> = {
 						`<h1>A</h1>\n<Text key="start.lang" default="${'Langer Text. '.repeat(20)}" multiline />\n<pre>${'Code '.repeat(40)}</pre>`,
 					),
 				},
+				// Überschriften als Slot oder aus Daten; kurze Beschriftungen bleiben erlaubt.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<Text key="start.anfahrt" default="Anfahrt" as="h2" />\n<h2>{titel}</h2>\n<a href="/kontakt">Kontakt</a>',
+						"\tconst titel = 'x';\n",
+					),
+				},
 			],
 			fail: [
 				{
 					'src/routes/+page.svelte': homePage(
 						`<h1>A</h1>\n<p>${'Wir sind seit vielen Jahren für Sie da. '.repeat(5)}</p>`,
+					),
+				},
+				// Kurze feste Überschrift: Der Kunde kann sie im CRM nicht umbenennen.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<h2 id="anfahrt">Anfahrt</h2>',
+					),
+				},
+			],
+		},
+	],
+	'CNT-002': [
+		{
+			stage: S,
+			pass: [
+				// Firmendaten aus dem CRM; Jahreszahlen, Preise und Flächen sind keine Telefonnummern.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<p>{data.site.address}</p>\n<a href="mailto:{data.site.email}">{data.site.email}</a>\n<p>Seit 1998, über 120 Objekte, 320.000 €, 85 m².</p>',
+						'\tlet { data } = $props();\n',
+					),
+				},
+			],
+			fail: [
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<p>Breite Straße 12, 23552 Lübeck</p>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<p>Rufen Sie uns an: 0451 1234567</p>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<p>Schreiben Sie an info@hansen-immobilien.de</p>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<a href="tel:+494511234567">Anrufen</a>',
 					),
 				},
 			],

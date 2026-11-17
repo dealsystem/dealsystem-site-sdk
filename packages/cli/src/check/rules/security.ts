@@ -1,9 +1,11 @@
-// SEC-*: Secrets, private Umgebungsvariablen, {@html}, API-Zugriffe, CSP, eval, eigene Formulare.
+// SEC-*: Secrets, private Umgebungsvariablen, {@html}, API-Zugriffe, CSP, eval, eigene Formulare, Einbettungen.
 
 import type { OutputContext, SourceContext } from '../context.js';
 import { outputRule, sourceRule, type OutputRule, type SourceRule } from '../rule.js';
 import type { RawFinding } from '../types.js';
 import { excerpt, findAll, isSvelteFile } from '../util/code.js';
+import { COMPONENT, SDK_PACKAGE } from '../sdk.js';
+import { lineOf } from '../util/html.js';
 import { evaluate, isOpaque, isPlainObject, type LiteralValue } from '../util/literal.js';
 
 // ------------------------------------------------------------------ SEC-001
@@ -153,6 +155,8 @@ export const CSP_ALLOWED_HOSTS: readonly string[] = [
 	'*.analytics.google.com',
 	'connect.facebook.net',
 	'www.facebook.com',
+	// Karte über `<MapEmbed>` aus dem SDK, nur nach Einwilligung.
+	'www.openstreetmap.org',
 ];
 const HOST_CHECKED_DIRECTIVES = [
 	'default-src',
@@ -304,6 +308,154 @@ const sec007 = sourceRule('SEC-007', (ctx) => {
 	return out;
 });
 
+// ------------------------------------------------------------------ SEC-008
+
+/** Herkunft der Karte, die `<MapEmbed>` aus dem SDK einbettet. Muss zu packages/site passen. */
+export const MAP_EMBED_ORIGIN = 'https://www.openstreetmap.org';
+
+/** Welche CSP-Direktive über das Laden eines Elements entscheidet. */
+const EMBED_DIRECTIVE: Readonly<Record<string, string>> = {
+	iframe: 'frame-src',
+	frame: 'frame-src',
+	embed: 'frame-src',
+	object: 'frame-src',
+	script: 'script-src',
+};
+
+type Csp = Record<string, string[]>;
+
+function externalUrl(value: string | null | undefined): URL | null {
+	if (!value) return null;
+	const v = value.trim();
+	if (!/^(https?:)?\/\//i.test(v)) return null;
+	try {
+		return new URL(v.startsWith('//') ? `https:${v}` : v);
+	} catch {
+		return null;
+	}
+}
+
+/** Ob die Direktive (sonst `default-src`) das Laden von `url` erlaubt. Ohne beide Direktiven ist alles erlaubt. */
+function cspAllows(csp: Csp, directive: string, url: URL): boolean {
+	const sources = csp[directive] ?? csp['default-src'];
+	if (!sources) return true;
+	const host = url.host.toLowerCase();
+	return sources.some((raw) => {
+		const source = unquote(raw).toLowerCase();
+		if (source === '*' || source === `${url.protocol}`) return true;
+		const allowed = cspHost(source);
+		if (!allowed) return false;
+		return allowed === host || (allowed.startsWith('*.') && host.endsWith(allowed.slice(1)));
+	});
+}
+
+function blockedMessage(tag: string, url: URL, directive: string): string {
+	return (
+		`\`<${tag}>\` lädt \`${excerpt(url.href, 80)}\`, aber die Sicherheitsregeln der Seite (\`${directive}\`) ` +
+		`erlauben \`${url.host}\` nicht. Der Browser blockiert den Inhalt, auch nach der Einwilligung.`
+	);
+}
+
+function blockedFix(tag: string): string {
+	return tag === 'script'
+		? 'Entferne das Skript. Fremde Skripte lassen sich auf dieser Seite nicht einbinden; Tracking läuft über `<Tracking />`. Lockere nicht die Regeln in svelte.config.js.'
+		: 'Für eine Karte nutze `<MapEmbed lat={…} lon={…} title="…" />` aus `@dealsystem/site` (OpenStreetMap). Jeden anderen fremden Inhalt ersetzt du durch einen gewöhnlichen Link `<a href="…">` zum Anbieter und sagst dem Kunden, dass sich dieser Dienst hier nicht einbetten lässt. Lockere nicht die Regeln in svelte.config.js.';
+}
+
+/** `kit.csp.directives` aus svelte.config.js, soweit sie als feste Listen dastehen. */
+function sourceCsp(ctx: SourceContext): { path: string; csp: Csp } | null {
+	const path = ctx.svelteConfigPath();
+	const mod = path ? ctx.module(path) : null;
+	if (!path || !mod) return null;
+	const config = mod.defaultExport ? evaluate(mod, mod.defaultExport) : undefined;
+	const kit = isPlainObject(config) ? config.kit : undefined;
+	const directives = isPlainObject(kit) && isPlainObject(kit.csp) ? kit.csp.directives : undefined;
+	if (!isPlainObject(directives)) return null;
+	const csp: Csp = {};
+	for (const [name, value] of Object.entries(directives)) {
+		if (Array.isArray(value) && value.every((x) => typeof x === 'string')) csp[name] = value as string[];
+	}
+	return { path, csp };
+}
+
+const sec008Source = sourceRule('SEC-008', (ctx) => {
+	const found = sourceCsp(ctx);
+	if (!found) return []; // SEC-005 meldet die fehlende oder unlesbare CSP.
+	const out: RawFinding[] = [];
+	for (const path of ctx.svelteFiles()) {
+		const ast = ctx.svelte(path);
+		if (!ast) continue;
+		const usesSdk = ctx.code(path).includes(SDK_PACKAGE);
+		for (const el of ast.elements) {
+			if (el.kind === 'component') {
+				// `<MapEmbed>` bettet OpenStreetMap ein: Die Vorlage der CSP erlaubt das, eine ältere oder veränderte nicht.
+				if (
+					usesSdk &&
+					el.name === COMPONENT.map &&
+					!cspAllows(found.csp, 'frame-src', new URL(MAP_EMBED_ORIGIN))
+				) {
+					out.push(
+						ctx.at(
+							path,
+							el.start,
+							`\`<${COMPONENT.map}>\` bettet eine Karte von \`${MAP_EMBED_ORIGIN}\` ein, aber \`frame-src\` in svelte.config.js erlaubt das nicht. Die Karte bliebe leer.`,
+							'Führe `npx dealsystem sync --fix-config` aus: Die Vorlage von svelte.config.js erlaubt die Karte.',
+						),
+					);
+				}
+				continue;
+			}
+			const tag = el.name.toLowerCase();
+			const directive = EMBED_DIRECTIVE[tag];
+			if (!directive) continue;
+			const attr = el.attributes.find(
+				(a) => a.kind === 'attribute' && a.name.toLowerCase() === (tag === 'object' ? 'data' : 'src'),
+			);
+			const url = externalUrl(typeof attr?.value === 'string' ? attr.value : null);
+			if (url && !cspAllows(found.csp, directive, url)) {
+				out.push(ctx.at(path, el.start, blockedMessage(tag, url, directive), blockedFix(tag)));
+			}
+		}
+	}
+	return out;
+});
+
+/** CSP aus dem `<meta http-equiv="content-security-policy">` einer fertigen Seite. */
+function metaCsp(content: string): Csp {
+	const csp: Csp = {};
+	for (const part of content.split(';')) {
+		const [name, ...sources] = part.trim().split(/\s+/);
+		if (name) csp[name.toLowerCase()] = sources;
+	}
+	return csp;
+}
+
+const sec008Output = outputRule('SEC-008', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.pages()) {
+		const doc = ctx.html(path);
+		const meta = doc.elements.find(
+			(el) => el.tag === 'meta' && el.attrs['http-equiv']?.toLowerCase() === 'content-security-policy',
+		);
+		if (!meta?.attrs.content) continue;
+		const csp = metaCsp(meta.attrs.content);
+		for (const el of doc.elements) {
+			const directive = EMBED_DIRECTIVE[el.tag];
+			if (!directive) continue;
+			const url = externalUrl(el.attrs[el.tag === 'object' ? 'data' : 'src']);
+			if (url && !cspAllows(csp, directive, url)) {
+				out.push({
+					file: path,
+					line: lineOf(doc, el),
+					message: blockedMessage(el.tag, url, directive),
+					fix: blockedFix(el.tag),
+				});
+			}
+		}
+	}
+	return out;
+});
+
 export const securitySourceRules: SourceRule[] = [
 	sec001Source,
 	sec002,
@@ -312,5 +464,6 @@ export const securitySourceRules: SourceRule[] = [
 	sec005,
 	sec006,
 	sec007,
+	sec008Source,
 ];
-export const securityOutputRules: OutputRule[] = [sec001Output];
+export const securityOutputRules: OutputRule[] = [sec001Output, sec008Output];

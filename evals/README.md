@@ -32,5 +32,8 @@ Jede Datei unter `prompts/` hat einen Kopf (YAML) und darunter den Auftrag im Wo
      Befehle)
    - Rückfragen zählen
 
+Fall 01 beginnt im leeren Ordner. Sein Auftrag enthält den Befehl, den das CRM dem Kunden zum Kopieren gibt;
+ohne ihn kennt ein Agent DealSystem nicht.
+
 Ein Fall ist bestanden, wenn die Prüfung grün ist, alle erwarteten Ergebnisse zutreffen, nichts Verbotenes
 geschah und die Zahl der Rückfragen eingehalten ist.
