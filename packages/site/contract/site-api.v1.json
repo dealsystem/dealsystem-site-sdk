@@ -1,0 +1,274 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "DealSystem Site-API",
+		"version": "1.0.0-vorlaeufig",
+		"description": "Vorläufige, von Hand aus dem Konzept abgeleitete Fassung. Wird durch die vom Core erzeugte Datei ersetzt."
+	},
+	"paths": {
+		"/api/site/v1/s/{publishableKey}/leads": {
+			"post": {
+				"operationId": "submitLead",
+				"parameters": [{ "$ref": "#/components/parameters/publishableKey" }],
+				"requestBody": {
+					"required": true,
+					"content": { "application/json": { "schema": { "$ref": "#/components/schemas/LeadRequest" } } }
+				},
+				"responses": {
+					"200": {
+						"description": "Angenommen (auch Honeypot-Treffer und wiederholte Einsendung)",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/LeadAcceptedResponse" },
+								"example": { "data": { "accepted": true } }
+							}
+						}
+					},
+					"201": {
+						"description": "Angenommen",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/LeadAcceptedResponse" },
+								"example": { "data": { "accepted": true } }
+							}
+						}
+					},
+					"400": { "$ref": "#/components/responses/Error" },
+					"403": { "$ref": "#/components/responses/Error" },
+					"404": { "$ref": "#/components/responses/Error" },
+					"422": { "$ref": "#/components/responses/Error" },
+					"429": { "$ref": "#/components/responses/Error" }
+				}
+			}
+		},
+		"/api/site/v1/s/{publishableKey}/collections/{key}": {
+			"get": {
+				"operationId": "listCollection",
+				"parameters": [
+					{ "$ref": "#/components/parameters/publishableKey" },
+					{ "name": "key", "in": "path", "required": true, "schema": { "type": "string" } },
+					{ "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } },
+					{ "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
+					{ "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["publishedAt", "-publishedAt"] } }
+				],
+				"responses": {
+					"200": {
+						"description": "Veröffentlichte Einträge",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/CollectionListResponse" },
+								"example": {
+									"data": [
+										{
+											"slug": "altbau-leipzig",
+											"publishedAt": "2026-11-01T09:00:00.000Z",
+											"data": { "titel": "Sanierter Altbau", "beschreibung": "**Drei** Zimmer" },
+											"media": {
+												"bilder": [
+													{
+														"id": "a1",
+														"kind": "image",
+														"alt": "Fassade des Altbaus",
+														"width": 1600,
+														"height": 1067,
+														"variants": [
+															{ "url": "/_ds/media/s1/a1/480.jpg", "width": 480, "format": "jpeg" },
+															{ "url": "/_ds/media/s1/a1/1600.jpg", "width": 1600, "format": "jpeg" }
+														]
+													}
+												]
+											}
+										}
+									],
+									"meta": { "total": 1, "limit": 12, "offset": 0 }
+								}
+							}
+						}
+					},
+					"403": { "$ref": "#/components/responses/Error" },
+					"404": { "$ref": "#/components/responses/Error" },
+					"429": { "$ref": "#/components/responses/Error" }
+				}
+			}
+		},
+		"/api/site/v1/s/{publishableKey}/collections/{key}/{slug}": {
+			"get": {
+				"operationId": "getCollectionEntry",
+				"parameters": [
+					{ "$ref": "#/components/parameters/publishableKey" },
+					{ "name": "key", "in": "path", "required": true, "schema": { "type": "string" } },
+					{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
+				],
+				"responses": {
+					"200": {
+						"description": "Ein veröffentlichter Eintrag",
+						"content": {
+							"application/json": {
+								"schema": { "$ref": "#/components/schemas/CollectionEntryResponse" },
+								"example": {
+									"data": {
+										"slug": "altbau-leipzig",
+										"publishedAt": "2026-11-01T09:00:00.000Z",
+										"data": { "titel": "Sanierter Altbau" },
+										"media": {}
+									}
+								}
+							}
+						}
+					},
+					"403": { "$ref": "#/components/responses/Error" },
+					"404": { "$ref": "#/components/responses/Error" },
+					"429": { "$ref": "#/components/responses/Error" }
+				}
+			}
+		}
+	},
+	"components": {
+		"parameters": {
+			"publishableKey": {
+				"name": "publishableKey",
+				"in": "path",
+				"required": true,
+				"schema": { "type": "string" }
+			}
+		},
+		"responses": {
+			"Error": {
+				"description": "Fehler",
+				"content": {
+					"application/json": {
+						"schema": { "$ref": "#/components/schemas/Error" },
+						"example": { "error": "Bad Request", "message": "Captcha ungültig", "status": 400, "code": "captcha_failed" }
+					}
+				}
+			}
+		},
+		"schemas": {
+			"LeadRequest": {
+				"type": "object",
+				"additionalProperties": false,
+				"required": ["funnelKey", "submissionId", "data", "website"],
+				"properties": {
+					"funnelKey": { "type": "string", "minLength": 1, "maxLength": 100 },
+					"submissionId": { "type": "string", "format": "uuid" },
+					"data": {
+						"type": "object",
+						"additionalProperties": {
+							"oneOf": [
+								{ "type": "string" },
+								{ "type": "boolean" },
+								{ "type": "array", "items": { "type": "string" } }
+							]
+						}
+					},
+					"attribution": {
+						"type": "object",
+						"additionalProperties": false,
+						"properties": {
+							"utmSource": { "type": "string", "maxLength": 200 },
+							"utmMedium": { "type": "string", "maxLength": 200 },
+							"utmCampaign": { "type": "string", "maxLength": 200 },
+							"utmTerm": { "type": "string", "maxLength": 200 },
+							"utmContent": { "type": "string", "maxLength": 200 },
+							"referrerHost": { "type": "string", "maxLength": 255 },
+							"capturedAt": { "type": "string" }
+						}
+					},
+					"captcha": { "type": "string" },
+					"website": { "type": "string" }
+				}
+			},
+			"LeadAcceptedResponse": {
+				"type": "object",
+				"required": ["data"],
+				"properties": {
+					"data": {
+						"type": "object",
+						"required": ["accepted"],
+						"properties": {
+							"accepted": { "const": true },
+							"dryRun": { "type": "boolean" }
+						}
+					}
+				}
+			},
+			"Error": {
+				"type": "object",
+				"required": ["error", "message", "status"],
+				"properties": {
+					"error": { "type": "string" },
+					"message": { "type": "string" },
+					"status": { "type": "integer" },
+					"code": { "type": "string" },
+					"fields": { "type": "object", "additionalProperties": { "type": "string" } }
+				}
+			},
+			"MediaRef": {
+				"type": "object",
+				"required": ["id", "kind", "alt", "width", "height", "variants"],
+				"properties": {
+					"id": { "type": "string" },
+					"kind": { "enum": ["image", "video", "file"] },
+					"alt": { "type": "string" },
+					"width": { "type": ["integer", "null"] },
+					"height": { "type": ["integer", "null"] },
+					"variants": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": ["url", "width", "format"],
+							"properties": {
+								"url": { "type": "string" },
+								"width": { "type": "integer" },
+								"format": { "enum": ["jpeg", "webp", "avif"] }
+							}
+						}
+					},
+					"video": {
+						"type": "object",
+						"required": ["provider", "playbackUrl", "posterUrl"],
+						"properties": {
+							"provider": { "const": "bunny" },
+							"playbackUrl": { "type": "string" },
+							"posterUrl": { "type": "string" }
+						}
+					},
+					"url": { "type": "string" }
+				}
+			},
+			"CollectionEntry": {
+				"type": "object",
+				"required": ["slug", "publishedAt", "data", "media"],
+				"properties": {
+					"slug": { "type": "string" },
+					"publishedAt": { "type": "string" },
+					"data": { "type": "object" },
+					"media": {
+						"type": "object",
+						"additionalProperties": { "type": "array", "items": { "$ref": "#/components/schemas/MediaRef" } }
+					}
+				}
+			},
+			"CollectionListResponse": {
+				"type": "object",
+				"required": ["data"],
+				"properties": {
+					"data": { "type": "array", "items": { "$ref": "#/components/schemas/CollectionEntry" } },
+					"meta": {
+						"type": "object",
+						"properties": {
+							"total": { "type": "integer" },
+							"limit": { "type": "integer" },
+							"offset": { "type": "integer" }
+						}
+					}
+				}
+			},
+			"CollectionEntryResponse": {
+				"type": "object",
+				"required": ["data"],
+				"properties": { "data": { "$ref": "#/components/schemas/CollectionEntry" } }
+			}
+		}
+	}
+}

@@ -1,0 +1,28 @@
+{
+	"snapshotVersion": 1,
+	"site": {
+		"id": "s1",
+		"slug": "kunde",
+		"name": "Kunde Immobilien",
+		"primaryHost": "kunde.de",
+		"locale": "de"
+	},
+	"captcha": { "provider": "friendly-captcha", "siteKey": "FCMTEST" },
+	"legal": {
+		"company": "Kunde GmbH",
+		"address": "Musterstraße 1, 04109 Leipzig",
+		"representative": "E. Muster",
+		"email": "info@kunde.de",
+		"phone": "0341 1234567"
+	},
+	"tracking": { "metaPixelId": "1234567890", "googleTagId": null },
+	"funnels": [
+		{ "key": "kontakt", "active": true, "fields": [] },
+		{ "key": "rueckruf", "active": false, "fields": [] }
+	],
+	"slots": {
+		"start.hero.titel": { "type": "text", "value": "Aus dem CRM" },
+		"start.angebot": { "type": "richtext", "value": "Text unter *altem* Schlüssel" }
+	},
+	"collections": { "angebote": { "source": "cms", "schemaHash": "h", "entries": [] } }
+}

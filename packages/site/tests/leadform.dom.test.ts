@@ -1,0 +1,406 @@
+import { render, screen, waitFor } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
+import { resetFirstTouchForTests } from '../src/lib/client/attribution.js';
+import { setCaptchaAdapterForTests, type CaptchaCallbacks } from '../src/lib/client/captcha.js';
+import LeadForm from '../src/lib/components/LeadForm.svelte';
+import { consent } from '../src/lib/consent/consent.svelte.js';
+import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
+import type { SiteData } from '../src/lib/types.js';
+import { jsonResponse, testSiteData } from './helpers.js';
+
+const fetchSpy = vi.fn<typeof fetch>();
+
+function sentBody(call = 0): Record<string, unknown> {
+	return JSON.parse(String(fetchSpy.mock.calls[call]![1]!.body));
+}
+
+function setup(site: Partial<SiteData> = {}, props: Record<string, unknown> = {}) {
+	setSiteDataForTests(testSiteData(site));
+	const user = userEvent.setup();
+	const view = render(LeadForm, { props: { funnel: 'kontakt', submitLabel: 'Anfrage senden', ...props } });
+	return { user, ...view };
+}
+
+async function fillAndSubmit(user: ReturnType<typeof userEvent.setup>) {
+	await user.type(screen.getByLabelText(/E-Mail/), 'anna@beispiel.de');
+	await user.type(screen.getByLabelText('Nachricht'), 'Bitte um Rückruf');
+	await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+}
+
+beforeEach(() => {
+	localStorage.clear();
+	sessionStorage.clear();
+	consent.resetForTests();
+	resetFirstTouchForTests();
+	fetchSpy.mockReset();
+	fetchSpy.mockResolvedValue(jsonResponse(201, { data: { accepted: true } }));
+	vi.stubGlobal('fetch', fetchSpy);
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	setCaptchaAdapterForTests(null);
+	setSiteDataForTests(null);
+	window.history.replaceState({}, '', '/');
+});
+
+describe('Aufbau', () => {
+	it('beschriftet jedes Feld und markiert Pflichtfelder', () => {
+		setup();
+		expect(screen.getByLabelText('Vorname')).toHaveAttribute('autocomplete', 'given-name');
+		const email = screen.getByLabelText(/E-Mail/);
+		expect(email).toBeRequired();
+		expect(email).toHaveAttribute('type', 'email');
+		expect(screen.getByLabelText('Nachricht').tagName).toBe('TEXTAREA');
+		expect(screen.getByText(/Pflichtfelder sind mit/)).toBeInTheDocument();
+	});
+
+	it('hält den Honeypot aus Tab-Reihenfolge und Vorleseprogramm heraus', () => {
+		const { container } = setup();
+		const honeypot = container.querySelector('input[name="website"]')!;
+		expect(honeypot).toHaveAttribute('tabindex', '-1');
+		expect(honeypot.closest('[aria-hidden="true"]')).not.toBeNull();
+		expect(screen.queryByRole('textbox', { name: /Website/ })).toBeNull();
+	});
+
+	it('rendert Auswahl, Mehrfachauswahl und Kontrollkästchen zugänglich', async () => {
+		const { user } = setup({
+			funnels: {
+				kontakt: {
+					label: 'Kontakt',
+					active: true,
+					fields: [
+						{ name: 'email', type: 'email', label: 'E-Mail', standardField: 'email', required: true },
+						{ name: 'art', type: 'select', label: 'Anliegen', options: ['Kauf', 'Verkauf'], required: true },
+						{ name: 'themen', type: 'multiselect', label: 'Themen', options: ['Wohnung', 'Haus'] },
+						{
+							name: 'rueckruf',
+							type: 'checkbox',
+							label: 'Bitte rufen Sie mich an',
+							help: 'Werktags 9–17 Uhr',
+						},
+					],
+				},
+			},
+		});
+		await user.type(screen.getByLabelText(/E-Mail/), 'a@b.de');
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(await screen.findByText('Bitte wählen Sie bei „Anliegen“ etwas aus.')).toBeInTheDocument();
+		expect(fetchSpy).not.toHaveBeenCalled();
+
+		await user.selectOptions(screen.getByLabelText(/Anliegen/), 'Verkauf');
+		expect(screen.getByRole('group', { name: 'Themen' })).toBeInTheDocument();
+		await user.click(screen.getByLabelText('Haus'));
+		const rueckruf = screen.getByLabelText('Bitte rufen Sie mich an');
+		expect(rueckruf).toHaveAccessibleDescription('Werktags 9–17 Uhr');
+		await user.click(rueckruf);
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+
+		await screen.findByRole('status');
+		expect(sentBody().data).toEqual({ email: 'a@b.de', art: 'Verkauf', themen: ['Haus'], rueckruf: true });
+	});
+});
+
+describe('Prüfung im Browser', () => {
+	it('meldet ein leeres Pflichtfeld am Feld, setzt den Fokus und sendet nicht', async () => {
+		const { user } = setup();
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+
+		const email = screen.getByLabelText(/E-Mail/);
+		const message = await screen.findByText('Bitte füllen Sie das Feld „E-Mail“ aus.');
+		expect(email).toHaveAttribute('aria-invalid', 'true');
+		expect(email).toHaveAccessibleDescription(message.textContent!);
+		expect(email).toHaveFocus();
+		expect(
+			screen.getByText('Bitte prüfen Sie das markierte Feld.').closest('[aria-live="polite"]'),
+		).not.toBeNull();
+		expect(fetchSpy).not.toHaveBeenCalled();
+	});
+
+	it('meldet eine ungültige E-Mail-Adresse und räumt den Fehler nach der Korrektur ab', async () => {
+		const { user } = setup();
+		const email = screen.getByLabelText(/E-Mail/);
+		await user.type(email, 'anna@');
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(await screen.findByText(/gültige E-Mail-Adresse/)).toBeInTheDocument();
+		expect(fetchSpy).not.toHaveBeenCalled();
+
+		await user.clear(email);
+		await user.type(email, 'anna@beispiel.de');
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		await screen.findByRole('status');
+		expect(screen.queryByText(/gültige E-Mail-Adresse/)).toBeNull();
+	});
+});
+
+describe('Versand', () => {
+	it('schickt die Angaben laut Vertrag und zeigt erst nach accepted die Bestätigung', async () => {
+		window.history.replaceState({}, '', '/?utm_source=google&utm_medium=cpc');
+		let release!: (response: Response) => void;
+		fetchSpy.mockReturnValue(new Promise((resolve) => (release = resolve)));
+		const onsuccess = vi.fn();
+		const { user } = setup({}, { successMessage: 'Danke, wir melden uns.', onsuccess });
+
+		await fillAndSubmit(user);
+
+		expect(await screen.findByText('Ihre Anfrage wird gesendet.')).toBeInTheDocument();
+		expect(screen.queryByText('Danke, wir melden uns.')).toBeNull();
+		expect(onsuccess).not.toHaveBeenCalled();
+
+		const [url, init] = fetchSpy.mock.calls[0]!;
+		expect(url).toBe('https://core.test/api/site/v1/s/dsp_TEST1234_abcdefghijklmnopqrstuvwx/leads');
+		expect(init).toMatchObject({
+			method: 'POST',
+			credentials: 'omit',
+			headers: { 'Content-Type': 'application/json' },
+		});
+		const body = sentBody();
+		expect(body).toMatchObject({
+			funnelKey: 'kontakt',
+			data: { email: 'anna@beispiel.de', nachricht: 'Bitte um Rückruf' },
+			attribution: { utmSource: 'google', utmMedium: 'cpc' },
+			website: '',
+		});
+		expect(body.submissionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/);
+		expect(body).not.toHaveProperty('captcha');
+		expect(body.data).not.toHaveProperty('firstName');
+
+		release(jsonResponse(201, { data: { accepted: true } }));
+		const status = await screen.findByRole('status');
+		expect(status).toHaveTextContent('Danke, wir melden uns.');
+		await waitFor(() => expect(status).toHaveFocus());
+		expect(screen.queryByRole('button', { name: 'Anfrage senden' })).toBeNull();
+		expect(onsuccess).toHaveBeenCalledTimes(1);
+	});
+
+	it('sendet bei einem Doppelklick nur einmal', async () => {
+		let release!: (response: Response) => void;
+		fetchSpy.mockReturnValue(new Promise((resolve) => (release = resolve)));
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+		release(jsonResponse(201, { data: { accepted: true } }));
+		await screen.findByRole('status');
+	});
+
+	it('reicht ein ausgefülltes Honeypot-Feld an den Server durch', async () => {
+		const { user, container } = setup();
+		await user.type(container.querySelector<HTMLInputElement>('input[name="website"]')!, 'https://spam.test');
+		await fillAndSubmit(user);
+		await screen.findByRole('status');
+		expect(sentBody().website).toBe('https://spam.test');
+	});
+
+	it('kennzeichnet den Probelauf der Vorschau', async () => {
+		fetchSpy.mockResolvedValue(jsonResponse(201, { data: { accepted: true, dryRun: true } }));
+		const { user } = setup();
+		await fillAndSubmit(user);
+		expect(
+			await screen.findByText(/Vorschau: Diese Anfrage wurde geprüft, aber nicht gespeichert/),
+		).toBeInTheDocument();
+	});
+});
+
+describe('Fehlerwege', () => {
+	async function expectFailure(user: ReturnType<typeof userEvent.setup>, text: RegExp) {
+		await fillAndSubmit(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Ihre Anfrage wurde nicht gesendet.');
+		expect(alert).toHaveTextContent(text);
+		// Telefon und E-Mail aus den Firmendaten als Ausweg.
+		expect(screen.getByRole('link', { name: '0341 1234567' })).toHaveAttribute('href', 'tel:03411234567');
+		expect(screen.getByRole('link', { name: 'info@kunde.de' })).toHaveAttribute(
+			'href',
+			'mailto:info@kunde.de',
+		);
+		await waitFor(() => expect(alert).toHaveFocus());
+		// Keine Erfolgsmeldung, Eingaben bleiben erhalten.
+		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.getByLabelText(/E-Mail/)).toHaveValue('anna@beispiel.de');
+		expect(screen.getByLabelText('Nachricht')).toHaveValue('Bitte um Rückruf');
+		return alert;
+	}
+
+	it('zeigt bei 429 den Hinweis und den direkten Kontakt', async () => {
+		fetchSpy.mockResolvedValue(
+			jsonResponse(
+				429,
+				{ error: 'x', message: 'x', status: 429, code: 'rate_limited' },
+				{ 'Retry-After': '60' },
+			),
+		);
+		const { user } = setup();
+		await expectFailure(user, /zu viele Anfragen/);
+	});
+
+	it('zeigt bei einem Netzfehler den direkten Kontakt', async () => {
+		fetchSpy.mockRejectedValue(new TypeError('Failed to fetch'));
+		const { user } = setup();
+		await expectFailure(user, /Verbindung ist fehlgeschlagen/);
+	});
+
+	it('zeigt bei einem Serverfehler nie Text vom Server', async () => {
+		fetchSpy.mockResolvedValue(
+			jsonResponse(500, { error: 'x', message: '<b>Stacktrace at db.ts:12</b>', status: 500 }),
+		);
+		const { user } = setup();
+		const alert = await expectFailure(user, /später erneut/);
+		expect(alert).not.toHaveTextContent('Stacktrace');
+	});
+
+	it.each([
+		['200 ohne accepted', () => jsonResponse(200, { data: {} })],
+		['200 mit accepted: false', () => jsonResponse(200, { data: { accepted: false } })],
+		['200 ohne JSON', () => new Response('ok', { status: 200 })],
+	])('meldet bei %s keinen Erfolg', async (_name, answer) => {
+		fetchSpy.mockResolvedValue(answer());
+		const { user } = setup();
+		await expectFailure(user, /Fehler aufgetreten/);
+	});
+
+	it('zeigt Feldfehler des Servers am Feld, mit eigenem Text', async () => {
+		fetchSpy.mockResolvedValue(
+			jsonResponse(422, {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				fields: { email: '<i>invalid</i>', fremd: 'x' },
+			}),
+		);
+		const { user } = setup();
+		await fillAndSubmit(user);
+		const email = screen.getByLabelText(/E-Mail/);
+		await waitFor(() => expect(email).toHaveAttribute('aria-invalid', 'true'));
+		expect(email).toHaveAccessibleDescription('Bitte prüfen Sie Ihre Angabe bei „E-Mail“.');
+		expect(email).toHaveFocus();
+		expect(screen.queryByText(/invalid/)).toBeNull();
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('verwendet beim neuen Versuch dieselbe submissionId', async () => {
+		fetchSpy.mockResolvedValueOnce(jsonResponse(503, { error: 'x', message: 'x', status: 503 }));
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await screen.findByRole('alert');
+
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		await screen.findByRole('status');
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+		expect(sentBody(1).submissionId).toBe(sentBody(0).submissionId);
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('zeigt ohne Firmendaten keinen leeren Kontakt-Hinweis', async () => {
+		fetchSpy.mockRejectedValue(new TypeError('offline'));
+		const { user } = setup({ legal: { ...testSiteData().legal, phone: '', email: '' } });
+		await fillAndSubmit(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).not.toHaveTextContent('Sie erreichen uns');
+	});
+});
+
+describe('Captcha', () => {
+	const captcha = { provider: 'friendly-captcha' as const, siteKey: 'FCMTEST' };
+
+	function fakeCaptcha() {
+		const state = {
+			started: 0,
+			resets: 0,
+			destroyed: 0,
+			siteKey: '',
+			callbacks: null as CaptchaCallbacks | null,
+			fail: false,
+		};
+		setCaptchaAdapterForTests(async (_element, config, callbacks) => {
+			state.started++;
+			state.siteKey = config.siteKey;
+			state.callbacks = callbacks;
+			if (state.fail) throw new Error('blockiert');
+			return { reset: () => state.resets++, destroy: () => state.destroyed++ };
+		});
+		return state;
+	}
+
+	it('lädt erst beim ersten Kontakt mit dem Formular', async () => {
+		const fake = fakeCaptcha();
+		const { user } = setup({ captcha });
+		expect(fake.started).toBe(0);
+
+		await user.click(screen.getByLabelText(/E-Mail/));
+		await waitFor(() => expect(fake.started).toBe(1));
+		expect(fake.siteKey).toBe('FCMTEST');
+
+		await user.click(screen.getByLabelText('Nachricht'));
+		expect(fake.started).toBe(1);
+	});
+
+	it('schickt die Lösung als captcha mit', async () => {
+		const fake = fakeCaptcha();
+		const { user } = setup({ captcha });
+		await user.click(screen.getByLabelText(/E-Mail/));
+		await waitFor(() => expect(fake.callbacks).not.toBeNull());
+		fake.callbacks!.onSolved('loesung-1');
+
+		await fillAndSubmit(user);
+		await screen.findByRole('status');
+		expect(sentBody().captcha).toBe('loesung-1');
+	});
+
+	it('wartet mit dem Versand, bis die Aufgabe gelöst ist', async () => {
+		const fake = fakeCaptcha();
+		const { user } = setup({ captcha });
+		await fillAndSubmit(user);
+
+		expect(await screen.findByText(/Die Sicherheitsprüfung läuft/)).toBeInTheDocument();
+		expect(fetchSpy).not.toHaveBeenCalled();
+
+		fake.callbacks!.onSolved('loesung-2');
+		await screen.findByRole('status');
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+		expect(sentBody().captcha).toBe('loesung-2');
+	});
+
+	it('fordert nach captcha_failed eine neue Aufgabe an und sendet die alte Lösung nicht erneut', async () => {
+		const fake = fakeCaptcha();
+		fetchSpy.mockResolvedValueOnce(
+			jsonResponse(400, { error: 'x', message: 'x', status: 400, code: 'captcha_failed' }),
+		);
+		const { user } = setup({ captcha });
+		await user.click(screen.getByLabelText(/E-Mail/));
+		await waitFor(() => expect(fake.callbacks).not.toBeNull());
+		fake.callbacks!.onSolved('alt');
+		await fillAndSubmit(user);
+
+		expect(await screen.findByRole('alert')).toHaveTextContent(/Sicherheitsprüfung ist fehlgeschlagen/);
+		expect(fake.resets).toBe(1);
+
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+		fake.callbacks!.onSolved('neu');
+		await screen.findByRole('status');
+		expect(sentBody(1).captcha).toBe('neu');
+	});
+
+	it('zeigt den direkten Kontakt, wenn das Captcha nicht laden kann', async () => {
+		const fake = fakeCaptcha();
+		fake.fail = true;
+		const { user } = setup({ captcha });
+		await fillAndSubmit(user);
+
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent(/Sicherheitsprüfung konnte nicht geladen werden/);
+		expect(screen.getByRole('link', { name: 'info@kunde.de' })).toBeInTheDocument();
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('räumt das Widget beim Entfernen des Formulars ab', async () => {
+		const fake = fakeCaptcha();
+		const { user, unmount } = setup({ captcha });
+		await user.click(screen.getByLabelText(/E-Mail/));
+		await waitFor(() => expect(fake.started).toBe(1));
+		unmount();
+		expect(fake.destroyed).toBe(1);
+	});
+});

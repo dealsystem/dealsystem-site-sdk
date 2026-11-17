@@ -7,5 +7,5 @@
 		"types": ["vitest/globals", "@testing-library/jest-dom"]
 	},
 	"include": ["src/**/*.ts", "src/**/*.svelte", "tests/**/*.ts", "tests/**/*.svelte", "*.ts", "*.js"],
-	"exclude": ["dist", "node_modules", "tests/types"]
+	"exclude": ["dist", "node_modules", "tests/types", "tests/types-invalid", "tests/fixtures/project"]
 }

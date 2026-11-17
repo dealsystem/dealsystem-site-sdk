@@ -1,0 +1,277 @@
+import { render, screen, waitFor } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
+import { resetFirstTouchForTests } from '../src/lib/client/attribution.js';
+import { resetTrackingForTests } from '../src/lib/client/tracking.js';
+import { consent } from '../src/lib/consent/consent.svelte.js';
+import { reloadPage } from '../src/lib/internal/reload.js';
+import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
+import GateHarness from './fixtures/GateHarness.svelte';
+import LayoutHarness from './fixtures/LayoutHarness.svelte';
+import { testSiteData } from './helpers.js';
+
+vi.mock('../src/lib/internal/reload.js', () => ({ reloadPage: vi.fn() }));
+
+const fetchSpy = vi.fn();
+
+/** Alles im Dokument, das eine Adresse außerhalb der Seite lädt. */
+function externalRequests(): string[] {
+	const urls: string[] = [];
+	for (const element of document.querySelectorAll(
+		'script[src], iframe[src], img[src], link[href], video[src], source[src]',
+	)) {
+		const url = element.getAttribute('src') ?? element.getAttribute('href') ?? '';
+		if (/^(https?:)?\/\//.test(url)) urls.push(url);
+	}
+	return urls;
+}
+
+function stored(): { granted: Record<string, boolean> } | null {
+	const raw = localStorage.getItem('ds-consent');
+	return raw ? JSON.parse(raw) : null;
+}
+
+beforeEach(() => {
+	localStorage.clear();
+	sessionStorage.clear();
+	consent.resetForTests();
+	resetTrackingForTests();
+	resetFirstTouchForTests();
+	for (const script of document.head.querySelectorAll('script')) script.remove();
+	const w = window as unknown as Record<string, unknown>;
+	delete w.fbq;
+	delete w._fbq;
+	delete w.gtag;
+	delete w.dataLayer;
+	fetchSpy.mockReset();
+	vi.stubGlobal('fetch', fetchSpy);
+	vi.mocked(reloadPage).mockReset();
+	setSiteDataForTests(testSiteData({ tracking: { metaPixelId: '1234567890', googleTagId: 'G-ABCDEF1234' } }));
+});
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+	setSiteDataForTests(null);
+});
+
+describe('vor der Entscheidung', () => {
+	it('zeigt den Hinweis und lädt nichts von Dritten', async () => {
+		render(LayoutHarness);
+
+		const dialog = await screen.findByRole('dialog', { name: 'Cookies und Datenschutz' });
+		expect(dialog).toBeVisible();
+		expect(externalRequests()).toEqual([]);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(document.querySelector('iframe')).toBeNull();
+		expect((window as unknown as Record<string, unknown>).fbq).toBeUndefined();
+		expect(stored()).toBeNull();
+		expect(consent.has('marketing')).toBe(false);
+	});
+
+	it('bietet Ablehnen und Akzeptieren gleichwertig an', async () => {
+		render(LayoutHarness);
+		const reject = await screen.findByRole('button', { name: 'Alle ablehnen' });
+		const accept = screen.getByRole('button', { name: 'Alle akzeptieren' });
+
+		// Gleiche Art von Element, gleiche Gestaltung, gleiche Ebene, Ablehnen zuerst.
+		expect(reject.tagName).toBe(accept.tagName);
+		expect(reject.className).toBe(accept.className);
+		expect(reject.parentElement).toBe(accept.parentElement);
+		expect(reject.compareDocumentPosition(accept) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+		expect(reject).toBeEnabled();
+	});
+
+	it('lässt sich nicht mit Escape wegdrücken', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		(await screen.findByRole('dialog')).focus();
+		await user.keyboard('{Escape}');
+		expect(screen.getByRole('dialog')).toBeInTheDocument();
+		expect(stored()).toBeNull();
+	});
+});
+
+describe('Ablehnen', () => {
+	it('speichert die Wahl, schließt den Hinweis und lädt weiterhin nichts', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Alle ablehnen' }));
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: false });
+		expect(externalRequests()).toEqual([]);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(reloadPage).not.toHaveBeenCalled();
+	});
+
+	it('fragt beim nächsten Besuch nicht erneut', async () => {
+		localStorage.setItem(
+			'ds-consent',
+			JSON.stringify({
+				v: 1,
+				at: Date.now(),
+				granted: { statistics: false, marketing: false, media: false },
+			}),
+		);
+		render(LayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(externalRequests()).toEqual([]);
+	});
+});
+
+describe('Akzeptieren', () => {
+	it('lädt Tracking und gesperrte Inhalte erst danach', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
+
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(stored()?.granted).toEqual({ statistics: true, marketing: true, media: true });
+		await waitFor(() =>
+			expect(externalRequests().sort()).toEqual([
+				'https://connect.facebook.net/en_US/fbevents.js',
+				'https://maps.example/embed',
+				'https://www.googletagmanager.com/gtag/js?id=G-ABCDEF1234',
+			]),
+		);
+	});
+
+	it('stimmt nur den Zwecken zu, die die Seite nennt', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness, { props: { categories: ['marketing'] } });
+		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: true, media: false });
+		expect(document.querySelector('iframe')).toBeNull();
+	});
+
+	it('lädt jedes Skript nur einmal', async () => {
+		const user = userEvent.setup();
+		const first = render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
+		await waitFor(() => expect(document.head.querySelectorAll('script')).toHaveLength(2));
+		first.unmount();
+		render(LayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(document.head.querySelectorAll('script')).toHaveLength(2);
+	});
+});
+
+describe('Auswahl und Widerruf', () => {
+	it('speichert eine einzelne Auswahl', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+		expect(screen.getByRole('checkbox', { name: /Notwendig/ })).toBeDisabled();
+		expect(screen.getByRole('checkbox', { name: /Marketing/ })).not.toBeChecked();
+
+		await user.click(screen.getByRole('checkbox', { name: /Externe Inhalte/ }));
+		await user.click(screen.getByRole('button', { name: 'Auswahl speichern' }));
+
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: true });
+		await waitFor(() => expect(externalRequests()).toEqual(['https://maps.example/embed']));
+	});
+
+	it('öffnet die Einstellungen über den Footer, mit Fokus im Dialog und zurück', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
+
+		const opener = screen.getByRole('button', { name: 'Cookie-Einstellungen' });
+		await user.click(opener);
+		const dialog = await screen.findByRole('dialog');
+		await waitFor(() => expect(dialog).toHaveFocus());
+		expect(screen.getByRole('checkbox', { name: /Marketing/ })).toBeChecked();
+
+		await user.keyboard('{Escape}');
+		expect(screen.queryByRole('dialog')).toBeNull();
+		await waitFor(() => expect(opener).toHaveFocus());
+		expect(stored()?.granted.marketing).toBe(true);
+	});
+
+	it('lädt nach einem Widerruf die Seite neu, damit geladene Skripte verschwinden', async () => {
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
+		await user.click(screen.getByRole('button', { name: 'Cookie-Einstellungen' }));
+		await user.click(await screen.findByRole('button', { name: 'Alle ablehnen' }));
+
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: false });
+		expect(reloadPage).toHaveBeenCalledTimes(1);
+		expect(consent.has('marketing')).toBe(false);
+	});
+});
+
+describe('gespeicherte Wahl', () => {
+	it.each([
+		['veraltet', { v: 1, at: Date.now() - 366 * 24 * 60 * 60 * 1000, granted: { marketing: true } }],
+		['andere Version', { v: 0, at: Date.now(), granted: { marketing: true } }],
+		['kaputt', 'kein json {'],
+	])('gilt nicht, wenn sie %s ist', async (_name, value) => {
+		localStorage.setItem('ds-consent', typeof value === 'string' ? value : JSON.stringify(value));
+		render(LayoutHarness);
+		expect(await screen.findByRole('dialog')).toBeInTheDocument();
+		expect(consent.has('marketing')).toBe(false);
+		expect(externalRequests()).toEqual([]);
+	});
+
+	it('wertet nur ausdrückliches true als Zustimmung', async () => {
+		localStorage.setItem(
+			'ds-consent',
+			JSON.stringify({ v: 1, at: Date.now(), granted: { marketing: 'ja', media: 1 } }),
+		);
+		render(LayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(consent.has('marketing')).toBe(false);
+		expect(consent.has('media')).toBe(false);
+		expect(externalRequests()).toEqual([]);
+	});
+});
+
+describe('<ConsentGate>', () => {
+	it('zeigt den Ersatz und stimmt über accept genau diesem Zweck zu', async () => {
+		const user = userEvent.setup();
+		render(GateHarness, { props: { category: 'media', withFallback: true } });
+
+		const button = await screen.findByRole('button', { name: 'Karte anzeigen' });
+		expect(document.querySelector('iframe')).toBeNull();
+		await user.click(button);
+
+		expect(document.querySelector('iframe')?.getAttribute('src')).toBe('https://maps.example/embed');
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: true });
+		expect(screen.queryByRole('button', { name: 'Karte anzeigen' })).toBeNull();
+	});
+
+	it('zeigt ohne Ersatz und ohne Einwilligung nichts', async () => {
+		const { container } = render(GateHarness, { props: { category: 'media' } });
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(container.querySelector('iframe')).toBeNull();
+		expect(container.textContent?.trim()).toBe('');
+	});
+});
+
+describe('Zuordnung der Kampagne', () => {
+	it('legt ohne Einwilligung nichts in den Browser-Speicher', async () => {
+		window.history.replaceState({}, '', '/?utm_source=google&utm_campaign=herbst');
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await screen.findByRole('dialog');
+		expect(sessionStorage.length).toBe(0);
+
+		await user.click(screen.getByRole('button', { name: 'Alle ablehnen' }));
+		expect(sessionStorage.length).toBe(0);
+		expect(Object.keys(localStorage)).toEqual(['ds-consent']);
+		window.history.replaceState({}, '', '/');
+	});
+
+	it('speichert sie erst mit der Einwilligung „Marketing“', async () => {
+		window.history.replaceState({}, '', '/?utm_source=google&utm_campaign=herbst');
+		const user = userEvent.setup();
+		render(LayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
+		expect(JSON.parse(sessionStorage.getItem('ds-first-touch')!)).toMatchObject({
+			utmSource: 'google',
+			utmCampaign: 'herbst',
+		});
+		window.history.replaceState({}, '', '/');
+	});
+});
