@@ -64,7 +64,7 @@ export interface LeadRequest {
 	submissionId: string;
 	data: Record<string, string | string[] | boolean>;
 	attribution?: LeadAttribution;
-	/** Gelöste Captcha-Aufgabe (ALTCHA, base64), 1 bis 16 000 Zeichen. */
+	/** Gelöste Captcha-Aufgabe (ALTCHA v3): base64 von `{ challenge, solution }`, höchstens 4 000 Zeichen. */
 	captcha: string;
 	/** Honeypot. Echte Besucher lassen das Feld leer. */
 	website?: string;

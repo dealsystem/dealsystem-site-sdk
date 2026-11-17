@@ -131,6 +131,29 @@ export function buildSiteData(
 	};
 }
 
+const DEV_CAPTCHA_SECRET = 'dealsystem-dev';
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/**
+ * Test-Aufgabe für `vite dev`, in derselben Form wie die des Core (ALTCHA v3,
+ * PBKDF2/SHA-256, signiert, an die Seite gebunden), damit das Formular lokal
+ * genauso läuft wie später. Der Schlüssel ist öffentlich: geprüft wird die
+ * Lösung lokal nicht.
+ */
+export async function createDevCaptchaChallenge(siteId: string): Promise<unknown> {
+	const { createChallenge, pbkdf2 } = await import('altcha/lib');
+	return createChallenge({
+		algorithm: 'PBKDF2/SHA-256',
+		cost: 2000,
+		counter: 250 + Math.floor(Math.random() * 501),
+		deriveKey: pbkdf2.deriveKey,
+		expiresAt: Math.floor(Date.now() / 1000) + 600,
+		data: { site: UUID.test(siteId) ? siteId : '00000000-0000-0000-0000-000000000000' },
+		hmacSignatureSecret: DEV_CAPTCHA_SECRET,
+		hmacKeySignatureSecret: DEV_CAPTCHA_SECRET,
+	});
+}
+
 function sendJson(res: import('node:http').ServerResponse, status: number, body: unknown): void {
 	res.statusCode = status;
 	res.setHeader('Content-Type', 'application/json; charset=utf-8');
@@ -168,18 +191,9 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 				return sendJson(res, 200, { data: { accepted: true, dryRun: true } });
 			}
 			if (resource === 'captcha' && req.method === 'GET') {
-				// Leichte Test-Aufgabe, damit das Formular lokal ohne Core läuft.
-				const { createChallenge, pbkdf2 } = await import('altcha/lib');
-				const challenge = await createChallenge({
-					algorithm: 'PBKDF2/SHA-256',
-					cost: 500,
-					counter: 100 + Math.floor(Math.random() * 400),
-					deriveKey: pbkdf2.deriveKey,
-					expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-				});
 				res.setHeader('Cache-Control', 'no-store');
 				res.setHeader('X-Captcha-Mode', 'test');
-				return sendJson(res, 200, challenge);
+				return sendJson(res, 200, await createDevCaptchaChallenge(config.siteId));
 			}
 			if (resource === 'collections' && req.method === 'GET' && key) {
 				const snapshot = await readSnapshot(root);

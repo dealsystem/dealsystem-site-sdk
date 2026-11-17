@@ -3,7 +3,7 @@
   "info": {
     "title": "DealSystem Site-API (Self-Service-Websites)",
     "version": "1.0.0",
-    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }`, Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`."
+    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen, Captcha-Challenge holen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`."
   },
   "servers": [
     {
@@ -17,6 +17,127 @@
     }
   ],
   "paths": {
+    "/s/{key}/captcha": {
+      "get": {
+        "operationId": "getCaptchaChallenge",
+        "summary": "Captcha-Challenge holen",
+        "description": "Eigenes Proof-of-Work-Captcha (ALTCHA v3, selbst gehostet, kein Drittanbieter). Das ALTCHA-Widget (`altcha` 3.x) bekommt diesen Endpunkt als `challengeurl`, rechnet die Aufgabe (PBKDF2/SHA-256) im Browser und liefert den Payload `base64(JSON.stringify({ challenge, solution }))`, der als `captcha` in den Lead geht.\n\nDie Antwort ist die Challenge `{ parameters, signature }` selbst, ohne `{ data }`-Hülle — so liest das Widget sie. Gültig 10 Minuten; jede Lösung gilt einmal und nur für diese Seite. `Cache-Control: no-store`. Rate-Limit: 30/min je IP und Seite, 600/min je Seite.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Challenge.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptchaChallenge"
+                },
+                "example": {
+                  "parameters": {
+                    "algorithm": "PBKDF2/SHA-256",
+                    "cost": 2000,
+                    "data": {
+                      "site": "2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a"
+                    },
+                    "expiresAt": 1794900000,
+                    "keyLength": 32,
+                    "keyPrefix": "a3cf01565f6bd0b9734372c424dd6ab5",
+                    "keySignature": "c8cbd575181c5e8ddf4cd02d22e6445015b74b0aba282edfeb41eef17306182e",
+                    "nonce": "ea5b13e06036e8d58e67103b61d0f6ac",
+                    "salt": "2855d7c4023b51ce4c6faedc49a04bf5"
+                  },
+                  "signature": "cb04c40014e1c8ed691a0aad42415f1856cb3c279af6a8c662ba75aa732df6c9"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `funnel_not_found` (nur Leads): Formular unbekannt oder ausgeschaltet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Diese Website ist nicht (mehr) verfügbar.",
+                  "status": 404,
+                  "code": "site_not_found"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: zu viele Challenges. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`captcha_unavailable`: Captcha auf unserer Seite nicht eingerichtet (kein Schlüssel).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/s/{key}/leads": {
       "post": {
         "operationId": "submitLead",
@@ -131,8 +252,8 @@
                   "captcha": {
                     "type": "string",
                     "minLength": 1,
-                    "maxLength": 16000,
-                    "description": "Lösung des Captcha-Widgets (Friendly Captcha, im SDK enthalten). Ohne Widget schickt das SDK `\"none\"` — das gilt nur im Testmodus der Entwicklung, in Production ist es immer 400 `captcha_failed` bzw. 503."
+                    "maxLength": 4000,
+                    "description": "Lösung des Captchas (ALTCHA v3): base64 von `{ challenge, solution }` zu einer Challenge aus `GET …/captcha` — das ALTCHA-Widget im SDK liefert genau das. Gilt einmal, 10 Minuten, nur für diese Seite."
                   },
                   "website": {
                     "description": "Honeypot: unsichtbares Feld, bleibt leer. Ist es gefüllt, wird nichts gespeichert.",
@@ -162,7 +283,7 @@
                   "referrerHost": "www.google.com",
                   "capturedAt": "2026-11-17T09:12:00.000Z"
                 },
-                "captcha": "<Lösung des Widgets>",
+                "captcha": "eyJhbGdvcml0aG0iOiJTSEEtMjU2IiwiY2hhbGxlbmdlIjoi4oCmIiwibnVtYmVyIjo0MjEzNywic2FsdCI6IuKApiIsInNpZ25hdHVyZSI6IuKApiJ9",
                 "website": ""
               }
             }
@@ -204,7 +325,7 @@
             "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
           },
           "400": {
-            "description": "`captcha_failed`: Captcha ungültig, abgelaufen oder schon benutzt. `invalid_json`: Body ist kein JSON.",
+            "description": "`captcha_failed`: Lösung falsch, abgelaufen, schon benutzt oder von einer anderen Seite — neue Challenge holen. `invalid_json`: Body ist kein JSON.",
             "content": {
               "application/json": {
                 "schema": {
@@ -320,7 +441,7 @@
             }
           },
           "503": {
-            "description": "`captcha_unavailable`: Captcha-Prüfung auf unserer Seite nicht eingerichtet oder falsch konfiguriert. Ist nur der Captcha-Anbieter kurz nicht erreichbar, wird der Lead angenommen (Honeypot und Rate-Limit gelten weiter).",
+            "description": "`captcha_unavailable`: Captcha auf unserer Seite nicht eingerichtet (kein Schlüssel).",
             "content": {
               "application/json": {
                 "schema": {
@@ -335,33 +456,89 @@
   },
   "components": {
     "schemas": {
-      "LeadAccepted": {
+      "CaptchaChallenge": {
         "type": "object",
         "properties": {
-          "data": {
+          "parameters": {
             "type": "object",
             "properties": {
-              "accepted": {
-                "type": "boolean",
-                "const": true
+              "algorithm": {
+                "type": "string",
+                "const": "PBKDF2/SHA-256"
               },
-              "dryRun": {
-                "description": "Nur aus der Vorschau: geprüft, aber nichts gespeichert.",
-                "type": "boolean",
-                "const": true
+              "cost": {
+                "type": "number",
+                "const": 2000,
+                "description": "PBKDF2-Iterationen je Versuch."
+              },
+              "data": {
+                "type": "object",
+                "properties": {
+                  "site": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                  }
+                },
+                "required": [
+                  "site"
+                ],
+                "additionalProperties": false,
+                "description": "Seite, für die die Challenge gilt (signiert)."
+              },
+              "expiresAt": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Ablauf in Unix-Sekunden (10 Minuten)."
+              },
+              "keyLength": {
+                "type": "number",
+                "const": 32
+              },
+              "keyPrefix": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$",
+                "description": "Präfix des gesuchten Schlüssels."
+              },
+              "keySignature": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              },
+              "nonce": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
+              },
+              "salt": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{32}$"
               }
             },
             "required": [
-              "accepted"
+              "algorithm",
+              "cost",
+              "data",
+              "expiresAt",
+              "keyLength",
+              "keyPrefix",
+              "keySignature",
+              "nonce",
+              "salt"
             ],
             "additionalProperties": false
+          },
+          "signature": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "HMAC-SHA-256 über die Parameter."
           }
         },
         "required": [
-          "data"
+          "parameters",
+          "signature"
         ],
         "additionalProperties": false,
-        "description": "Angenommen. Enthält bewusst keine Kontakt- oder Deal-ID. Nie eine Erfolgsmeldung anzeigen ohne `accepted: true`."
+        "description": "ALTCHA-Challenge (v3, wie `altcha-lib` sie erzeugt). Bewusste Ausnahme vom `{ data }`-Muster: das ALTCHA-Widget liest die Antwort seiner `challengeurl` unverändert; eine Hülle müsste jede Seite selbst auspacken. Gültig 10 Minuten, eine Lösung gilt für genau eine Einsendung dieser Seite."
       },
       "Error": {
         "type": "object",
@@ -425,6 +602,34 @@
         ],
         "additionalProperties": false,
         "description": "Fehlerform aller Endpunkte der Site-API."
+      },
+      "LeadAccepted": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              },
+              "dryRun": {
+                "description": "Nur aus der Vorschau: geprüft, aber nichts gespeichert.",
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "accepted"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false,
+        "description": "Angenommen. Enthält bewusst keine Kontakt- oder Deal-ID. Nie eine Erfolgsmeldung anzeigen ohne `accepted: true`."
       }
     }
   }

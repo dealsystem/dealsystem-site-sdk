@@ -52,6 +52,7 @@ Jede Meldung nennt Datei, Zeile und die Korrektur. Behebe die Ursache; schalte k
 | `CNT-001` | Warnung | Quelltext | längere Texte als Content-Slot statt fest im Code | Lege den Text als Slot an, damit er im CRM änderbar ist: `<Text key="seite.bereich.name" default="…" />` (mehrzeilig: `multiline`, mit Formatierung: `<RichText>`). |
 | `BLD-001` | Fehler | Build | `npm ci` oder `vite build` scheitert | Führe lokal `npm run build` aus und behebe den ersten Fehler. |
 | `BLD-002` | Fehler | Build | Zeit- oder Speichergrenze des Builds überschritten | Der Build darf höchstens 5 Minuten und 2 GB brauchen. Entferne große Abhängigkeiten oder Seiten mit sehr vielen Einträgen. |
+| `BLD-003` | Fehler | Build | Archiv oder Ausgabe ungültig (Symlinks, `..` im Pfad, Gerätedateien, Größengrenze) | Entferne Symlinks und Dateien außerhalb des Projekts und verkleinere große Dateien. Lade nur mit `npx dealsystem deploy` hoch; es packt ausschließlich die erlaubten Dateien. |
 
 ## Freigegebene Pakete
 

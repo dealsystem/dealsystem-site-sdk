@@ -3,7 +3,16 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import collectionsContract from '../contract/site-api.collections.vorlaeufig.json' with { type: 'json' };
 import contract from '../contract/site-api.v1.json' with { type: 'json' };
-import { createSiteApi, type LeadRequest, type SiteApiErrorKind } from '../src/lib/client/siteApi.js';
+import { pbkdf2, solveChallenge } from 'altcha/lib';
+import { CAPTCHA_ALGORITHMS } from '../src/lib/client/captcha.js';
+import {
+	captchaChallengeUrl,
+	createSiteApi,
+	type LeadRequest,
+	type SiteApiErrorKind,
+} from '../src/lib/client/siteApi.js';
+import { emptySiteData, setSiteDataForTests } from '../src/lib/internal/siteData.js';
+import { createDevCaptchaChallenge } from '../src/lib/vite/index.js';
 import { toLeadData } from '../src/lib/client/validation.js';
 import { jsonResponse } from './helpers.js';
 
@@ -164,6 +173,54 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			.filter((d) => d.path.startsWith('data.'))
 			.map((d) => d.path.split('.')[1]);
 		expect(result.error.invalidFields).toEqual([...new Set(fromExample)]);
+	});
+});
+
+describe('Vertrag Site-API v1: Captcha (Kopie aus dem Core)', () => {
+	const operation = contract.paths['/s/{key}/captcha'].get;
+	const maxLength = leadOperation.requestBody.content['application/json'].schema.properties.captcha.maxLength;
+
+	it('das Formular holt die Aufgabe von genau diesem Pfad', () => {
+		setSiteDataForTests({
+			...emptySiteData(),
+			api: { baseUrl: new URL(contract.servers[0]!.url).origin, siteKey: SITE_KEY },
+		});
+		try {
+			expect(captchaChallengeUrl()).toBe(
+				contract.servers[0]!.url + '/s/{key}/captcha'.replace('{key}', SITE_KEY),
+			);
+		} finally {
+			setSiteDataForTests(null);
+		}
+		expect(Object.keys(operation.responses)).toContain('200');
+	});
+
+	it('das Beispiel des Vertrags hat die Form, die das Widget liest: { parameters, signature } ohne Hülle', () => {
+		const example = exampleOf(operation.responses['200']) as Record<string, unknown>;
+		expect(coreSchema('CaptchaChallenge')(example)).toBe(true);
+		expect(Object.keys(example).sort()).toEqual(['parameters', 'signature']);
+		const algorithm = (example.parameters as { algorithm: string }).algorithm;
+		// Für diesen Algorithmus bringt das Paket den Worker mit.
+		expect([...CAPTCHA_ALGORITHMS.pbkdf2, ...CAPTCHA_ALGORITHMS.sha]).toContain(algorithm);
+	});
+
+	it('die Test-Aufgabe des Dev-Servers erfüllt dasselbe Schema, und ihre Lösung passt ins Feld captcha', async () => {
+		const challenge = (await createDevCaptchaChallenge('2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a')) as Parameters<
+			typeof solveChallenge
+		>[0]['challenge'];
+		const validate = coreSchema('CaptchaChallenge');
+		expect(validate(challenge), JSON.stringify(validate.errors)).toBe(true);
+
+		// Dieselbe Bibliothek, die im Widget rechnet.
+		const solution = await solveChallenge({ challenge, deriveKey: pbkdf2.deriveKey });
+		expect(solution).not.toBeNull();
+		const payload = Buffer.from(JSON.stringify({ challenge, solution })).toString('base64');
+		expect(payload.length).toBeLessThanOrEqual(maxLength);
+		expect(validateLeadBody(lead({ captcha: payload }))).toBe(true);
+	});
+
+	it('eine Seite ohne Kennung bekommt lokal trotzdem eine gültige Aufgabe', async () => {
+		expect(coreSchema('CaptchaChallenge')(await createDevCaptchaChallenge(''))).toBe(true);
 	});
 });
 
