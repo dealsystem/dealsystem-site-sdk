@@ -5,8 +5,9 @@
 //  - schreibt das Manifest, das der Build ans CRM meldet,
 //  - legt `manifest.webmanifest` an, wenn im CRM ein Favicon hochgeladen ist,
 //  - beantwortet in der Entwicklung die Site-API aus der lokalen Kopie.
+import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateSiteConfig } from '../config/index.js';
 import { readSnapshot } from '../content/index.js';
@@ -14,7 +15,14 @@ import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, LOCAL_MANIFEST_FILE, MANIFEST_FIL
 import { defaultRichtextToHtml, sanitizeRichtextHtml } from '../richtext/server.js';
 import { resolveTextSlot } from '../slots.js';
 import { WEB_MANIFEST_PATH, webManifest } from '../internal/seo.js';
-import type { ContentSlotDef, ContentSnapshot, SiteConfig, SiteData, SiteManifest } from '../types.js';
+import type {
+	ContentSlotDef,
+	ContentSnapshot,
+	SiteConfig,
+	SiteData,
+	SiteManifest,
+	SlotDefaultImage,
+} from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
 
@@ -49,8 +57,13 @@ async function svelteFiles(dir: string): Promise<string[]> {
 	return files.sort();
 }
 
+/** Herkunft des Standardbilds je Bild-Slot (Schlüssel), wie der Scan sie im Quelltext findet. */
+export type ImageSources = Map<string, NonNullable<FoundSlot['imageSource']>>;
+
 /** Sammelt die Slots aller `.svelte`-Dateien unter `src/`. */
-export async function collectSlots(root: string): Promise<{ slots: ContentSlotDef[]; routes: string[] }> {
+export async function collectSlots(
+	root: string,
+): Promise<{ slots: ContentSlotDef[]; routes: string[]; imageSources: ImageSources }> {
 	const found: FoundSlot[] = [];
 	const routes = new Set<string>();
 	for (const file of await svelteFiles(resolve(root, 'src'))) {
@@ -61,7 +74,45 @@ export async function collectSlots(root: string): Promise<{ slots: ContentSlotDe
 		}
 		found.push(...scanSlots(await readFile(file, 'utf8'), shown));
 	}
-	return { slots: mergeSlots(found), routes: [...routes].sort() };
+	const imageSources: ImageSources = new Map();
+	for (const slot of found) {
+		if (slot.imageSource && !imageSources.has(slot.key)) imageSources.set(slot.key, slot.imageSource);
+	}
+	return { slots: mergeSlots(found), routes: [...routes].sort(), imageSources };
+}
+
+/**
+ * Trägt bei jedem Bild-Slot `defaultImage` ein: den Pfad des Standardbilds in der fertigen Seite, oder `null`,
+ * wenn er sich nicht sicher sagen lässt. `static`: die Datei muss unter `static/` liegen. `module`: der Pfad
+ * kommt aus dem Client-Build (`assets`: Datei im Projekt → Pfad im Artefakt); ein eingebettetes Bild
+ * (Vite: unter 4 KB als `data:`) steht dort nicht und bleibt `null`.
+ */
+export function withDefaultImages(
+	slots: readonly ContentSlotDef[],
+	sources: ImageSources,
+	staticExists: (path: string) => boolean,
+	assets: ReadonlyMap<string, string>,
+): ContentSlotDef[] {
+	return slots.map((slot) => {
+		if (slot.type !== 'image') return slot;
+		const source = sources.get(slot.key);
+		const path =
+			source?.kind === 'static'
+				? staticExists(source.path)
+					? source.path
+					: null
+				: source?.kind === 'module'
+					? (assets.get(source.path) ?? null)
+					: null;
+		const defaultImage: SlotDefaultImage | null = path
+			? {
+					path,
+					...(source?.width ? { width: source.width } : {}),
+					...(source?.height ? { height: source.height } : {}),
+				}
+			: null;
+		return { ...slot, defaultImage };
+	});
 }
 
 /** Baut das Manifest aus Konfiguration, Slots und Routen. */
@@ -266,11 +317,21 @@ export function dealsystem(config: SiteConfig): Plugin {
 	let root = process.cwd();
 	let code: Record<string, string> | null = null;
 	let snapshot: ContentSnapshot | null = null;
+	let scanned: Awaited<ReturnType<typeof collectSlots>> | null = null;
+	/** Datei im Projekt → Pfad im Artefakt, aus dem Client-Build. Bleibt für spätere Builds desselben Laufs. */
+	const assets = new Map<string, string>();
 	const loadedIds = new Set<string>();
+
+	function currentManifest(): SiteManifest {
+		const { slots, routes, imageSources } = scanned!;
+		const staticExists = (path: string) => existsSync(resolve(root, 'static', `.${path}`));
+		return buildManifest(config, withDefaultImages(slots, imageSources, staticExists, assets), routes);
+	}
 
 	async function refresh(): Promise<SiteManifest> {
 		snapshot = await readSnapshot(root);
-		const { slots, routes } = await collectSlots(root);
+		scanned = await collectSlots(root);
+		const { slots } = scanned;
 		const module = (value: unknown) => `export default ${JSON.stringify(value)};`;
 		code = {
 			'site-data': module(buildSiteData(config, snapshot, slots, process.env)),
@@ -278,7 +339,7 @@ export function dealsystem(config: SiteConfig): Plugin {
 			'legal-imprint': module(sanitizeRichtextHtml(snapshot.legal.imprintHtml)),
 			'legal-privacy': module(sanitizeRichtextHtml(snapshot.legal.privacyHtml)),
 		};
-		return buildManifest(config, slots, routes);
+		return currentManifest();
 	}
 
 	async function writeManifest(manifest: SiteManifest): Promise<void> {
@@ -307,11 +368,26 @@ export function dealsystem(config: SiteConfig): Plugin {
 			await writeManifest(await refresh());
 		},
 
-		generateBundle() {
+		generateBundle(_options, bundle) {
 			// Nur in den Teil, der ausgeliefert wird; adapter-static kopiert ihn nach `build/`.
 			if (this.environment?.name !== 'client' || !snapshot) return;
 			const source = webManifest(snapshot.seo, snapshot.site.name);
 			if (source) this.emitFile({ type: 'asset', fileName: WEB_MANIFEST_PATH.slice(1), source });
+			// Wo die importierten Bilder im Artefakt liegen. Eingebettete Bilder (data:) erscheinen hier nicht.
+			for (const output of Object.values(bundle)) {
+				if (output.type !== 'asset') continue;
+				const originals = (output as { originalFileNames?: readonly string[] }).originalFileNames ?? [];
+				for (const original of originals) {
+					const shown = (isAbsolute(original) ? relative(root, original) : original).replace(/\\/g, '/');
+					assets.set(shown, `/${output.fileName}`);
+				}
+			}
+		},
+
+		async writeBundle() {
+			// Erst jetzt sind die Pfade der Bilder bekannt: Manifest mit `defaultImage` noch einmal schreiben.
+			if (this.environment?.name !== 'client' || !scanned) return;
+			await writeManifest(currentManifest());
 		},
 
 		async load(id) {

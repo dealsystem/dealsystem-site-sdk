@@ -6,7 +6,7 @@ import { build } from 'vite';
 import { CONTENT_FILE_ENV } from '../src/lib/paths.js';
 import type { SiteConfig, SiteData, SiteManifest } from '../src/lib/types.js';
 import { SDK_VERSION } from '../src/lib/version.js';
-import { collectSlots, dealsystem, MANIFEST_FILE_ENV } from '../src/lib/vite/index.js';
+import { collectSlots, dealsystem, MANIFEST_FILE_ENV, withDefaultImages } from '../src/lib/vite/index.js';
 
 const config: SiteConfig = {
 	siteId: 's1',
@@ -197,5 +197,40 @@ describe('dealsystem()', () => {
 		const { slots, routes } = await collectSlots(root);
 		expect(slots.map((s) => s.key)).toEqual(['start.hero.titel', 'start.leistungen', 'start.ueber-uns']);
 		expect(routes).toEqual(['/', '/kontakt']);
+	});
+});
+
+describe('withDefaultImages', () => {
+	const slots = [
+		{ key: 'a.statisch', type: 'image' as const, default: null },
+		{ key: 'a.fehlt', type: 'image' as const, default: null },
+		{ key: 'a.import', type: 'image' as const, default: null },
+		{ key: 'a.klein', type: 'image' as const, default: null },
+		{ key: 'a.ohne', type: 'image' as const, default: null },
+		{ key: 'a.text', type: 'text' as const, default: 'x' },
+	];
+	const sources = new Map([
+		['a.statisch', { kind: 'static' as const, path: '/haus.jpg', width: 800, height: 600 }],
+		['a.fehlt', { kind: 'static' as const, path: '/fehlt.jpg' }],
+		['a.import', { kind: 'module' as const, path: 'src/lib/b/x.jpg', height: 900 }],
+		['a.klein', { kind: 'module' as const, path: 'src/lib/b/klein.png' }],
+	]);
+
+	it('Pfad, wenn sicher bekannt; sonst null; Texte bleiben unberührt', () => {
+		const result = withDefaultImages(
+			slots,
+			sources,
+			(path) => path === '/haus.jpg',
+			new Map([['src/lib/b/x.jpg', '/_app/immutable/assets/x.Ab12.jpg']]),
+		);
+		expect(Object.fromEntries(result.map((s) => [s.key, s.defaultImage]))).toEqual({
+			'a.statisch': { path: '/haus.jpg', width: 800, height: 600 },
+			'a.fehlt': null,
+			'a.import': { path: '/_app/immutable/assets/x.Ab12.jpg', height: 900 },
+			'a.klein': null,
+			'a.ohne': null,
+			'a.text': undefined,
+		});
+		expect(result.find((s) => s.key === 'a.text')).not.toHaveProperty('defaultImage');
 	});
 });

@@ -251,6 +251,21 @@ export interface ContentSlotDef {
 	aliases?: string[];
 	/** Standardwert aus dem Code. `null`, wenn er sich nicht melden lässt (Bilder). */
 	default: string | ContentSlotLinkValue | null;
+	/**
+	 * Nur Bild-Slots: wo das Standardbild aus dem Code in der fertigen Seite liegt, damit das CRM es zeigen
+	 * kann. `null`, wenn sich das nicht sicher sagen lässt (eingebettetes Bild unter 4 KB, `?enhanced`,
+	 * Variable, Bild aus einem Paket).
+	 */
+	defaultImage?: SlotDefaultImage | null;
+}
+
+/** Standardbild eines Bild-Slots im Build-Artefakt. */
+export interface SlotDefaultImage {
+	/** Pfad ab der Wurzel der Seite, z. B. `/_app/immutable/assets/inhaber.Cx7aB2.jpg` oder `/bilder/haus.jpg`. */
+	path: string;
+	/** Nur, wenn sie fest am Baustein stehen (`width={1200}`). */
+	width?: number;
+	height?: number;
 }
 
 /**

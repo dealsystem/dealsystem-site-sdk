@@ -1,7 +1,7 @@
 // Der Starter, so wie ein Kunde ihn bekommt: Er muss ohne jede Änderung
 // `dealsystem check` bestehen, sich bauen lassen und typrein sein.
 import { execFile } from 'node:child_process';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { runCheck, type CheckResult } from 'dealsystem/check';
@@ -210,6 +210,66 @@ describe('Karte auf der Kontaktseite', () => {
 			'CNT-001 warning',
 			'CNT-002 warning',
 		]);
+	});
+});
+
+describe('Standardbilder der Bild-Slots im Manifest', () => {
+	let project: StarterProject;
+
+	beforeAll(async () => {
+		project = await createStarter();
+		await simulateInstallAndInit(project.dir);
+		// Drei Wege zum Standardbild: Datei unter static/, Import (groß) und Import unter 4 KB (eingebettet).
+		await mkdir(join(project.dir, 'static/bilder'), { recursive: true });
+		await mkdir(join(project.dir, 'src/lib/bilder'), { recursive: true });
+		await writeFile(join(project.dir, 'static/bilder/buero.jpg'), Buffer.alloc(6000, 1));
+		await writeFile(join(project.dir, 'src/lib/bilder/inhaber.jpg'), Buffer.alloc(9000, 2));
+		await writeFile(join(project.dir, 'src/lib/bilder/logo.png'), Buffer.alloc(500, 3));
+		await mkdir(join(project.dir, 'src/routes/team'), { recursive: true });
+		await writeFile(
+			join(project.dir, 'src/routes/team/+page.svelte'),
+			`<script lang="ts">
+	import { MediaImage, Seo, Text } from '@dealsystem/site';
+	import inhaber from '$lib/bilder/inhaber.jpg';
+	import logo from '../../lib/bilder/logo.png';
+	const variabel = '/bilder/buero.jpg';
+</script>
+
+<Seo title="Team" description="Unser Team." />
+<Text key="team.titel" default="Team" as="h1" />
+<MediaImage key="team.buero.foto" default="/bilder/buero.jpg" width={1600} height={900} alt="Unser Büro" />
+<MediaImage key="team.inhaber.foto" default={inhaber} width={1200} height={1500} alt="Der Inhaber" />
+<MediaImage key="team.logo.bild" default={logo} alt="Logo" />
+<MediaImage key="team.variabel.bild" default={variabel} alt="Büro" />
+`,
+		);
+		await build(project.dir);
+	});
+
+	afterAll(() => project.remove());
+
+	it('meldet den Pfad im Artefakt, sonst null', async () => {
+		const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+			slots: { key: string; type: string; defaultImage?: unknown }[];
+		};
+		const images = Object.fromEntries(
+			manifest.slots.filter((s) => s.type === 'image').map((s) => [s.key, s.defaultImage]),
+		);
+		expect(images['team.buero.foto']).toEqual({ path: '/bilder/buero.jpg', width: 1600, height: 900 });
+		expect(images['team.inhaber.foto']).toEqual({
+			path: expect.stringMatching(/^\/_app\/immutable\/assets\/inhaber\.[\w-]+\.jpg$/),
+			width: 1200,
+			height: 1500,
+		});
+		// Unter 4 KB bettet Vite das Bild ein; bei einer Variablen lässt sich der Pfad nicht sicher sagen.
+		expect(images['team.logo.bild']).toBeNull();
+		expect(images['team.variabel.bild']).toBeNull();
+		// Der gemeldete Pfad liegt wirklich in der fertigen Seite.
+		const inhaber = (images['team.inhaber.foto'] as { path: string }).path;
+		expect((await readFile(join(project.dir, 'build', inhaber))).byteLength).toBe(9000);
+		expect(await readdir(join(project.dir, 'build/bilder'))).toContain('buero.jpg');
+		// Andere Slots tragen das Feld nicht.
+		expect(manifest.slots.find((s) => s.key === 'team.titel')).not.toHaveProperty('defaultImage');
 	});
 });
 

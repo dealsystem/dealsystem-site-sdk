@@ -26,7 +26,9 @@ Bild, das der Kunde selbst austauschen kann (Porträt, Team, Titelbild): mit
 `key` und `default`. Nach dem Hochladen tauscht er es im CRM unter Eigene
 Website → Inhalte. `key`, `label`, `group` und `help` müssen feste
 Zeichenketten in Anführungszeichen sein; mit einer Variablen scheitern Build
-und `dealsystem check` (QUA-006). `default` ist das Bild aus dem Projekt.
+und `dealsystem check` (QUA-006). `default` ist das Bild aus dem Projekt:
+ein Import (wie unten) oder ein Pfad unter `static/` (`default="/bilder/haus.jpg"`).
+Dann zeigt das CRM es als Vorschau; bei `?enhanced` oder einer Variablen nicht.
 
 ```svelte
 <script lang="ts">

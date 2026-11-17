@@ -233,6 +233,7 @@ describe('austauschbares Bild (Beispiel aus komponenten.md)', () => {
 				route: '/ueber-uns',
 				file: 'src/routes/ueber-uns/+page.svelte',
 				line: expect.any(Number),
+				imageSource: { kind: 'module', path: 'src/lib/bilder/inhaber.jpg', width: 1200, height: 1500 },
 			},
 		]);
 	});
@@ -289,5 +290,49 @@ describe('ungültige Slot-Schlüssel: Grund und Vorschlag', () => {
 		expect(() => scanSlots(page('<Text key="titel" default="x" />'), 'src/routes/+page.svelte')).toThrow(
 			/^(?!.*Nimm).*mindestens zwei Teile/s,
 		);
+	});
+});
+
+describe('Herkunft des Standardbilds (für defaultImage im Manifest)', () => {
+	const file = 'src/routes/team/+page.svelte';
+	const scan = (markup: string, imports = '') =>
+		scanSlots(
+			`<script lang="ts">\n\timport { MediaImage } from '@dealsystem/site';\n${imports}\tconst pfad = '/a.jpg';\n</script>\n\n${markup}\n`,
+			file,
+		)[0]?.imageSource;
+
+	it('Pfad unter static/ und Importe aus $lib oder relativ', () => {
+		expect(scan('<MediaImage key="a.b" default="/bilder/haus.jpg" width={800} alt="Haus" />')).toEqual({
+			kind: 'static',
+			path: '/bilder/haus.jpg',
+			width: 800,
+		});
+		expect(
+			scan('<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '$lib/b/x.png';\n"),
+		).toEqual({ kind: 'module', path: 'src/lib/b/x.png' });
+		expect(
+			scan('<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '../bilder/y.webp';\n"),
+		).toEqual({ kind: 'module', path: 'src/routes/bilder/y.webp' });
+	});
+
+	it('nichts, wenn es sich nicht sicher sagen lässt', () => {
+		const cases: [string, string][] = [
+			['<MediaImage key="a.b" default={pfad} alt="x" />', ''],
+			['<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '$lib/x.jpg?enhanced';\n"],
+			['<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from 'paket/bild.jpg';\n"],
+			['<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '../../../../x.jpg';\n"],
+			['<MediaImage key="a.b" default="https://fremd.example/x.jpg" alt="x" />', ''],
+			['<MediaImage key="a.b" default="//fremd.example/x.jpg" alt="x" />', ''],
+			['<MediaImage key="a.b" default="/../geheim.jpg" alt="x" />', ''],
+		];
+		for (const [markup, imports] of cases) expect(scan(markup, imports), markup + imports).toBeUndefined();
+	});
+
+	it('gehört nicht ins Manifest: mergeSlots entfernt es', () => {
+		const slots = scanSlots(
+			`<script lang="ts">\n\timport { MediaImage } from '@dealsystem/site';\n</script>\n<MediaImage key="a.b" default="/x.jpg" alt="x" />\n`,
+			file,
+		);
+		expect(mergeSlots(slots)[0]).not.toHaveProperty('imageSource');
 	});
 });
