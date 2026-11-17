@@ -322,6 +322,13 @@ export const RULES: readonly RuleMeta[] = [
 		title: 'Zeit- oder Speichergrenze des Builds überschritten',
 		fix: 'Der Build darf höchstens 5 Minuten und 2 GB brauchen. Entferne große Abhängigkeiten oder Seiten mit sehr vielen Einträgen.',
 	},
+	{
+		id: 'BLD-003',
+		severity: 'error',
+		stages: [],
+		title: 'Archiv oder Ausgabe ungültig (Symlinks, `..` im Pfad, Gerätedateien, Größengrenze)',
+		fix: 'Entferne Symlinks und Dateien außerhalb des Projekts und verkleinere große Dateien. Lade nur mit `npx dealsystem deploy` hoch; es packt ausschließlich die erlaubten Dateien.',
+	},
 ];
 
 const BY_ID = new Map(RULES.map((r) => [r.id, r]));
