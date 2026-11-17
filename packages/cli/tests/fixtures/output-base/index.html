@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="de">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>Startseite</title>
+		<meta name="description" content="Startseite – Muster Immobilien" />
+		<link rel="modulepreload" href="./_app/immutable/entry/start.js" />
+	</head>
+	<body>
+		<main>
+			<h1>Wir kaufen Ihr Haus</h1>
+			<img data-ds-image src="./_ds/media/s1/a1/800.jpg" alt="Sanierter Altbau" /><a href="./angebote"
+				>Alle Angebote ansehen</a
+			><a href="./angebote/altbau-leipzig">Altbau in Leipzig</a>
+			<form data-ds-lead-form="kontakt">
+				<label for="f-email">E-Mail</label><input id="f-email" name="email" type="email" />
+				<div aria-hidden="true"><input name="website" tabindex="-1" /></div>
+				<button type="submit">Anfrage senden</button>
+			</form>
+		</main>
+		<footer data-ds-footer-legal>
+			<a href="./impressum">Impressum</a>
+			<a href="./datenschutz">Datenschutz</a>
+		</footer>
+		<div data-ds-cookie-banner></div>
+		<script type="module">
+			import('./_app/immutable/entry/start.js');
+		</script>
+	</body>
+</html>

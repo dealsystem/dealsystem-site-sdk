@@ -1,0 +1,51 @@
+{
+	"name": "dealsystem",
+	"version": "0.1.0",
+	"description": "CLI für Self-Service-Websites auf DealSystem: Login, Sync, Prüfung und Deploy",
+	"license": "MIT",
+	"type": "module",
+	"bin": {
+		"dealsystem": "./dist/bin.js"
+	},
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"default": "./dist/index.js"
+		},
+		"./check": {
+			"types": "./dist/check/index.d.ts",
+			"default": "./dist/check/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"dist",
+		"!dist/**/*.test.*",
+		"!dist/**/*.map"
+	],
+	"engines": {
+		"node": ">=22.12.0"
+	},
+	"scripts": {
+		"precheck": "node scripts/ensure-site.mjs",
+		"check": "tsc -p tsconfig.json --noEmit",
+		"pretest": "node scripts/ensure-site.mjs",
+		"test": "vitest run",
+		"prebuild": "node scripts/ensure-site.mjs",
+		"build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/postbuild.mjs"
+	},
+	"dependencies": {
+		"@dealsystem/site": "^0.1.0",
+		"htmlparser2": "^12.0.0",
+		"semver": "^7.8.0",
+		"svelte": "^5.57.0",
+		"typescript": "^6.0.3"
+	},
+	"devDependencies": {
+		"@types/node": "^22.20.5",
+		"@types/semver": "^7.8.0",
+		"vitest": "^5.1.0"
+	}
+}
