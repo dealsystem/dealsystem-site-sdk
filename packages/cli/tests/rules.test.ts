@@ -283,6 +283,25 @@ const CASES: Record<string, RuleCase[]> = {
 	'SEC-005': [
 		{
 			stage: S,
+			// Der Aufruf siteApiOrigin() aus dem SDK ist die eine erlaubte Quelle, die keine feste Zeichenkette ist.
+			pass: [{}],
+			fail: [
+				{
+					'svelte.config.js': baseText('svelte.config.js').replace(
+						"'connect-src': ['self', siteApiOrigin()],",
+						"'connect-src': ['self', process.env.API_HOST],",
+					),
+				},
+				{
+					'svelte.config.js': baseText('svelte.config.js').replace(
+						"import { handleHttpError, siteApiOrigin } from '@dealsystem/site/config';",
+						"import { handleHttpError } from '@dealsystem/site/config';\nconst siteApiOrigin = () => '*';",
+					),
+				},
+			],
+		},
+		{
+			stage: S,
 			pass: [
 				{
 					'svelte.config.js': svelteConfig(
@@ -799,6 +818,19 @@ const CASES: Record<string, RuleCase[]> = {
 						'<h1>A</h1>\n<ConsentGate category="media">\n\t<script src="https://widget.example.com/w.js"></script>\n</ConsentGate>',
 					),
 				},
+				// Die Site-API fest eingetragen: passt nur für eine Umgebung.
+				{
+					'svelte.config.js': baseText('svelte.config.js').replace(
+						"'connect-src': ['self', siteApiOrigin()],",
+						"'connect-src': ['self', 'https://app.dealsystem.io'],",
+					),
+				},
+				{
+					'svelte.config.js': baseText('svelte.config.js').replace(
+						"\t\t\t\t'connect-src': ['self', siteApiOrigin()],\n",
+						'',
+					),
+				},
 				// `<MapEmbed>` ohne die Freigabe in der CSP (ältere oder veränderte svelte.config.js).
 				{
 					'src/routes/+page.svelte': homePage(
@@ -951,6 +983,36 @@ describe('Zuordnung der SDK-Meldungen aus validateSiteConfig', () => {
 				.split('\n')
 				.findIndex((l) => l.includes("type: 'textarea'")) + 1,
 		);
+	});
+});
+
+describe('SEC-008: CSP der fertigen Seite und die Site-API', () => {
+	const csp = (connect: string): Overlay => ({
+		'index.html': page({
+			head: `<meta http-equiv="content-security-policy" content="default-src 'self'; connect-src 'self' ${connect}">`,
+		}),
+	});
+	const check = async (overlay: Overlay, apiUrl?: string): Promise<Finding[]> => {
+		const dir = materialize(BASE_OUTPUT, overlay);
+		const result = await runCheck({ outputDir: dir, stages: ['output'], ...(apiUrl ? { apiUrl } : {}) });
+		return [...result.errors, ...result.warnings].filter((f) => f.rule === 'SEC-008');
+	};
+
+	it('meldet, wenn die Seite für eine Site-API gebaut wurde, die ihre CSP nicht erlaubt', async () => {
+		const found = await check(csp('https://app.dealsystem.io'), 'https://staging.dealsystem.io');
+		expect(found).toHaveLength(1);
+		expect(found[0]!.message).toContain('https://staging.dealsystem.io');
+		expect(found[0]!.message).toContain('Formular und Captcha');
+		expect(found[0]!.fix).toContain('siteApiOrigin()');
+	});
+
+	it('ist zufrieden, wenn die CSP genau diese Site-API erlaubt, auch lokal über http', async () => {
+		expect(await check(csp('https://staging.dealsystem.io'), 'https://staging.dealsystem.io/')).toEqual([]);
+		expect(await check(csp('http://localhost:5173'), 'http://localhost:5173')).toEqual([]);
+	});
+
+	it('prüft nichts, wenn keine Site-API genannt ist (lokaler Build ohne Umgebung)', async () => {
+		expect(await check(csp('https://app.dealsystem.io'))).toEqual([]);
 	});
 });
 

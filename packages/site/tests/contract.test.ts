@@ -144,6 +144,7 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			site_not_found: [404, 'not_found'],
 			funnel_not_found: [404, 'not_found'],
 			method_not_allowed: [405, 'rejected'],
+			payload_too_large: [413, 'rejected'],
 			unsupported_media_type: [415, 'rejected'],
 			validation_error: [422, 'validation'],
 			rate_limited: [429, 'rate_limited'],

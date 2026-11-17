@@ -109,6 +109,22 @@ describe('Starter ohne Inhalte aus dem CRM (erster Tag)', () => {
 		expect(assets.some((name) => /inter.*\.woff2$/.test(name))).toBe(true);
 	});
 
+	it('erlaubt in der CSP genau die Site-API, für die die Seite gebaut wurde', async () => {
+		const html = await page(project.dir, 'kontakt.html');
+		const csp = /<meta http-equiv="content-security-policy" content="([^"]+)"/.exec(html)?.[1] ?? '';
+		expect(csp).toMatch(/connect-src 'self' https:\/\/app\.dealsystem\.io[ ;]/);
+		expect(csp).toMatch(/frame-src 'self' https:\/\/www\.openstreetmap\.org/);
+		expect(csp).toMatch(/worker-src 'self'/);
+
+		const check = (apiUrl: string) =>
+			runCheck({ outputDir: join(project.dir, 'build'), stages: ['output'], apiUrl }).then(problems);
+		expect(await check('https://app.dealsystem.io')).toEqual([]);
+		// Dieselbe Seite gegen eine andere Site-API: Formular und Captcha wären blockiert.
+		const other = await check('https://staging.dealsystem.io');
+		expect(other).toHaveLength(1);
+		expect(other[0]).toMatch(/^SEC-008 error .*staging\.dealsystem\.io/);
+	});
+
 	it('übernimmt svelte.config.js und vite.config.ts unverändert aus der CLI', async () => {
 		expect(await readFile(join(project.dir, 'svelte.config.js'), 'utf8')).toBe(SVELTE_CONFIG_TEMPLATE);
 		expect(await readFile(join(project.dir, 'vite.config.ts'), 'utf8')).toBe(VITE_CONFIG_TEMPLATE);

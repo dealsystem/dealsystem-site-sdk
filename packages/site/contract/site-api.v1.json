@@ -110,7 +110,7 @@
             }
           },
           "429": {
-            "description": "`rate_limited`: zu viele Challenges. Header `Retry-After` (Sekunden).",
+            "description": "`rate_limited`: zu viele Anfragen dieser IP an die Site-API (60/min, vor der Prüfung des Schlüssels) oder zu viele Challenges. Header `Retry-After` (Sekunden).",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,7 +142,7 @@
       "post": {
         "operationId": "submitLead",
         "summary": "Formular einreichen",
-        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Honeypot → Body → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
+        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
         "tags": [
           "Site-API"
         ],
@@ -382,6 +382,22 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: Body größer als 64 KB (angekündigt per `Content-Length` oder beim Lesen erkannt). Gelesen wird erst nach dem Rate-Limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Payload Too Large",
+                  "message": "Die Anfrage ist zu groß.",
+                  "status": 413,
+                  "code": "payload_too_large"
+                }
+              }
+            }
+          },
           "415": {
             "description": "`unsupported_media_type`: `Content-Type` ist nicht `application/json`.",
             "content": {
@@ -415,7 +431,7 @@
             }
           },
           "429": {
-            "description": "`rate_limited`: 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
+            "description": "`rate_limited`: 60/min je IP über die ganze Site-API (vor der Prüfung des Schlüssels), dazu 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
             "content": {
               "application/json": {
                 "schema": {
@@ -567,6 +583,7 @@
               "funnel_not_found",
               "method_not_allowed",
               "unsupported_media_type",
+              "payload_too_large",
               "validation_error",
               "rate_limited",
               "internal_error",

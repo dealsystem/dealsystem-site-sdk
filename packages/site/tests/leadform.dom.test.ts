@@ -347,6 +347,23 @@ describe('Fehlerwege', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
+	it('zeigt bei 413 payload_too_large den direkten Kontakt', async () => {
+		fetchSpy.mockResolvedValue(
+			jsonResponse(413, { error: 'Payload Too Large', message: 'x', status: 413, code: 'payload_too_large' }),
+		);
+		const { user } = setup();
+		await expectFailure(user, /später erneut/);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
+	});
+
+	it('zeigt bei einem 429 vor der Schlüssel-Prüfung (ohne Code) den direkten Kontakt', async () => {
+		fetchSpy.mockResolvedValue(
+			new Response('Too Many Requests', { status: 429, headers: { 'Retry-After': '30' } }),
+		);
+		const { user } = setup();
+		await expectFailure(user, /zu viele Anfragen/);
+	});
+
 	it('zeigt bei captcha_unavailable den direkten Kontakt', async () => {
 		fetchSpy.mockResolvedValue(
 			jsonResponse(503, { error: 'x', message: 'x', status: 503, code: 'captcha_unavailable' }),

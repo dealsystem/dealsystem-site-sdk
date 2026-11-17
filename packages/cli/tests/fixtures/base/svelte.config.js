@@ -1,6 +1,6 @@
 import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { handleHttpError } from '@dealsystem/site/config';
+import { handleHttpError, siteApiOrigin } from '@dealsystem/site/config';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -14,6 +14,7 @@ const config = {
 				'default-src': ['self'],
 				'script-src': ['self'],
 				'style-src': ['self', 'unsafe-inline'],
+				'connect-src': ['self', siteApiOrigin()],
 				'object-src': ['none'],
 			},
 		},

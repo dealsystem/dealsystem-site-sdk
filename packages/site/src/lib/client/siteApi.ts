@@ -15,7 +15,7 @@ export type SiteApiErrorKind =
 	| 'validation'
 	/** 400 `captcha_failed`. */
 	| 'captcha_failed'
-	/** 400, 405, 415: der Server versteht die Anfrage nicht. Ein Fehler im SDK, nicht des Besuchers. */
+	/** 400, 405, 413, 415: der Server nimmt die Anfrage so nicht an (z. B. `payload_too_large`). */
 	| 'rejected'
 	/** 404: Formular, Sammlung oder Eintrag gibt es nicht. */
 	| 'not_found'

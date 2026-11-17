@@ -223,7 +223,14 @@ async function build() {
 		`${GENERATED}\n\n# dealsystem.config.ts (@dealsystem/site/config)\n\n` +
 			'Eine Datei beschreibt die Seite: ihre Kennung, die Sammlungen (Inhalte aus dem CMS) und die Formulare.\n' +
 			'Felder eines Formulars stehen nur hier. Nach einer Änderung an Sammlungen: `npx dealsystem sync`.\n\n' +
-			(await pick('config/index.ts', ['defineSite', 'validateSiteConfig', 'handleHttpError']))
+			(
+				await pick('config/index.ts', [
+					'defineSite',
+					'validateSiteConfig',
+					'handleHttpError',
+					'siteApiOrigin',
+				])
+			)
 				.map(entry)
 				.join('\n') +
 			'\n## Typen\n\n' +

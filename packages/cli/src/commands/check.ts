@@ -24,6 +24,8 @@ export async function runLocalCheck(ctx: CommandContext, outputDir?: string): Pr
 	return runCheck({
 		source: createUploadFileSet(ctx.projectDir),
 		...(outputDir ? { output: createDirFileSet(outputDir, {}) } : {}),
+		// Wurde die Seite für eine bestimmte Site-API gebaut, muss ihre CSP genau die erlauben (SEC-008).
+		...(process.env.PUBLIC_DEALSYSTEM_API ? { apiUrl: process.env.PUBLIC_DEALSYSTEM_API } : {}),
 	});
 }
 

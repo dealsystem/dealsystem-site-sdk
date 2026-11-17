@@ -40,6 +40,8 @@ export const MARKER = {
 export const CONTENT_MODULE = '@dealsystem/site/content';
 export const CONFIG_MODULE = '@dealsystem/site/config';
 export const VITE_MODULE = '@dealsystem/site/vite';
+/** Helfer aus `@dealsystem/site/config`, der in `connect-src` die Adresse der Site-API einsetzt. */
+export const SITE_API_ORIGIN_FN = 'siteApiOrigin';
 
 /** AGENTS.md-Block: Marker und Quelle im installierten SDK. */
 export const AGENTS_BLOCK_BEGIN = /<!--\s*dealsystem:begin\s+([^\s]+)\s*-->/;

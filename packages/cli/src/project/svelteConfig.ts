@@ -5,7 +5,7 @@
 
 export const SVELTE_CONFIG_TEMPLATE = `import adapter from '@sveltejs/adapter-static';
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
-import { handleHttpError } from '@dealsystem/site/config';
+import { handleHttpError, siteApiOrigin } from '@dealsystem/site/config';
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -24,7 +24,8 @@ const config = {
 				'font-src': ['self'],
 				'connect-src': [
 					'self',
-					'https://app.dealsystem.io',
+					// Adresse der Site-API aus PUBLIC_DEALSYSTEM_API (Formular und Captcha); sonst app.dealsystem.io.
+					siteApiOrigin(),
 					'https://*.google-analytics.com',
 					'https://*.analytics.google.com',
 					'https://www.googletagmanager.com',

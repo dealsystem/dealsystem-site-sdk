@@ -4,9 +4,9 @@ import type { OutputContext, SourceContext } from '../context.js';
 import { outputRule, sourceRule, type OutputRule, type SourceRule } from '../rule.js';
 import type { RawFinding } from '../types.js';
 import { excerpt, findAll, isSvelteFile } from '../util/code.js';
-import { COMPONENT, SDK_PACKAGE } from '../sdk.js';
+import { COMPONENT, CONFIG_MODULE, SDK_PACKAGE, SITE_API_ORIGIN_FN } from '../sdk.js';
 import { lineOf } from '../util/html.js';
-import { evaluate, isOpaque, isPlainObject, type LiteralValue } from '../util/literal.js';
+import { evaluate, isOpaque, isPlainObject, type LiteralValue, type ParsedModule } from '../util/literal.js';
 
 // ------------------------------------------------------------------ SEC-001
 
@@ -178,6 +178,30 @@ function isAllowedCspHost(host: string): boolean {
 	return CSP_ALLOWED_HOSTS.some((h) => h === host || (h.startsWith('*.') && host.endsWith(h.slice(1))));
 }
 
+/** Platzhalter für `siteApiOrigin()` in einer Quellenliste: die Adresse der Site-API, erst beim Build bekannt. */
+const SITE_API_SOURCE = '<site-api>';
+
+/**
+ * Quellenliste einer CSP-Direktive. Erlaubt sind feste Zeichenketten und der Aufruf `siteApiOrigin()` aus
+ * `@dealsystem/site/config`; alles andere (Variablen, andere Aufrufe) ergibt `null`.
+ */
+function cspSourceList(mod: ParsedModule, value: LiteralValue): string[] | null {
+	if (!Array.isArray(value)) return null;
+	const out: string[] = [];
+	for (const item of value) {
+		if (typeof item === 'string') out.push(item);
+		else if (
+			isOpaque(item) &&
+			item.call === SITE_API_ORIGIN_FN &&
+			(item.args?.length ?? 0) === 0 &&
+			mod.imports.get(item.call) === CONFIG_MODULE
+		)
+			out.push(SITE_API_SOURCE);
+		else return null;
+	}
+	return out;
+}
+
 const sec005 = sourceRule('SEC-005', (ctx) => {
 	const path = ctx.svelteConfigPath();
 	if (!path) return []; // STR-001 meldet die fehlende Datei.
@@ -197,8 +221,7 @@ const sec005 = sourceRule('SEC-005', (ctx) => {
 	}
 	const directives = csp.directives;
 	if (!isPlainObject(directives)) return problem('`kit.csp.directives` fehlt oder ist kein festes Objekt.');
-	const list = (v: LiteralValue): string[] | null =>
-		Array.isArray(v) && v.every((x) => typeof x === 'string') ? (v as string[]).map(unquote) : null;
+	const list = (v: LiteralValue): string[] | null => cspSourceList(mod, v)?.map(unquote) ?? null;
 	const out: RawFinding[] = [];
 	for (const [name, value] of Object.entries(directives)) {
 		const values = list(value);
@@ -335,17 +358,26 @@ function externalUrl(value: string | null | undefined): URL | null {
 	}
 }
 
+/** Ob eine Host-Quelle der CSP (`https://a.de`, `*.a.de`, `http://localhost:5173`) zu `url` passt. */
+function hostSourceMatches(source: string, url: URL): boolean {
+	const m = /^(?:([a-z][a-z0-9+.-]*):\/\/)?(\*\.)?([a-z0-9.-]+)(?::(\d+|\*))?(?:\/.*)?$/i.exec(source);
+	if (!m) return false;
+	const [, scheme, wildcard, host, port] = m;
+	if (scheme && `${scheme.toLowerCase()}:` !== url.protocol) return false;
+	const name = url.hostname.toLowerCase();
+	const wanted = host!.toLowerCase();
+	if (wildcard ? !name.endsWith(`.${wanted}`) : name !== wanted) return false;
+	if (port === undefined || port === '*') return port === '*' || url.port === '';
+	return port === (url.port || (url.protocol === 'https:' ? '443' : '80'));
+}
+
 /** Ob die Direktive (sonst `default-src`) das Laden von `url` erlaubt. Ohne beide Direktiven ist alles erlaubt. */
 function cspAllows(csp: Csp, directive: string, url: URL): boolean {
 	const sources = csp[directive] ?? csp['default-src'];
 	if (!sources) return true;
-	const host = url.host.toLowerCase();
 	return sources.some((raw) => {
 		const source = unquote(raw).toLowerCase();
-		if (source === '*' || source === `${url.protocol}`) return true;
-		const allowed = cspHost(source);
-		if (!allowed) return false;
-		return allowed === host || (allowed.startsWith('*.') && host.endsWith(allowed.slice(1)));
+		return source === '*' || source === url.protocol || hostSourceMatches(source, url);
 	});
 }
 
@@ -373,7 +405,8 @@ function sourceCsp(ctx: SourceContext): { path: string; csp: Csp } | null {
 	if (!isPlainObject(directives)) return null;
 	const csp: Csp = {};
 	for (const [name, value] of Object.entries(directives)) {
-		if (Array.isArray(value) && value.every((x) => typeof x === 'string')) csp[name] = value as string[];
+		const sources = cspSourceList(mod, value);
+		if (sources) csp[name] = sources;
 	}
 	return { path, csp };
 }
@@ -382,6 +415,17 @@ const sec008Source = sourceRule('SEC-008', (ctx) => {
 	const found = sourceCsp(ctx);
 	if (!found) return []; // SEC-005 meldet die fehlende oder unlesbare CSP.
 	const out: RawFinding[] = [];
+	// Formular und Captcha sprechen die Site-API an. Welche Adresse das ist, steht erst beim Build fest
+	// (PUBLIC_DEALSYSTEM_API): Eine fest eingetragene Adresse passt nur für eine Umgebung.
+	const connect = found.csp['connect-src'] ?? found.csp['default-src'];
+	if (connect && !connect.includes(SITE_API_SOURCE) && !connect.some((s) => unquote(s) === '*')) {
+		out.push({
+			file: found.path,
+			message:
+				'`connect-src` in svelte.config.js nennt die Adresse der Site-API nicht über `siteApiOrigin()`. Wird die Seite für eine andere Umgebung erzeugt, blockiert der Browser Formular und Captcha.',
+			fix: "Schreibe in `kit.csp.directives`: `'connect-src': ['self', siteApiOrigin(), …]` mit `import { siteApiOrigin } from '@dealsystem/site/config'`, oder führe `npx dealsystem sync --fix-config` aus.",
+		});
+	}
 	for (const path of ctx.svelteFiles()) {
 		const ast = ctx.svelte(path);
 		if (!ast) continue;
@@ -432,6 +476,8 @@ function metaCsp(content: string): Csp {
 
 const sec008Output = outputRule('SEC-008', (ctx) => {
 	const out: RawFinding[] = [];
+	const api = externalUrl(ctx.options.apiUrl);
+	let apiReported = false;
 	for (const path of ctx.pages()) {
 		const doc = ctx.html(path);
 		const meta = doc.elements.find(
@@ -439,6 +485,16 @@ const sec008Output = outputRule('SEC-008', (ctx) => {
 		);
 		if (!meta?.attrs.content) continue;
 		const csp = metaCsp(meta.attrs.content);
+		// Die Seite schickt Formular und Captcha an die Site-API: Die CSP der fertigen Seite muss sie erlauben.
+		if (api && !apiReported && !cspAllows(csp, 'connect-src', api)) {
+			apiReported = true;
+			out.push({
+				file: path,
+				line: lineOf(doc, meta),
+				message: `Die Sicherheitsregeln der fertigen Seite (\`connect-src\`) erlauben die Site-API \`${api.origin}\` nicht. Der Browser blockiert Formular und Captcha.`,
+				fix: "Schreibe in svelte.config.js `'connect-src': ['self', siteApiOrigin(), …]` (`npx dealsystem sync --fix-config`) und erzeuge die Seite neu, mit derselben `PUBLIC_DEALSYSTEM_API` wie beim Hochladen.",
+			});
+		}
 		for (const el of doc.elements) {
 			const directive = EMBED_DIRECTIVE[el.tag];
 			if (!directive) continue;

@@ -1,4 +1,4 @@
-import { defineSite, handleHttpError, validateSiteConfig } from '../src/lib/config/index.js';
+import { defineSite, handleHttpError, siteApiOrigin, validateSiteConfig } from '../src/lib/config/index.js';
 
 const valid = {
 	siteId: 's1',
@@ -129,5 +129,26 @@ describe('Grenzen der Site-API', () => {
 			},
 		});
 		expect(problems[0]!.path).toBe('funnels.kontakt.fields[0].name');
+	});
+});
+
+describe('siteApiOrigin', () => {
+	afterEach(() => {
+		delete process.env.PUBLIC_DEALSYSTEM_API;
+	});
+
+	it('nimmt die Adresse der Site-API aus PUBLIC_DEALSYSTEM_API, nur Schema und Host', () => {
+		process.env.PUBLIC_DEALSYSTEM_API = 'https://staging.dealsystem.io/irgendwas';
+		expect(siteApiOrigin()).toBe('https://staging.dealsystem.io');
+		process.env.PUBLIC_DEALSYSTEM_API = 'http://localhost:5173';
+		expect(siteApiOrigin()).toBe('http://localhost:5173');
+	});
+
+	it('fällt ohne Angabe oder bei Unsinn auf die Adresse von DealSystem zurück', () => {
+		expect(siteApiOrigin()).toBe('https://app.dealsystem.io');
+		for (const value of ['', '  ', 'kein-url', 'javascript:alert(1)', "'unsafe-inline'"]) {
+			process.env.PUBLIC_DEALSYSTEM_API = value;
+			expect(siteApiOrigin(), value).toBe('https://app.dealsystem.io');
+		}
 	});
 });

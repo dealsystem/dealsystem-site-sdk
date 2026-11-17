@@ -200,13 +200,15 @@ export async function deployCommand(ctx: CommandContext): Promise<CommandResult>
 			text: `${preview}\nNoch nicht live. Zeig dem Nutzer diese Vorschau. Nur nach seinem ausdrücklichen Ja zu genau dieser Vorschau: \`npx dealsystem publish --version ${version.id} --confirm\`. Lädst du danach noch einmal hoch, gilt das Ja nicht mehr: neue Vorschau zeigen, neu fragen.`,
 		};
 	}
-	ctx.progress(preview);
+	// Am Terminal steht die Vorschau vor der Rückfrage; mit --confirm (Agent) nur einmal, im Ergebnis.
+	const asks = !ctx.flag('confirm');
+	if (asks) ctx.progress(preview);
 	try {
 		const released = await release(ctx, siteId, version, `npx dealsystem publish --version ${version.id}`);
 		return {
 			...released,
 			data: { ...data, ...(released.data as object) },
-			text: `${preview}\n${released.text}`,
+			text: asks ? released.text : `${preview}\n${released.text}`,
 		};
 	} catch (e) {
 		if (e instanceof CliError && e.data && typeof e.data === 'object') {

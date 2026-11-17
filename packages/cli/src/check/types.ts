@@ -84,6 +84,8 @@ export interface CheckOptions {
 	ruleSetVersion?: string;
 	/** Öffentliche Adresse der Seite; absolute Links dorthin gelten als intern. */
 	siteUrl?: string;
+	/** Adresse der Site-API, für die die Seite gebaut wurde (`PUBLIC_DEALSYSTEM_API`). Nur für die Ausgabe-Prüfung der CSP. */
+	apiUrl?: string;
 	/** Schweregrad je Regel überschreiben (neue Regeln kommen erst als Warnung). */
 	severityOverrides?: Record<string, Severity>;
 	/** Regeln abschalten. Nur für Tests und Werkzeuge, nie für den Build-Host. */

@@ -289,3 +289,31 @@ export function handleHttpError(details: {
 			'Lege die Seite an oder korrigiere den Link.',
 	);
 }
+
+/** Adresse der Site-API, wenn der Build keine nennt. */
+export const DEFAULT_API_ORIGIN = 'https://app.dealsystem.io';
+
+/**
+ * Für `connect-src` in der Content-Security-Policy von `svelte.config.js`:
+ * die Adresse, unter der die Seite ihre Formulare an DealSystem schickt. Der
+ * Server, der die Seite erzeugt, nennt sie in `PUBLIC_DEALSYSTEM_API`; ohne
+ * Angabe gilt die Adresse von DealSystem. So passt die Seite auch dann, wenn
+ * sie für eine Test-Umgebung erzeugt wird.
+ *
+ * @example
+ * // svelte.config.js
+ * import { siteApiOrigin } from '@dealsystem/site/config';
+ *
+ * // … in kit.csp.directives:
+ * // 'connect-src': ['self', siteApiOrigin()],
+ */
+export function siteApiOrigin(): string {
+	const value = process.env.PUBLIC_DEALSYSTEM_API?.trim();
+	if (!value) return DEFAULT_API_ORIGIN;
+	try {
+		const url = new URL(value);
+		return url.protocol === 'https:' || url.protocol === 'http:' ? url.origin : DEFAULT_API_ORIGIN;
+	} catch {
+		return DEFAULT_API_ORIGIN;
+	}
+}

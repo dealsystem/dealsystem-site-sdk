@@ -350,6 +350,14 @@ describe('deploy', () => {
 		expect(server.state.sites[0]!.liveVersionId).toBeNull();
 	});
 
+	it('--publish --confirm nennt die Vorschau genau einmal', async () => {
+		const r = await runCli(io, 'deploy', '--publish', '--confirm');
+		expect(r.code).toBe(0);
+		const all = `${r.stdout}\n${r.stderr}`;
+		expect(all.match(/Vorschau von Version/g)).toHaveLength(1);
+		expect(r.stdout).toContain('Vorschau von Version');
+	});
+
 	it('meldet fehlende Firmendaten mit Korrektur-Anweisung', async () => {
 		server.state.publishError = {
 			status: 409,

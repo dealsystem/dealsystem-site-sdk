@@ -77,6 +77,26 @@ function handleHttpError(details: {
 }): void;
 ```
 
+### siteApiOrigin()
+
+Für `connect-src` in der Content-Security-Policy von `svelte.config.js`:
+die Adresse, unter der die Seite ihre Formulare an DealSystem schickt. Der
+Server, der die Seite erzeugt, nennt sie in `PUBLIC_DEALSYSTEM_API`; ohne
+Angabe gilt die Adresse von DealSystem. So passt die Seite auch dann, wenn
+sie für eine Test-Umgebung erzeugt wird.
+
+```ts
+// svelte.config.js
+import { siteApiOrigin } from '@dealsystem/site/config';
+
+// … in kit.csp.directives:
+// 'connect-src': ['self', siteApiOrigin()],
+```
+
+```ts
+function siteApiOrigin(): string;
+```
+
 ## Typen
 
 ### SiteConfig
