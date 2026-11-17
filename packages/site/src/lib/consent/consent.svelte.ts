@@ -67,6 +67,12 @@ function decide(granted: Granted): void {
  * Zustand der Einwilligung. Reaktiv: in Markup und `$derived` verwendbar.
  * Vor der Entscheidung des Besuchers ist nichts erlaubt.
  *
+ * - `consent.has(zweck)` – hat der Besucher diesem Zweck zugestimmt?
+ * - `consent.openSettings()` – den Hinweis erneut öffnen (Widerruf)
+ * - `consent.grant(zweck)` – einem Zweck zustimmen, z. B. über „Karte anzeigen“
+ * - `consent.acceptAll()`, `consent.rejectAll()`, `consent.save([zwecke])`
+ * - `consent.decided` – hat der Besucher schon gewählt?
+ *
  * @example
  * <script>
  * 	import { consent } from '@dealsystem/site';

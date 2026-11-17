@@ -52,8 +52,9 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'STR-008',
 		severity: 'error',
 		stages: ['source'],
-		title: '`kit.prerender.handleHttpError` aus `@dealsystem/site/config` in svelte.config.js',
-		fix: "Ergänze in svelte.config.js `import { handleHttpError } from '@dealsystem/site/config'` und `kit: { prerender: { handleHttpError } }`, oder führe `npx dealsystem sync --fix-config` aus.",
+		title:
+			"`kit.prerender` in svelte.config.js: `handleHttpError` aus `@dealsystem/site/config` und `handleUnseenRoutes: 'ignore'`",
+		fix: "Ergänze in svelte.config.js `import { handleHttpError } from '@dealsystem/site/config'` und `kit: { prerender: { handleHttpError, handleUnseenRoutes: 'ignore' } }`, oder führe `npx dealsystem sync --fix-config` aus.",
 	},
 	{
 		id: 'STR-009',

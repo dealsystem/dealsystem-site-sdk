@@ -11,6 +11,7 @@ export default ts.config(
 			'**/node_modules/',
 			'**/.svelte-kit/',
 			'**/coverage/',
+			'**/.tmp/',
 			'packages/cli/tests/fixtures/',
 		],
 	},

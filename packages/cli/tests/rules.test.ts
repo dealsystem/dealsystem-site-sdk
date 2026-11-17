@@ -113,14 +113,18 @@ const CASES: Record<string, RuleCase[]> = {
 			fail: [
 				{
 					'svelte.config.js': baseText('svelte.config.js').replace(
-						'\t\tprerender: { handleHttpError },\n',
+						"\t\tprerender: { handleHttpError, handleUnseenRoutes: 'ignore' },\n",
 						'',
 					),
 				},
 				{
 					'svelte.config.js': baseText('svelte.config.js')
 						.replace("import { handleHttpError } from '@dealsystem/site/config';\n", '')
-						.replace('prerender: { handleHttpError },', "prerender: { handleHttpError: 'warn' },"),
+						.replace('prerender: { handleHttpError,', "prerender: { handleHttpError: 'warn',"),
+				},
+				{
+					// Ohne 'ignore' scheitert der Build bei einer Sammlung ohne Einträge.
+					'svelte.config.js': baseText('svelte.config.js').replace(", handleUnseenRoutes: 'ignore'", ''),
 				},
 			],
 		},

@@ -15,6 +15,8 @@
 		"test": "npm run test --workspaces --if-present",
 		"build": "npm run build --workspaces --if-present",
 		"lint": "prettier --check . && eslint .",
+		"docs": "node scripts/build-agent-docs.mjs",
+		"docs:check": "node scripts/build-agent-docs.mjs --check",
 		"format": "prettier --write ."
 	},
 	"devDependencies": {

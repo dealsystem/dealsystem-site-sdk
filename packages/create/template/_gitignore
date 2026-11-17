@@ -1,0 +1,7 @@
+node_modules/
+build/
+.svelte-kit/
+.dealsystem/
+.env
+.env.*
+.DS_Store

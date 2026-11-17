@@ -59,6 +59,7 @@ export type CollectionFieldType =
 /** Feldtypen, deren Werte unter `entry.media` statt `entry.data` stehen. */
 export type MediaFieldType = 'image' | 'gallery' | 'file';
 
+/** Ein Feld einer Sammlung in `dealsystem.config.ts`. */
 export interface CollectionFieldDef {
 	name: string;
 	type: CollectionFieldType;

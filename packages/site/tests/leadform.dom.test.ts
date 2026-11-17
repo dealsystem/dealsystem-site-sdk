@@ -369,6 +369,16 @@ describe('Fehlerwege', () => {
 		expect(screen.queryByRole('alert')).toBeNull();
 	});
 
+	it('zeigt als Ausweichkontakt nur, was der Kunde eingetragen hat', async () => {
+		fetchSpy.mockRejectedValue(new TypeError('offline'));
+		const { user } = setup({ legal: { ...testSiteData().legal, phone: '' } });
+		await fillAndSubmit(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Sie erreichen uns auch direkt: info@kunde.de');
+		expect(alert).not.toHaveTextContent('oder');
+		expect(screen.queryByRole('link', { name: /0341/ })).toBeNull();
+	});
+
 	it('zeigt ohne Firmendaten keinen leeren Kontakt-Hinweis', async () => {
 		fetchSpy.mockRejectedValue(new TypeError('offline'));
 		const { user } = setup({ legal: { ...testSiteData().legal, phone: '', email: '' } });

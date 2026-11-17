@@ -7,7 +7,7 @@ const config = {
 	preprocess: vitePreprocess(),
 	kit: {
 		adapter: adapter({ fallback: '404.html' }),
-		prerender: { handleHttpError },
+		prerender: { handleHttpError, handleUnseenRoutes: 'ignore' },
 		csp: {
 			mode: 'hash',
 			directives: {

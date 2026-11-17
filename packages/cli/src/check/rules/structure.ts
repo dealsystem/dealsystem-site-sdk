@@ -357,15 +357,26 @@ const str008 = sourceRule('STR-008', (ctx) => {
 	if (!section) return []; // STR-001 meldet die fehlende Datei.
 	const prerender = isPlainObject(section.kit) ? section.kit.prerender : undefined;
 	const handler = isPlainObject(prerender) ? prerender.handleHttpError : undefined;
-	if (isOpaque(handler) && !handler.call && section.mod.imports.get(handler.text) === CONFIG_MODULE)
-		return [];
-	return [
-		{
+	const out: RawFinding[] = [];
+	if (!(isOpaque(handler) && !handler.call && section.mod.imports.get(handler.text) === CONFIG_MODULE)) {
+		out.push({
 			file: section.path,
 			line: isOpaque(handler) ? handler.line : null,
 			message: `In svelte.config.js fehlt \`kit.prerender.handleHttpError\` aus \`${CONFIG_MODULE}\`; ohne sie scheitert der Build an Bildern unter \`/_ds/media/\`.`,
-		},
-	];
+		});
+	}
+	// Ohne 'ignore' scheitert der Build, sobald eine Sammlung keinen veröffentlichten Eintrag mehr hat:
+	// Ihre Detailroute (`/angebote/[slug]`) hat dann keine Seite, und SvelteKit wertet das als Fehler.
+	const unseen = isPlainObject(prerender) ? prerender.handleUnseenRoutes : undefined;
+	if (unseen !== 'ignore') {
+		out.push({
+			file: section.path,
+			line: isOpaque(unseen) ? unseen.line : null,
+			message:
+				"In svelte.config.js fehlt `kit.prerender.handleUnseenRoutes: 'ignore'`; ohne sie scheitert der Build, sobald eine Sammlung keine Einträge hat.",
+		});
+	}
+	return out;
 });
 
 const str009 = sourceRule('STR-009', (ctx) => {

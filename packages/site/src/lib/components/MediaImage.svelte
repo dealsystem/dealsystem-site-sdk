@@ -1,6 +1,7 @@
 <!--
 @component
-Ein Bild. `<img>` wird auf der Seite nie direkt geschrieben, immer `<MediaImage>`.
+Ein Bild, immer mit Alternativtext. `<img>` wird auf der Seite nie direkt
+geschrieben, immer `<MediaImage>`.
 `alt` beschreibt, was auf dem Bild zu sehen ist. Nur bei reinem Schmuck:
 `alt="" decorative`.
 

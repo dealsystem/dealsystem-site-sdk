@@ -6,12 +6,12 @@ und spricht das CRM nur über die öffentliche Site-API an.
 
 ## Einstiegspunkte
 
-| Import                     | Inhalt                                                                                   |
-| -------------------------- | ---------------------------------------------------------------------------------------- |
-| `@dealsystem/site`         | Komponenten, `consent`, `loadCollection`, `loadEntry`                                    |
-| `@dealsystem/site/content` | `getCollection`, `getEntry`, `collectionEntries`, `getSlots`, `getSite` (nur beim Build) |
-| `@dealsystem/site/config`  | `defineSite`, `validateSiteConfig`, `handleHttpError`                                    |
-| `@dealsystem/site/vite`    | `dealsystem(site)`                                                                       |
+| Import                     | Inhalt                                                                                                        |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `@dealsystem/site`         | Komponenten, `consent`, `loadCollection`, `loadEntry`                                                         |
+| `@dealsystem/site/content` | `getCollection`, `getEntry`, `collectionEntries`, `getSlots`, `getSite`, `sitemap`, `robots` (nur beim Build) |
+| `@dealsystem/site/config`  | `defineSite`, `validateSiteConfig`, `handleHttpError`                                                         |
+| `@dealsystem/site/vite`    | `dealsystem(site)`                                                                                            |
 
 ## Einrichtung
 
@@ -68,17 +68,18 @@ export {};
 
 ## Komponenten
 
-| Komponente                                                | Zweck                                                                    |
-| --------------------------------------------------------- | ------------------------------------------------------------------------ |
-| `<LeadForm funnel>`                                       | Formular mit Beschriftungen, Fehlertexten, Honeypot, Captcha und Versand |
-| `<Text key default>`                                      | kurzer Text, im CRM änderbar                                             |
-| `<RichText key default>` / `<RichText content>`           | formatierter Text, geprüft                                               |
-| `<MediaImage src\|media\|key alt>`                        | Bild; `alt` ist Pflicht, leer nur mit `decorative`                       |
-| `<MediaVideo media title>`                                | Video mit Bedienelementen                                                |
-| `<CollectionList collection entries>`                     | Liste von CMS-Einträgen                                                  |
-| `<CookieBanner />`, `<ConsentGate category>`              | Einwilligung; vorher lädt nichts von Dritten                             |
-| `<Tracking />`                                            | Meta Pixel und Google Tag, nur in `<ConsentGate category="marketing">`   |
-| `<Impressum />`, `<Datenschutz />`, `<SiteFooterLegal />` | Rechtstexte und Pflicht-Links aus den Firmendaten                        |
+| Komponente                                      | Zweck                                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------- |
+| `<LeadForm funnel>`                             | Formular mit Beschriftungen, Fehlertexten, Honeypot, Captcha und Versand  |
+| `<Text key default>`                            | kurzer Text, im CRM änderbar                                              |
+| `<RichText key default>` / `<RichText content>` | formatierter Text, geprüft                                                |
+| `<MediaImage src\|media\|key alt>`              | Bild; `alt` ist Pflicht, leer nur mit `decorative`                        |
+| `<MediaVideo media title>`                      | Video mit Bedienelementen                                                 |
+| `<CollectionList collection entries>`           | Liste von CMS-Einträgen                                                   |
+| `<CookieBanner />`, `<ConsentGate category>`    | Einwilligung; vorher lädt nichts von Dritten                              |
+| `<Tracking />`                                  | Meta Pixel und Google Tag, nur in `<ConsentGate category="marketing">`    |
+| `<Impressum />`, `<Datenschutz />`              | geben den Rechtstext des Kunden aus dem CRM aus; das Paket erzeugt keinen |
+| `<SiteFooterLegal />`                           | Pflicht-Links und „Cookie-Einstellungen“                                  |
 
 Jede Komponente und Funktion trägt ihre Beschreibung mit Beispiel im Quelltext.
 
@@ -128,6 +129,12 @@ und `img-src`.
 Für Prüfungen an der Ausgabe setzen die Komponenten feste Attribute: `data-ds-cookie-banner`,
 `data-ds-footer-legal`, `data-ds-impressum`, `data-ds-datenschutz`, `data-ds-lead-form="<funnel>"`,
 `data-ds-image` (am `<img>`), `data-ds-video`, `data-ds-richtext`, `data-ds-collection="<key>"`, `data-ds-slot="<key>"`.
+
+## Anleitungen für Agenten
+
+`docs/` enthält die Anleitungen, die ein KI-Agent im Kundenprojekt liest (`agents-block.md`, Detailseiten,
+`llms.txt`). Sie werden mit `npm run docs` im Repo-Root aus dem Code und aus `docs-src/` erzeugt und nie von
+Hand geändert.
 
 ## Vertrag
 

@@ -1,6 +1,7 @@
 <!--
 @component
-Ein kurzer Text, den der Kunde später im CRM unter „Website-Texte“ ändern kann.
+Ein kurzer Text (Überschrift, Satz, Beschriftung), den der Kunde später im CRM
+selbst ändern kann.
 Angezeigt wird der Text aus dem CRM, sonst `default`.
 
 `key` und `default` müssen feste Zeichenketten sein (keine Variablen): der
