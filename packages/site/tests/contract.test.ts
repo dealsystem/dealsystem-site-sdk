@@ -148,12 +148,7 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			captcha_unavailable: [503, 'server'],
 		};
 		const codes = contract.components.schemas.Error.properties.code.enum;
-		// Jeder Code des Vertrags ist eingeordnet. `payload_too_large` kennt der Client schon; in diesem
-		// Stand des Vertrags steht er noch nicht (er kommt mit einem anderen Core-Branch).
-		for (const code of codes) expect(Object.keys(expected), code).toContain(code);
-		expect(Object.keys(expected).filter((code) => !codes.includes(code))).toEqual(
-			codes.includes('payload_too_large') ? [] : ['payload_too_large'],
-		);
+		expect([...codes].sort()).toEqual(Object.keys(expected).sort());
 
 		for (const code of codes) {
 			const [status, kind] = expected[code]!;
