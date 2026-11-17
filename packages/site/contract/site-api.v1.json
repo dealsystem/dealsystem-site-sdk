@@ -126,13 +126,13 @@
                       }
                     },
                     "additionalProperties": false,
-                    "description": "Erste Berührung (UTM, Referrer), vom SDK im `sessionStorage` gehalten. Optional."
+                    "description": "Erster Kontaktpunkt (UTM, Referrer). Optional. Das SDK hält ihn bis zur Einwilligung „Marketing“ nur im Arbeitsspeicher der Seite und legt ihn erst danach in `sessionStorage` ab (TDDDG § 25)."
                   },
                   "captcha": {
                     "type": "string",
                     "minLength": 1,
                     "maxLength": 16000,
-                    "description": "Lösung des Captcha-Widgets (Friendly Captcha, im SDK enthalten)."
+                    "description": "Lösung des Captcha-Widgets (Friendly Captcha, im SDK enthalten). Ohne Widget schickt das SDK `\"none\"` — das gilt nur im Testmodus der Entwicklung, in Production ist es immer 400 `captcha_failed` bzw. 503."
                   },
                   "website": {
                     "description": "Honeypot: unsichtbares Feld, bleibt leer. Ist es gefüllt, wird nichts gespeichert.",
@@ -320,7 +320,7 @@
             }
           },
           "503": {
-            "description": "`captcha_unavailable`: Captcha-Prüfung nicht eingerichtet.",
+            "description": "`captcha_unavailable`: Captcha-Prüfung auf unserer Seite nicht eingerichtet oder falsch konfiguriert. Ist nur der Captcha-Anbieter kurz nicht erreichbar, wird der Lead angenommen (Honeypot und Rate-Limit gelten weiter).",
             "content": {
               "application/json": {
                 "schema": {
