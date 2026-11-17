@@ -29,7 +29,6 @@ export function emptySiteData(): SiteData {
 		site: { id: '', slug: '', name: '', primaryHost: '', locale: 'de', url: '' },
 		legal: { company: '', address: '', representative: '', email: '', phone: '', register: '', vatId: '' },
 		tracking: { metaPixelId: null, googleTagId: null },
-		captcha: null,
 		funnels: {},
 		collections: {},
 		slots: {},

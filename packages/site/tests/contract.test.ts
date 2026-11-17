@@ -87,7 +87,7 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 				website: '',
 			}),
 		);
-		await api.submitLead(lead({ attribution: undefined, captcha: 'none', website: undefined }));
+		await api.submitLead(lead({ attribution: undefined, website: undefined }));
 
 		for (const call of calls) {
 			expect(validateLeadBody(call.body), JSON.stringify(validateLeadBody.errors)).toBe(true);

@@ -109,7 +109,6 @@ export function buildSiteData(
 		site: { ...snapshot.site, id: snapshot.site.id || config.siteId, url: siteUrl.replace(/\/+$/, '') },
 		legal: snapshot.legal,
 		tracking: snapshot.tracking,
-		captcha: snapshot.captcha,
 		funnels: Object.fromEntries(
 			Object.entries(config.funnels ?? {}).map(([key, funnel]) => [
 				key,
@@ -136,7 +135,8 @@ function sendJson(res: import('node:http').ServerResponse, status: number, body:
 
 /**
  * Beantwortet in `vite dev` die Site-API für den Schlüssel `dev`: Sammlungen
- * aus der lokalen Kopie, Formulare als Probelauf ohne Speichern. `dealsystem dev`
+ * aus der lokalen Kopie, eine Test-Aufgabe für das Captcha, Formulare als
+ * Probelauf ohne Speichern. `dealsystem dev`
  * darf davor eine eigene Middleware für `…/leads` setzen.
  */
 function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): void {
@@ -162,6 +162,20 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 				// Wie ein Vorschau-Host: geprüft, nicht gespeichert.
 				res.setHeader('X-Captcha-Mode', 'test');
 				return sendJson(res, 200, { data: { accepted: true, dryRun: true } });
+			}
+			if (resource === 'captcha' && req.method === 'GET') {
+				// Leichte Test-Aufgabe, damit das Formular lokal ohne Core läuft.
+				const { createChallenge, pbkdf2 } = await import('altcha/lib');
+				const challenge = await createChallenge({
+					algorithm: 'PBKDF2/SHA-256',
+					cost: 500,
+					counter: 100 + Math.floor(Math.random() * 400),
+					deriveKey: pbkdf2.deriveKey,
+					expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+				});
+				res.setHeader('Cache-Control', 'no-store');
+				res.setHeader('X-Captcha-Mode', 'test');
+				return sendJson(res, 200, challenge);
 			}
 			if (resource === 'collections' && req.method === 'GET' && key) {
 				const snapshot = await readSnapshot(root);

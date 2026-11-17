@@ -40,8 +40,6 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 		postalCode: 'postal-code',
 		city: 'address-level2',
 	};
-	/** Wert für `captcha`, wenn für die Seite kein Captcha eingerichtet ist. */
-	const NO_CAPTCHA = 'none';
 	type AutoFill =
 		'given-name' | 'family-name' | 'email' | 'tel' | 'address-line1' | 'postal-code' | 'address-level2';
 </script>
@@ -49,8 +47,8 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { getFirstTouch } from '../client/attribution.js';
-	import { captchaAdapterFor, type CaptchaHandle } from '../client/captcha.js';
-	import { siteApi, type SiteApiError } from '../client/siteApi.js';
+	import { captchaAdapter, type CaptchaHandle } from '../client/captcha.js';
+	import { captchaChallengeUrl, siteApi, type SiteApiError } from '../client/siteApi.js';
 	import { labelOf, maxLengthOf, toLeadData, validateField } from '../client/validation.js';
 	import { consent } from '../consent/consent.svelte.js';
 	import { getSiteData } from '../internal/siteData.js';
@@ -92,7 +90,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	let failure = $state<SiteApiError | null>(null);
 	let dryRun = $state(false);
 
-	let captchaState = $state<'off' | 'idle' | 'loading' | 'ready' | 'failed'>(site.captcha ? 'idle' : 'off');
+	let captchaState = $state<'idle' | 'loading' | 'ready' | 'failed'>('idle');
 	let captchaSolution = $state<string | null>(null);
 	let waitingForCaptcha = $state(false);
 	let captchaElement = $state<HTMLElement | null>(null);
@@ -121,34 +119,29 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 		return Object.fromEntries(fields.map((field) => [field.name, valueOf(field.name, field.type)]));
 	}
 
-	/** Lädt das Captcha beim ersten Kontakt mit dem Formular, nicht vorher. */
+	/** Holt und löst die Captcha-Aufgabe beim ersten Kontakt mit dem Formular, nicht vorher. */
 	async function startCaptcha() {
-		if (!site.captcha || captchaState !== 'idle' || !captchaElement) return;
+		if (captchaState !== 'idle' || !captchaElement) return;
 		captchaState = 'loading';
 		try {
-			captchaHandle = await captchaAdapterFor(site.captcha)(
-				captchaElement,
-				site.captcha,
-				{
-					onSolved(solution) {
-						captchaSolution = solution;
-						captchaState = 'ready';
-						if (waitingForCaptcha) {
-							waitingForCaptcha = false;
-							void send();
-						}
-					},
-					onCleared() {
-						captchaSolution = null;
-					},
-					onError() {
-						captchaSolution = null;
-						captchaState = 'failed';
-						if (waitingForCaptcha) showCaptchaFailure();
-					},
+			captchaHandle = await captchaAdapter()(captchaElement, captchaChallengeUrl(), {
+				onSolved(solution) {
+					captchaSolution = solution;
+					captchaState = 'ready';
+					if (waitingForCaptcha) {
+						waitingForCaptcha = false;
+						void send();
+					}
 				},
-				site.site.locale,
-			);
+				onCleared() {
+					captchaSolution = null;
+				},
+				onError() {
+					captchaSolution = null;
+					captchaState = 'failed';
+					if (waitingForCaptcha) showCaptchaFailure();
+				},
+			});
 		} catch {
 			captchaState = 'failed';
 			if (waitingForCaptcha) showCaptchaFailure();
@@ -162,7 +155,8 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			kind: 'captcha_failed',
 			status: null,
 			code: null,
-			message: 'Die Sicherheitsprüfung konnte nicht geladen werden.',
+			message:
+				'Die Sicherheitsprüfung konnte nicht durchgeführt werden. Bitte versuchen Sie es später erneut.',
 			retryAfterSeconds: null,
 			invalidFields: [],
 			formInvalid: false,
@@ -197,9 +191,11 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			return;
 		}
 
-		if (site.captcha && !captchaSolution) {
+		if (!captchaSolution) {
 			if (captchaState === 'failed') retryCaptcha();
-			else void startCaptcha();
+			else if (captchaState === 'idle') void startCaptcha();
+			// Lösung abgelaufen: neue Aufgabe anfordern.
+			else if (captchaState === 'ready') captchaHandle?.reset();
 			waitingForCaptcha = true;
 			status = 'submitting';
 			return;
@@ -208,7 +204,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	}
 
 	async function send() {
-		if (!definition) return;
+		if (!definition || !captchaSolution) return;
 		status = 'submitting';
 		submissionId ||= crypto.randomUUID();
 		const result = await siteApi().submitLead({
@@ -216,8 +212,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			submissionId,
 			data: toLeadData(fields, values()),
 			attribution: getFirstTouch(),
-			// Ohne eingerichtetes Captcha (Entwicklung) verlangt der Vertrag trotzdem einen Wert.
-			captcha: captchaSolution ?? NO_CAPTCHA,
+			captcha: captchaSolution ?? '',
 			website: honeypot.slice(0, 500),
 		});
 
@@ -232,11 +227,9 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 
 		failure = result.error;
 		status = 'error';
-		// Eine Captcha-Lösung gilt nur einmal.
-		if (site.captcha) {
-			captchaSolution = null;
-			captchaHandle?.reset();
-		}
+		// Eine Captcha-Lösung gilt nur einmal: gleich die nächste Aufgabe lösen.
+		captchaSolution = null;
+		captchaHandle?.reset();
 		const rejected = fields.filter((field) => result.error.invalidFields.includes(field.name));
 		if (result.error.kind === 'validation' && rejected.length > 0) {
 			// Text vom Server wird nicht angezeigt: eigene Meldung je Feld.
@@ -417,9 +410,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 				/>
 			</div>
 
-			{#if site.captcha}
-				<div class="ds-form__captcha" bind:this={captchaElement}></div>
-			{/if}
+			<div bind:this={captchaElement} hidden></div>
 
 			<p class="ds-form__privacy">
 				Ihre Angaben verwenden wir, um Ihre Anfrage zu bearbeiten. Mehr dazu in der

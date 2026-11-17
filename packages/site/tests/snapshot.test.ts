@@ -7,7 +7,6 @@ describe('normalizeSnapshot', () => {
 			const snapshot = normalizeSnapshot(raw);
 			expect(snapshot.site.locale).toBe('de');
 			expect(snapshot.legal.company).toBe('');
-			expect(snapshot.captcha).toBeNull();
 			expect(snapshot.tracking).toEqual({ metaPixelId: null, googleTagId: null });
 			expect(snapshot.funnels).toEqual([]);
 			expect(snapshot.slots).toEqual({});
@@ -19,7 +18,7 @@ describe('normalizeSnapshot', () => {
 		const snapshot = normalizeSnapshot({
 			snapshotVersion: 1,
 			site: { id: 's1', slug: 'kunde', name: 'Kunde', primaryHost: 'kunde.de', locale: 'de', geheim: 'x' },
-			captcha: { provider: 'friendly-captcha', siteKey: 'FC1' },
+			captcha: { provider: 'altcha' },
 			legal: { company: 'Kunde GmbH', email: 'a@b.de', kontakte: ['privat'] },
 			tracking: { metaPixelId: '123456', googleTagId: '' },
 			funnels: [{ key: 'kontakt', active: false, fields: [] }, { active: true }, 'x'],
@@ -40,7 +39,8 @@ describe('normalizeSnapshot', () => {
 			primaryHost: 'kunde.de',
 			locale: 'de',
 		});
-		expect(snapshot.captcha).toEqual({ provider: 'friendly-captcha', siteKey: 'FC1' });
+		// Angaben zum Captcha im Schnappschuss werden nicht gelesen.
+		expect(snapshot).not.toHaveProperty('captcha');
 		expect(snapshot.legal).toMatchObject({ company: 'Kunde GmbH', email: 'a@b.de', phone: '' });
 		expect(snapshot.legal).not.toHaveProperty('kontakte');
 		expect(snapshot.tracking).toEqual({ metaPixelId: '123456', googleTagId: null });
@@ -72,7 +72,6 @@ describe('normalizeSnapshot', () => {
 	it('verträgt null, wo der Core nichts eingetragen hat', () => {
 		const snapshot = normalizeSnapshot({
 			site: { id: 's1', slug: 'kunde', name: 'Kunde', primaryHost: null, locale: 'de' },
-			captcha: { provider: 'friendly-captcha', siteKey: null },
 			legal: {
 				company: null,
 				address: null,
@@ -91,18 +90,12 @@ describe('normalizeSnapshot', () => {
 			},
 		});
 		expect(snapshot.site.primaryHost).toBe('');
-		expect(snapshot.captcha).toBeNull();
 		expect(snapshot.legal.company).toBe('');
 		expect(snapshot.collections.angebote).toEqual({
 			source: 'cms',
 			schemaHash: '',
 			entries: [{ slug: 'a', publishedAt: '', data: {}, media: {} }],
 		});
-	});
-
-	it('kennt nur den vereinbarten Captcha-Anbieter', () => {
-		expect(normalizeSnapshot({ captcha: { provider: 'anderer', siteKey: 'x' } }).captcha).toBeNull();
-		expect(normalizeSnapshot({ captcha: { provider: 'friendly-captcha' } }).captcha).toBeNull();
 	});
 });
 

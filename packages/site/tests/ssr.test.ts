@@ -306,19 +306,20 @@ describe('Rechtstexte', () => {
 		expect(plain).toContain('data-ds-datenschutz');
 		expect(plain).toContain('Kunde Immobilien GmbH');
 		expect(plain).toContain('Formulare');
-		expect(plain).not.toContain('Friendly Captcha');
+		expect(plain).toContain('Schutz vor Missbrauch');
+		expect(plain).toContain('keine Daten an andere Anbieter');
 		expect(plain).not.toContain('Meta Pixel');
 		expect(plain).not.toContain('Google');
 
 		setSiteDataForTests(
 			testSiteData({
 				funnels: {},
-				captcha: { provider: 'friendly-captcha', siteKey: 'FC' },
 				tracking: { metaPixelId: '1234567890', googleTagId: 'G-ABCDEF1234' },
 			}),
 		);
 		const full = render(Datenschutz, { props: {} }).body;
-		expect(full).toContain('Friendly Captcha');
+		// Ohne Formular gibt es auch keine Rechenaufgabe zu erklären.
+		expect(full).not.toContain('Schutz vor Missbrauch');
 		expect(full).toContain('Meta Pixel');
 		expect(full).toContain('Google Tag');
 		expect(full).not.toMatch(/<h2[^>]*>Formulare/);

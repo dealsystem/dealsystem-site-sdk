@@ -52,7 +52,7 @@
 		"build": "svelte-package --input src/lib --output dist && publint"
 	},
 	"dependencies": {
-		"@friendlycaptcha/sdk": "^1.1.5",
+		"altcha": "^3.6.0",
 		"esm-env": "^1.2.2",
 		"marked": "^18.2.1",
 		"sanitize-html": "^2.18.2"

@@ -10,6 +10,38 @@ import { jsonResponse, testSiteData } from './helpers.js';
 
 const fetchSpy = vi.fn<typeof fetch>();
 
+/** Ersatz für das ALTCHA-Widget. Löst sofort, wenn nicht anders verlangt. */
+function fakeCaptcha(options: { solve?: boolean; fail?: boolean; error?: boolean } = {}) {
+	const state = {
+		started: 0,
+		resets: 0,
+		destroyed: 0,
+		challengeUrl: '',
+		element: null as HTMLElement | null,
+		callbacks: null as CaptchaCallbacks | null,
+		solve: options.solve ?? true,
+		fail: options.fail ?? false,
+		error: options.error ?? false,
+	};
+	setCaptchaAdapterForTests(async (element, challengeUrl, callbacks) => {
+		state.started++;
+		state.element = element;
+		state.challengeUrl = challengeUrl;
+		state.callbacks = callbacks;
+		if (state.fail) throw new Error('blockiert');
+		if (state.error) queueMicrotask(() => callbacks.onError());
+		else if (state.solve) queueMicrotask(() => callbacks.onSolved('test-payload'));
+		return {
+			reset: () => {
+				state.resets++;
+				if (state.solve) queueMicrotask(() => callbacks.onSolved('test-payload'));
+			},
+			destroy: () => state.destroyed++,
+		};
+	});
+	return state;
+}
+
 function sentBody(call = 0): Record<string, unknown> {
 	return JSON.parse(String(fetchSpy.mock.calls[call]![1]!.body));
 }
@@ -35,6 +67,7 @@ beforeEach(() => {
 	fetchSpy.mockReset();
 	fetchSpy.mockResolvedValue(jsonResponse(201, { data: { accepted: true } }));
 	vi.stubGlobal('fetch', fetchSpy);
+	fakeCaptcha();
 });
 
 afterEach(() => {
@@ -162,8 +195,7 @@ describe('Versand', () => {
 			website: '',
 		});
 		expect(body.submissionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/);
-		// Ohne eingerichtetes Captcha steht der Platzhalter im Pflichtfeld des Vertrags.
-		expect(body.captcha).toBe('none');
+		expect(body.captcha).toBe('test-payload');
 		expect(body.data).not.toHaveProperty('firstName');
 
 		release(jsonResponse(201, { data: { accepted: true } }));
@@ -347,58 +379,42 @@ describe('Fehlerwege', () => {
 });
 
 describe('Captcha', () => {
-	const captcha = { provider: 'friendly-captcha' as const, siteKey: 'FCMTEST' };
-
-	function fakeCaptcha() {
-		const state = {
-			started: 0,
-			resets: 0,
-			destroyed: 0,
-			siteKey: '',
-			callbacks: null as CaptchaCallbacks | null,
-			fail: false,
-		};
-		setCaptchaAdapterForTests(async (_element, config, callbacks) => {
-			state.started++;
-			state.siteKey = config.siteKey;
-			state.callbacks = callbacks;
-			if (state.fail) throw new Error('blockiert');
-			return { reset: () => state.resets++, destroy: () => state.destroyed++ };
-		});
-		return state;
-	}
-
-	it('lädt erst beim ersten Kontakt mit dem Formular', async () => {
-		const fake = fakeCaptcha();
-		const { user } = setup({ captcha });
+	it('holt die Aufgabe erst beim ersten Kontakt mit dem Formular, von der eigenen Site-API', async () => {
+		const fake = fakeCaptcha({ solve: false });
+		const { user } = setup();
 		expect(fake.started).toBe(0);
 
 		await user.click(screen.getByLabelText(/E-Mail/));
 		await waitFor(() => expect(fake.started).toBe(1));
-		expect(fake.siteKey).toBe('FCMTEST');
+		expect(fake.challengeUrl).toBe(
+			'https://core.test/api/site/v1/s/dsp_TEST1234_abcdefghijklmnopqrstuvwx/captcha',
+		);
 
 		await user.click(screen.getByLabelText('Nachricht'));
 		expect(fake.started).toBe(1);
+		// Das Widget selbst ist unsichtbar; das Formular spricht für es.
+		expect(fake.element!.hidden).toBe(true);
 	});
 
-	it('schickt die Lösung als captcha mit', async () => {
-		const fake = fakeCaptcha();
-		const { user } = setup({ captcha });
+	it('schickt die gelöste Aufgabe als captcha mit', async () => {
+		const fake = fakeCaptcha({ solve: false });
+		const { user } = setup();
 		await user.click(screen.getByLabelText(/E-Mail/));
 		await waitFor(() => expect(fake.callbacks).not.toBeNull());
-		fake.callbacks!.onSolved('loesung-1');
+		fake.callbacks!.onSolved('eyJjaGFsbGVuZ2UiOnt9fQ==');
 
 		await fillAndSubmit(user);
 		await screen.findByRole('status');
-		expect(sentBody().captcha).toBe('loesung-1');
+		expect(sentBody().captcha).toBe('eyJjaGFsbGVuZ2UiOnt9fQ==');
 	});
 
-	it('wartet mit dem Versand, bis die Aufgabe gelöst ist', async () => {
-		const fake = fakeCaptcha();
-		const { user } = setup({ captcha });
+	it('wartet mit dem Versand, bis die Aufgabe gelöst ist, und sagt das an', async () => {
+		const fake = fakeCaptcha({ solve: false });
+		const { user } = setup();
 		await fillAndSubmit(user);
 
-		expect(await screen.findByText(/Die Sicherheitsprüfung läuft/)).toBeInTheDocument();
+		const hint = await screen.findByText(/Die Sicherheitsprüfung läuft/);
+		expect(hint.closest('[aria-live="polite"]')).not.toBeNull();
 		expect(fetchSpy).not.toHaveBeenCalled();
 
 		fake.callbacks!.onSolved('loesung-2');
@@ -407,12 +423,22 @@ describe('Captcha', () => {
 		expect(sentBody().captcha).toBe('loesung-2');
 	});
 
-	it('fordert nach captcha_failed eine neue Aufgabe an und sendet die alte Lösung nicht erneut', async () => {
-		const fake = fakeCaptcha();
+	it('sendet nie ohne gelöste Aufgabe', async () => {
+		const fake = fakeCaptcha({ solve: false });
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(fake.started).toBe(1);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('löst nach captcha_failed eine neue Aufgabe und sendet die alte Lösung nicht erneut', async () => {
+		const fake = fakeCaptcha({ solve: false });
 		fetchSpy.mockResolvedValueOnce(
 			jsonResponse(400, { error: 'x', message: 'x', status: 400, code: 'captcha_failed' }),
 		);
-		const { user } = setup({ captcha });
+		const { user } = setup();
 		await user.click(screen.getByLabelText(/E-Mail/));
 		await waitFor(() => expect(fake.callbacks).not.toBeNull());
 		fake.callbacks!.onSolved('alt');
@@ -428,22 +454,61 @@ describe('Captcha', () => {
 		expect(sentBody(1).captcha).toBe('neu');
 	});
 
-	it('zeigt den direkten Kontakt, wenn das Captcha nicht laden kann', async () => {
-		const fake = fakeCaptcha();
-		fake.fail = true;
-		const { user } = setup({ captcha });
+	it('fordert eine neue Aufgabe an, wenn die Lösung abgelaufen ist', async () => {
+		const fake = fakeCaptcha({ solve: false });
+		const { user } = setup();
+		await user.click(screen.getByLabelText(/E-Mail/));
+		await waitFor(() => expect(fake.callbacks).not.toBeNull());
+		fake.callbacks!.onSolved('abgelaufen');
+		fake.callbacks!.onCleared();
+
+		await fillAndSubmit(user);
+		expect(fake.resets).toBe(1);
+		expect(fetchSpy).not.toHaveBeenCalled();
+		fake.callbacks!.onSolved('frisch');
+		await screen.findByRole('status');
+		expect(sentBody().captcha).toBe('frisch');
+	});
+
+	it.each([
+		['das Widget nicht laden kann', { fail: true }],
+		['die Aufgabe nicht geholt oder gelöst werden kann', { error: true }],
+	])('zeigt den direkten Kontakt, wenn %s', async (_name, options) => {
+		fakeCaptcha({ solve: false, ...options });
+		const { user } = setup();
 		await fillAndSubmit(user);
 
 		const alert = await screen.findByRole('alert');
-		expect(alert).toHaveTextContent(/Sicherheitsprüfung konnte nicht geladen werden/);
-		expect(screen.getByRole('link', { name: 'info@kunde.de' })).toBeInTheDocument();
+		expect(alert).toHaveTextContent('Ihre Anfrage wurde nicht gesendet.');
+		expect(alert).toHaveTextContent(/Sicherheitsprüfung konnte nicht durchgeführt werden/);
+		expect(screen.getByRole('link', { name: '0341 1234567' })).toHaveAttribute('href', 'tel:03411234567');
+		expect(screen.getByRole('link', { name: 'info@kunde.de' })).toHaveAttribute(
+			'href',
+			'mailto:info@kunde.de',
+		);
+		await waitFor(() => expect(alert).toHaveFocus());
 		expect(fetchSpy).not.toHaveBeenCalled();
 		expect(screen.queryByRole('status')).toBeNull();
 	});
 
+	it('versucht es nach einem Fehler beim nächsten Absenden erneut', async () => {
+		const fake = fakeCaptcha({ solve: false, fail: true });
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await screen.findByRole('alert');
+
+		fake.fail = false;
+		fake.solve = true;
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		await screen.findByRole('status');
+		// Erster Fokus, erstes Absenden, zweites Absenden.
+		expect(fake.started).toBe(3);
+		expect(sentBody().captcha).toBe('test-payload');
+	});
+
 	it('räumt das Widget beim Entfernen des Formulars ab', async () => {
 		const fake = fakeCaptcha();
-		const { user, unmount } = setup({ captcha });
+		const { user, unmount } = setup();
 		await user.click(screen.getByLabelText(/E-Mail/));
 		await waitFor(() => expect(fake.started).toBe(1));
 		unmount();

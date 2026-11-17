@@ -1,7 +1,7 @@
 <!--
 @component
 Die Datenschutzerklärung als Vorlage, erzeugt aus den Firmendaten und den
-Funktionen der Seite (Formulare, Captcha, Tracking). Gehört auf
+Funktionen der Seite (Formulare, Tracking). Gehört auf
 `src/routes/datenschutz/+page.svelte`.
 
 Die Vorlage ersetzt keine Rechtsberatung. Verarbeitet die Seite weitere Daten
@@ -82,14 +82,14 @@ Die Vorlage ersetzt keine Rechtsberatung. Verarbeitet die Seite weitere Daten
 		</p>
 	{/if}
 
-	{#if site.captcha}
-		<svelte:element this={sub}>Schutz vor Missbrauch (Friendly Captcha)</svelte:element>
+	{#if hasForms}
+		<svelte:element this={sub}>Schutz vor Missbrauch</svelte:element>
 		<p>
-			Zum Schutz unserer Formulare vor automatisierten Einsendungen nutzen wir Friendly Captcha (Friendly
-			Captcha GmbH, Am Anger 3–5, 82237 Wörthsee, Deutschland). Sobald Sie ein Formular verwenden, löst Ihr
-			Browser im Hintergrund eine Rechenaufgabe. Dabei werden die IP-Adresse und technische Angaben zum
-			Browser an Friendly Captcha übertragen. Es werden keine Cookies gesetzt. Rechtsgrundlage ist unser
-			berechtigtes Interesse am Schutz vor Missbrauch (Art. 6 Abs. 1 Buchst. f DSGVO).
+			Zum Schutz unserer Formulare vor automatisierten Einsendungen löst Ihr Browser eine kleine Rechenaufgabe
+			im Hintergrund, sobald Sie ein Formular verwenden. Die Aufgabe kommt von demselben System, das auch Ihre
+			Anfrage entgegennimmt. Dabei werden keine Daten an andere Anbieter übertragen und keine Cookies gesetzt.
+			Rechtsgrundlage ist unser berechtigtes Interesse am Schutz vor Missbrauch (Art. 6 Abs. 1 Buchst. f
+			DSGVO).
 		</p>
 	{/if}
 

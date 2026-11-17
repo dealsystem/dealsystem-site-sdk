@@ -2,7 +2,6 @@
 // Lesen ist nachsichtig: Unbekanntes fällt weg, Fehlendes wird zum harmlosen
 // Standard. So legt ein neuer Core mit zusätzlichen Feldern keine Seite lahm.
 import type {
-	CaptchaConfig,
 	ContentSlotType,
 	ContentSnapshot,
 	LegalProfile,
@@ -104,12 +103,6 @@ function normalizeLegal(raw: unknown): LegalProfile {
 	};
 }
 
-function normalizeCaptcha(raw: unknown): CaptchaConfig | null {
-	if (!isRecord(raw) || raw.provider !== 'friendly-captcha') return null;
-	const siteKey = str(raw.siteKey);
-	return siteKey ? { provider: 'friendly-captcha', siteKey } : null;
-}
-
 /** Ein leerer Schnappschuss: die Seite zeigt überall ihre Standardwerte. */
 export function emptySnapshot(): ContentSnapshot {
 	return normalizeSnapshot({});
@@ -160,7 +153,6 @@ export function normalizeSnapshot(raw: unknown): ContentSnapshot {
 			primaryHost: str(site.primaryHost),
 			locale: str(site.locale) || 'de',
 		},
-		captcha: normalizeCaptcha(r.captcha),
 		legal: normalizeLegal(r.legal),
 		tracking: {
 			metaPixelId: strOrNull(tracking.metaPixelId),

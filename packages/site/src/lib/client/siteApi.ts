@@ -64,7 +64,7 @@ export interface LeadRequest {
 	submissionId: string;
 	data: Record<string, string | string[] | boolean>;
 	attribution?: LeadAttribution;
-	/** Lösung des Captchas, 1 bis 16 000 Zeichen. */
+	/** Gelöste Captcha-Aufgabe (ALTCHA, base64), 1 bis 16 000 Zeichen. */
 	captcha: string;
 	/** Honeypot. Echte Besucher lassen das Feld leer. */
 	website?: string;
@@ -263,6 +263,12 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 			return entry ? { ok: true, data: entry } : fail('invalid_response', 200);
 		},
 	};
+}
+
+/** @internal Adresse, von der das Formular seine Captcha-Aufgabe holt. */
+export function captchaChallengeUrl(): string {
+	const { api } = getSiteData();
+	return `${api.baseUrl.replace(/\/+$/, '')}/api/site/v1/s/${encodeURIComponent(api.siteKey)}/captcha`;
 }
 
 /** @internal Client mit den Zugangsdaten der Seite aus dem Build. */

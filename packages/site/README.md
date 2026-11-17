@@ -105,6 +105,24 @@ Die Standardwerte erfüllen die Kontraste von WCAG 2.1 AA. Wer sie ändert, prü
 | `DEALSYSTEM_MANIFEST_FILE`                                                          | Build-Host  | Zielpfad des Manifests. Lokal: `.dealsystem/manifest.json`                      |
 | `PUBLIC_DEALSYSTEM_API`, `PUBLIC_DEALSYSTEM_SITE_KEY`, `PUBLIC_DEALSYSTEM_SITE_URL` | Build-Host  | Zugang zur Site-API. Ohne sie antwortet der Dev-Server selbst (Schlüssel `dev`) |
 
+## Captcha und Content-Security-Policy
+
+Formulare schützt ALTCHA, ein Proof-of-Work-Verfahren ohne Drittanbieter. Beim ersten Kontakt mit dem
+Formular holt der Browser eine Rechenaufgabe von der Site-API (`GET …/captcha`) und löst sie unsichtbar im
+Hintergrund; die Lösung geht als `captcha` mit der Anfrage. Dafür ist keine Einwilligung nötig. Das Paket
+bringt die Worker für `PBKDF2/SHA-*` und `SHA-*` mit; andere Algorithmen kann die Seite nicht lösen.
+
+Was die CSP der Seite dafür braucht (in einem echten Browser geprüft):
+
+| Direktive     | Wert                                  | Wofür                                                       |
+| ------------- | ------------------------------------- | ----------------------------------------------------------- |
+| `worker-src`  | `'self'`                              | Worker des Captchas, eigene Dateien der Seite, kein `blob:` |
+| `connect-src` | `'self'` und die Adresse der Site-API | Aufgabe holen, Formular senden                              |
+| `style-src`   | `'self' 'unsafe-inline'`              | Stil-Attribute von SvelteKit und vom Captcha-Widget         |
+
+`<Tracking />` braucht zusätzlich die Adressen von Google Tag und Meta Pixel in `script-src`, `connect-src`
+und `img-src`.
+
 ## Marker im fertigen HTML
 
 Für Prüfungen an der Ausgabe setzen die Komponenten feste Attribute: `data-ds-cookie-banner`,

@@ -7,7 +7,7 @@
 		"primaryHost": "kunde.de",
 		"locale": "de"
 	},
-	"captcha": { "provider": "friendly-captcha", "siteKey": "FCMTEST" },
+	"captcha": { "provider": "altcha" },
 	"legal": {
 		"company": "Kunde GmbH",
 		"address": "Musterstraße 1, 04109 Leipzig",

@@ -281,11 +281,6 @@ export interface TrackingConfig {
 	googleTagId: string | null;
 }
 
-export interface CaptchaConfig {
-	provider: 'friendly-captcha';
-	siteKey: string;
-}
-
 /** Angaben zur Seite. */
 export interface SiteInfo {
 	id: string;
@@ -299,7 +294,6 @@ export interface SiteInfo {
 export interface ContentSnapshot {
 	snapshotVersion: 1;
 	site: SiteInfo;
-	captcha: CaptchaConfig | null;
 	legal: LegalProfile;
 	tracking: TrackingConfig;
 	funnels: { key: string; active: boolean }[];
@@ -338,7 +332,6 @@ export interface SiteData {
 	site: SiteInfo & { url: string };
 	legal: LegalProfile;
 	tracking: TrackingConfig;
-	captcha: CaptchaConfig | null;
 	funnels: Record<string, FunnelDef & { active: boolean }>;
 	collections: Record<string, { fields: readonly CollectionFieldDef[] }>;
 	slots: Record<string, SlotOverride>;

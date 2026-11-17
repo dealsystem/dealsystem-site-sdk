@@ -132,7 +132,8 @@ describe('dealsystem() im Build', () => {
 		});
 		expect(data.site).toMatchObject({ name: 'Kunde Immobilien', url: 'https://kunde.de', locale: 'de' });
 		expect(data.legal.company).toBe('Kunde GmbH');
-		expect(data.captcha).toEqual({ provider: 'friendly-captcha', siteKey: 'FCMTEST' });
+		// Was der Schnappschuss zum Captcha sagt, braucht die Seite nicht.
+		expect(data).not.toHaveProperty('captcha');
 		expect(data.tracking).toEqual({ metaPixelId: '1234567890', googleTagId: null });
 		// Formulare kommen aus dem Code; der Core schaltet sie nur ab.
 		expect(data.funnels.kontakt!.active).toBe(true);

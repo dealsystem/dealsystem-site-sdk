@@ -1,52 +1,104 @@
-// Andockpunkt für das Captcha. Der Anbieter wird erst geladen, wenn der
-// Besucher das Formular zum ersten Mal anfasst — vorher geht kein Request raus.
-import type { CaptchaConfig } from '../types.js';
+// Captcha des Formulars: ALTCHA, ein Proof-of-Work-Verfahren. Der Browser
+// holt eine Rechenaufgabe von der eigenen Site-API und löst sie im
+// Hintergrund. Kein Drittanbieter, kein Cookie, nichts zum Anklicken.
+//
+// Das Widget ist im Paket gebündelt und wird erst geladen, wenn der Besucher
+// das Formular zum ersten Mal anfasst — vorher geht keine Anfrage raus.
+// Es läuft unsichtbar; was der Besucher erfährt, sagt das Formular selbst
+// (aria-live). Die Worker kommen als eigene Dateien vom selben Ursprung
+// (CSP: `worker-src 'self'`), ohne blob:-Adressen und ohne eingebettete Styles.
+// Typen der `?worker`-Importe: eine Deklarationsdatei lässt sich nur so einbinden.
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+/// <reference path="./altcha-workers.d.ts" />
+import type { WidgetMethods } from 'altcha/types';
 
-/** Ein laufendes Captcha-Widget. */
+/** Ein laufendes Captcha. */
 export interface CaptchaHandle {
-	/** Neue Aufgabe anfordern, z. B. nach einem abgelehnten Versuch. */
+	/** Neue Aufgabe holen und lösen, z. B. nach einem abgelehnten Versuch. */
 	reset(): void;
 	destroy(): void;
 }
 
-/** Rückmeldungen des Widgets an das Formular. */
+/** Rückmeldungen an das Formular. */
 export interface CaptchaCallbacks {
-	/** Aufgabe gelöst. `solution` geht als `captcha` an die Site-API. */
-	onSolved(solution: string): void;
+	/** Aufgabe gelöst. `payload` geht als `captcha` an die Site-API. */
+	onSolved(payload: string): void;
 	/** Lösung abgelaufen oder zurückgesetzt. */
 	onCleared(): void;
-	/** Das Widget konnte nicht laden oder prüfen. */
+	/** Aufgabe nicht ladbar oder nicht lösbar. */
 	onError(): void;
 }
 
-/** Startet ein Widget im angegebenen Element. */
+/** Startet das Captcha im angegebenen Element. */
 export type CaptchaAdapter = (
 	element: HTMLElement,
-	config: CaptchaConfig,
+	challengeUrl: string,
 	callbacks: CaptchaCallbacks,
-	locale: string,
 ) => Promise<CaptchaHandle>;
 
-/** Friendly Captcha v2 über den EU-Endpunkt. */
-const friendlyCaptcha: CaptchaAdapter = async (element, config, callbacks, locale) => {
-	const { FriendlyCaptchaSDK } = await import('@friendlycaptcha/sdk');
-	const sdk = new FriendlyCaptchaSDK({ apiEndpoint: 'eu', disableEvalPatching: true });
-	const widget = sdk.createWidget({
-		element,
-		sitekey: config.siteKey,
-		startMode: 'auto',
-		formFieldName: null,
-		language: locale,
-	});
-	widget.addEventListener('frc:widget.complete', (event) => callbacks.onSolved(event.detail.response));
-	widget.addEventListener('frc:widget.expire', () => callbacks.onCleared());
-	widget.addEventListener('frc:widget.reset', () => callbacks.onCleared());
-	widget.addEventListener('frc:widget.error', () => callbacks.onError());
-	return { reset: () => widget.reset(), destroy: () => widget.destroy() };
-};
+type AltchaWidget = HTMLElement & WidgetMethods;
+type AltchaEvent = CustomEvent<{ payload?: string; state?: string }>;
 
-const ADAPTERS: Record<CaptchaConfig['provider'], CaptchaAdapter> = {
-	'friendly-captcha': friendlyCaptcha,
+/** Algorithmen, deren Worker das Paket mitbringt. Der Server muss einen davon verwenden. */
+export const CAPTCHA_ALGORITHMS = {
+	pbkdf2: ['PBKDF2/SHA-256', 'PBKDF2/SHA-384', 'PBKDF2/SHA-512'],
+	sha: ['SHA-256', 'SHA-384', 'SHA-512'],
+} as const;
+
+const altcha: CaptchaAdapter = async (element, challengeUrl, callbacks) => {
+	const [, pbkdf2, sha] = await Promise.all([
+		import('altcha/external'),
+		import('altcha/workers/pbkdf2?worker'),
+		import('altcha/workers/sha?worker'),
+	]);
+	const registry = globalThis.$altcha;
+	for (const name of CAPTCHA_ALGORITHMS.pbkdf2) registry.algorithms.set(name, () => new pbkdf2.default());
+	for (const name of CAPTCHA_ALGORITHMS.sha) registry.algorithms.set(name, () => new sha.default());
+
+	const widget = document.createElement('altcha-widget') as AltchaWidget;
+	widget.addEventListener('verified', (event) => {
+		const payload = (event as AltchaEvent).detail?.payload;
+		if (payload) callbacks.onSolved(payload);
+		else callbacks.onError();
+	});
+	widget.addEventListener('expired', () => callbacks.onCleared());
+	widget.addEventListener('statechange', (event) => {
+		if ((event as AltchaEvent).detail?.state === 'error') callbacks.onError();
+	});
+
+	// Die Methoden des Widgets gibt es erst nach seinem `load`-Ereignis.
+	const loaded = new Promise<void>((resolve, reject) => {
+		widget.addEventListener('load', () => resolve(), { once: true });
+		setTimeout(() => reject(new Error('ALTCHA lädt nicht')), 10_000);
+	});
+	// Unsichtbar ohne die Styles des Widgets: das Element selbst ist versteckt.
+	element.hidden = true;
+	element.append(widget);
+	if (typeof widget.configure !== 'function') await loaded;
+
+	await widget.configure({
+		challenge: challengeUrl,
+		auto: 'off',
+		display: 'invisible',
+		// Die Site-API antwortet ohne `Access-Control-Allow-Credentials`.
+		credentials: 'omit',
+		hideLogo: true,
+		hideFooter: true,
+	});
+	const verify = () => {
+		widget.verify().catch(() => callbacks.onError());
+	};
+	verify();
+
+	return {
+		reset() {
+			widget.reset();
+			verify();
+		},
+		destroy() {
+			widget.remove();
+		},
+	};
 };
 
 let testAdapter: CaptchaAdapter | null = null;
@@ -57,6 +109,6 @@ export function setCaptchaAdapterForTests(adapter: CaptchaAdapter | null): void 
 }
 
 /** @internal */
-export function captchaAdapterFor(config: CaptchaConfig): CaptchaAdapter {
-	return testAdapter ?? ADAPTERS[config.provider];
+export function captchaAdapter(): CaptchaAdapter {
+	return testAdapter ?? altcha;
 }
