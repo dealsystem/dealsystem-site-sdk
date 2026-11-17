@@ -16,7 +16,8 @@ export interface LoadedCollection<K extends string> {
 /**
  * Lädt Einträge einer Sammlung **im Browser** über die Site-API, z. B. für
  * „Mehr laden“. Wirft nie: das Ergebnis ist `{ ok: true, data }` oder
- * `{ ok: false, error }`. Inhalte, die Suchmaschinen sehen sollen, lädt
+ * `{ ok: false, error }`. Ohne `limit` kommen 20 Einträge, höchstens 100 je
+ * Abruf; `total` nennt die Gesamtzahl, weitere holt `offset`. Inhalte, die Suchmaschinen sehen sollen, lädt
  * stattdessen `getCollection()` aus `@dealsystem/site/content` beim Build.
  *
  * @example

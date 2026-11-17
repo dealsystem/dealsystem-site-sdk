@@ -309,10 +309,10 @@ describe('getCollection / getEntry', () => {
 	});
 
 	it('meldet einen unbekannten Eintrag als not_found', async () => {
-		reply = () => json(404, { error: 'Not Found', message: 'x', status: 404, code: 'entry_not_found' });
+		reply = () => json(404, { error: 'Not Found', message: 'x', status: 404, code: 'not_found' });
 		expect(await api().getEntry('angebote', 'fehlt')).toMatchObject({
 			ok: false,
-			error: { kind: 'not_found', code: 'entry_not_found' },
+			error: { kind: 'not_found', code: 'not_found' },
 		});
 	});
 });

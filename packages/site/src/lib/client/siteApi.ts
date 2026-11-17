@@ -235,8 +235,11 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 
 		async getCollection(key, query = {}) {
 			const params = new URLSearchParams();
-			if (query.limit !== undefined) params.set('limit', String(Math.min(100, Math.max(1, query.limit))));
-			if (query.offset) params.set('offset', String(Math.max(0, query.offset)));
+			// Der Server liefert ohne Angabe 20 Einträge und höchstens 100 je Abruf.
+			if (query.limit !== undefined) {
+				params.set('limit', String(Math.min(100, Math.max(1, Math.floor(query.limit)))));
+			}
+			if (query.offset) params.set('offset', String(Math.min(10_000, Math.max(0, Math.floor(query.offset)))));
 			if (query.sort) params.set('sort', query.sort === 'oldest' ? 'publishedAt' : '-publishedAt');
 			const search = params.toString();
 			const result = await request(`/collections/${encodeURIComponent(key)}${search ? `?${search}` : ''}`, {

@@ -1,7 +1,5 @@
-// Prüft den Client gegen die Beschreibung der Site-API: Leads gegen die Kopie
-// aus dem Core, Sammlungen gegen die vorläufige, von Hand abgeleitete Datei.
+// Prüft den Client gegen die Beschreibung der Site-API, eine Kopie aus dem Core.
 import Ajv2020 from 'ajv/dist/2020.js';
-import collectionsContract from '../contract/site-api.collections.vorlaeufig.json' with { type: 'json' };
 import contract from '../contract/site-api.v1.json' with { type: 'json' };
 import { pbkdf2, solveChallenge } from 'altcha/lib';
 import { CAPTCHA_ALGORITHMS } from '../src/lib/client/captcha.js';
@@ -18,9 +16,7 @@ import { jsonResponse } from './helpers.js';
 
 const ajv = new Ajv2020({ strict: false, formats: { uuid: true } });
 ajv.addSchema(contract, 'core');
-ajv.addSchema(collectionsContract, 'collections');
 const coreSchema = (name: string) => ajv.getSchema(`core#/components/schemas/${name}`)!;
-const collectionsSchema = (name: string) => ajv.getSchema(`collections#/components/schemas/${name}`)!;
 
 const leadOperation = contract.paths['/s/{key}/leads'].post;
 const validateLeadBody = ajv.compile(leadOperation.requestBody.content['application/json'].schema);
@@ -152,7 +148,12 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			captcha_unavailable: [503, 'server'],
 		};
 		const codes = contract.components.schemas.Error.properties.code.enum;
-		expect([...codes].sort()).toEqual(Object.keys(expected).sort());
+		// Jeder Code des Vertrags ist eingeordnet. `payload_too_large` kennt der Client schon; in diesem
+		// Stand des Vertrags steht er noch nicht (er kommt mit einem anderen Core-Branch).
+		for (const code of codes) expect(Object.keys(expected), code).toContain(code);
+		expect(Object.keys(expected).filter((code) => !codes.includes(code))).toEqual(
+			codes.includes('payload_too_large') ? [] : ['payload_too_large'],
+		);
 
 		for (const code of codes) {
 			const [status, kind] = expected[code]!;
@@ -225,39 +226,92 @@ describe('Vertrag Site-API v1: Captcha (Kopie aus dem Core)', () => {
 	});
 });
 
-describe('Sammlungen (vorläufiger Vertrag)', () => {
-	const paths = collectionsContract.paths;
-	const list = paths['/api/site/v1/s/{publishableKey}/collections/{key}'].get.responses;
-	const one = paths['/api/site/v1/s/{publishableKey}/collections/{key}/{slug}'].get.responses;
+describe('Vertrag Site-API v1: Sammlungen (Kopie aus dem Core)', () => {
+	const listPath = '/s/{key}/collections/{collection}';
+	const entryPath = '/s/{key}/collections/{collection}/{slug}';
+	const list = contract.paths[listPath].get;
+	const one = contract.paths[entryPath].get;
+	const server = contract.servers[0]!.url;
+	const fill = (template: string, values: Record<string, string>) =>
+		template.replace(/\{(\w+)\}/g, (_all, name: string) => values[name]!);
 
-	it('jede Anfrage des Clients trifft einen Pfad des Vertrags', async () => {
+	it('der Client ruft genau die Pfade des Vertrags, nur mit erlaubten Parametern', async () => {
 		const { api, calls } = recordingApi(() => jsonResponse(200, { data: [] }));
-		await api.getCollection('angebote', { limit: 3, offset: 3, sort: 'newest' });
-		await api.getEntry('angebote', 'altbau');
+		await api.getCollection('angebote', { limit: 500, offset: 99_999, sort: 'oldest' });
+		await api.getCollection('angebote');
+		await api.getEntry('angebote', 'altbau-leipzig');
 
-		for (const call of calls) {
-			const hit = Object.keys(paths).some((template) =>
-				new RegExp(`^${template.replace(/\{[^}]+\}/g, '[^/]+')}$`).test(call.url.pathname),
-			);
-			expect(hit, call.url.pathname).toBe(true);
-			expect(call.method).toBe('GET');
+		expect(calls.map((c) => c.method)).toEqual(['GET', 'GET', 'GET']);
+		expect(calls[0]!.url.origin + calls[0]!.url.pathname).toBe(
+			server + fill(listPath, { key: SITE_KEY, collection: 'angebote' }),
+		);
+		expect(calls[2]!.url.href).toBe(
+			server + fill(entryPath, { key: SITE_KEY, collection: 'angebote', slug: 'altbau-leipzig' }),
+		);
+
+		// Jeder Query-Parameter steht im Vertrag, und sein Wert liegt im erlaubten Bereich.
+		const params = Object.fromEntries(
+			list.parameters.filter((p) => p.in === 'query').map((p) => [p.name, p.schema]),
+		);
+		for (const [name, value] of calls[0]!.url.searchParams) {
+			const schema = params[name] as { minimum?: number; maximum?: number; enum?: string[] } | undefined;
+			expect(schema, name).toBeDefined();
+			if (schema!.enum) expect(schema!.enum).toContain(value);
+			if (schema!.maximum !== undefined) expect(Number(value)).toBeLessThanOrEqual(schema!.maximum);
+			if (schema!.minimum !== undefined) expect(Number(value)).toBeGreaterThanOrEqual(schema!.minimum);
 		}
+		expect(Object.fromEntries(calls[0]!.url.searchParams)).toEqual({
+			limit: '100',
+			offset: '10000',
+			sort: 'publishedAt',
+		});
+		// Ohne Angaben schickt der Client keine Parameter: Es gelten die Standardwerte des Servers.
+		expect(calls[1]!.url.search).toBe('');
+		const collectionPattern = (
+			list.parameters.find((p) => p.name === 'collection')!.schema as { pattern: string }
+		).pattern;
+		expect('angebote').toMatch(new RegExp(collectionPattern));
 	});
 
 	it('der Client versteht die Beispielantworten, und sie erfüllen ihr Schema', async () => {
-		expect(collectionsSchema('CollectionListResponse')(exampleOf(list['200']))).toBe(true);
-		expect(collectionsSchema('CollectionEntryResponse')(exampleOf(one['200']))).toBe(true);
+		const listExample = exampleOf(list.responses['200']);
+		const entryExample = exampleOf(one.responses['200']);
+		expect(coreSchema('CollectionList')(listExample)).toBe(true);
+		expect(coreSchema('CollectionEntry')(entryExample)).toBe(true);
 
-		const listed = await recordingApi(() => jsonResponse(200, exampleOf(list['200']))).api.getCollection(
-			'angebote',
-		);
-		expect(listed.ok && listed.data.entries[0]!.media.bilder![0]!.variants).toHaveLength(2);
-		expect(listed.ok && listed.data.total).toBe(1);
+		const listed = await recordingApi(() => jsonResponse(200, listExample)).api.getCollection('angebote');
+		expect(listed.ok).toBe(true);
+		if (!listed.ok) return;
+		expect(listed.data.total).toBe(1);
+		const [entry] = listed.data.entries;
+		expect(entry).toMatchObject({ slug: 'altbau-leipzig', publishedAt: '2026-11-01T09:00:00.000Z' });
+		// Richtext kommt als bereinigtes HTML und bleibt, wie er ist.
+		expect(entry!.data.beschreibung).toBe('<p><strong>Drei</strong> Zimmer</p>');
+		// Medien stehen nur unter `media`; die drei Größen bleiben vollständig erhalten.
+		expect(entry!.data).not.toHaveProperty('bilder');
+		const variants = entry!.media.bilder![0]!.variants;
+		expect(variants.map((v) => v.url.split('/').pop())).toEqual(['thumb.jpg', 'medium.jpg', 'large.jpg']);
+		expect(variants.map((v) => v.width)).toEqual([400, 800, 1600]);
 
-		const entry = await recordingApi(() => jsonResponse(200, exampleOf(one['200']))).api.getEntry(
+		const single = await recordingApi(() => jsonResponse(200, entryExample)).api.getEntry('angebote', 'x');
+		expect(single).toMatchObject({ ok: true, data: { slug: 'altbau-leipzig', media: { bilder: [] } } });
+	});
+
+	it('eine unbekannte Sammlung oder ein unbekannter Eintrag ist not_found', async () => {
+		expect(Object.keys(list.responses)).toContain('404');
+		expect(Object.keys(one.responses)).toContain('404');
+		const body = { error: 'Not Found', message: 'x', status: 404, code: 'not_found' };
+		expect(coreSchema('Error')(body)).toBe(true);
+		const listed = await recordingApi(() => jsonResponse(404, body)).api.getCollection('gibt-es-nicht');
+		const single = await recordingApi(() => jsonResponse(404, body)).api.getEntry(
 			'angebote',
-			'x',
+			'gibt-es-nicht',
 		);
-		expect(entry).toMatchObject({ ok: true, data: { slug: 'altbau-leipzig' } });
+		for (const result of [listed, single]) {
+			expect(result).toMatchObject({
+				ok: false,
+				error: { kind: 'not_found', code: 'not_found', status: 404 },
+			});
+		}
 	});
 });

@@ -3,7 +3,7 @@
   "info": {
     "title": "DealSystem Site-API (Self-Service-Websites)",
     "version": "1.0.0",
-    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen, Captcha-Challenge holen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`."
+    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen (Sammlungen), Captcha-Challenge holen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`.\n\n## Medien\n\nBilder und Dateien aus dem CMS kommen als `MediaRef` mit **seitenrelativen, dauerhaften** URLs\n(`/_ds/media/<siteId>/<id>/<variante>.<endung>`). Sie werden vom selben Origin wie die Seite ausgeliefert (der\nEdge holt sie aus dem öffentlichen Medien-Speicher) — keine fremden Hosts, keine ablaufenden Links. Öffentlich wird\nnur, was im CMS veröffentlicht ist; nach dem Zurückziehen verschwinden die Dateien."
   },
   "servers": [
     {
@@ -110,7 +110,7 @@
             }
           },
           "429": {
-            "description": "`rate_limited`: zu viele Anfragen dieser IP an die Site-API (60/min, vor der Prüfung des Schlüssels) oder zu viele Challenges. Header `Retry-After` (Sekunden).",
+            "description": "`rate_limited`: zu viele Challenges. Header `Retry-After` (Sekunden).",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,7 +142,7 @@
       "post": {
         "operationId": "submitLead",
         "summary": "Formular einreichen",
-        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
+        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Honeypot → Body → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
         "tags": [
           "Site-API"
         ],
@@ -382,22 +382,6 @@
               }
             }
           },
-          "413": {
-            "description": "`payload_too_large`: Body größer als 64 KB (angekündigt per `Content-Length` oder beim Lesen erkannt). Gelesen wird erst nach dem Rate-Limit.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                },
-                "example": {
-                  "error": "Payload Too Large",
-                  "message": "Die Anfrage ist zu groß.",
-                  "status": 413,
-                  "code": "payload_too_large"
-                }
-              }
-            }
-          },
           "415": {
             "description": "`unsupported_media_type`: `Content-Type` ist nicht `application/json`.",
             "content": {
@@ -431,7 +415,7 @@
             }
           },
           "429": {
-            "description": "`rate_limited`: 60/min je IP über die ganze Site-API (vor der Prüfung des Schlüssels), dazu 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
+            "description": "`rate_limited`: 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
             "content": {
               "application/json": {
                 "schema": {
@@ -462,6 +446,346 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/collections/{collection}": {
+      "get": {
+        "operationId": "listCollection",
+        "summary": "Einträge einer Sammlung",
+        "description": "Veröffentlichte Einträge einer Sammlung der Seite (Schlüssel wie in `dealsystem.config.ts`), mit Medien. Entwürfe kommen nie vor. Gedacht für Seiten, die Inhalte zur Laufzeit nachladen; beim Build liest das SDK den Inhalts-Schnappschuss (gleiche Form je Eintrag).\n\nAbfrage: `limit` 1–100 (Standard 20), `offset` 0–10000, `sort` `-publishedAt` (Standard, neueste zuerst) oder `publishedAt`. Werte außerhalb werden auf die Grenzen gesetzt, ein unbekanntes `sort` gilt als Standard; `meta` nennt die angewandten Werte.\n\n`Cache-Control: public, max-age=60, stale-while-revalidate=300` und `ETag`; mit `If-None-Match` → 304. Rate-Limit: 120/min je IP und Seite, 3 000/min je Seite.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Sammlung.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "-publishedAt",
+                "publishedAt"
+              ],
+              "default": "-publishedAt"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Einträge.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionList"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "slug": "altbau-leipzig",
+                      "publishedAt": "2026-11-01T09:00:00.000Z",
+                      "data": {
+                        "titel": "Sanierter Altbau",
+                        "beschreibung": "<p><strong>Drei</strong> Zimmer</p>"
+                      },
+                      "media": {
+                        "bilder": [
+                          {
+                            "id": "7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
+                            "kind": "image",
+                            "alt": "Fassade des Altbaus",
+                            "width": 1600,
+                            "height": 1067,
+                            "variants": [
+                              {
+                                "url": "/_ds/media/2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a/7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d/thumb.jpg",
+                                "width": 400,
+                                "format": "jpeg"
+                              },
+                              {
+                                "url": "/_ds/media/2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a/7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d/medium.jpg",
+                                "width": 800,
+                                "format": "jpeg"
+                              },
+                              {
+                                "url": "/_ds/media/2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a/7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d/large.jpg",
+                                "width": 1600,
+                                "format": "jpeg"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "meta": {
+                    "total": 1,
+                    "limit": 20,
+                    "offset": 0
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "304": {
+            "description": "Unverändert (`If-None-Match` passt zum `ETag`)."
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `not_found`: Die Seite liest diese Sammlung nicht (laut letztem Build).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Nicht gefunden.",
+                  "status": 404,
+                  "code": "not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 120/min je IP und Seite, 3 000/min je Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/collections/{collection}/{slug}": {
+      "get": {
+        "operationId": "getCollectionEntry",
+        "summary": "Ein Eintrag einer Sammlung",
+        "description": "Ein veröffentlichter Eintrag mit Medien. Ein Entwurf oder ein zurückgezogener Eintrag ergibt 404 `not_found`. Caching und Rate-Limit wie bei der Liste.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Sammlung.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "Slug des Eintrags (ab der ersten Veröffentlichung unveränderlich).",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eintrag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionEntry"
+                },
+                "example": {
+                  "data": {
+                    "slug": "altbau-leipzig",
+                    "publishedAt": "2026-11-01T09:00:00.000Z",
+                    "data": {
+                      "titel": "Sanierter Altbau"
+                    },
+                    "media": {
+                      "bilder": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "304": {
+            "description": "Unverändert (`If-None-Match` passt zum `ETag`)."
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `not_found`: Sammlung oder veröffentlichter Eintrag gibt es nicht.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Nicht gefunden.",
+                  "status": 404,
+                  "code": "not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: wie bei der Liste. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
                 }
               }
             }
@@ -583,7 +907,6 @@
               "funnel_not_found",
               "method_not_allowed",
               "unsupported_media_type",
-              "payload_too_large",
               "validation_error",
               "rate_limited",
               "internal_error",
@@ -647,6 +970,359 @@
         ],
         "additionalProperties": false,
         "description": "Angenommen. Enthält bewusst keine Kontakt- oder Deal-ID. Nie eine Erfolgsmeldung anzeigen ohne `accepted: true`."
+      },
+      "CollectionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "publishedAt": {
+                  "type": "string",
+                  "description": "ISO-Zeitpunkt der Veröffentlichung."
+                },
+                "data": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {},
+                  "description": "Werte je Feld des Schemas aus `dealsystem.config.ts`, ohne Medienfelder. Richtext-Felder sind bereinigtes HTML (keine Bilder, keine Einbettungen, keine Stile) — nicht noch einmal als Markdown rendern."
+                },
+                "media": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kennung des Mediums (stabil)."
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "file"
+                          ]
+                        },
+                        "alt": {
+                          "type": "string",
+                          "description": "Alternativtext aus dem CMS. Leer = dekorativ."
+                        },
+                        "width": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Pixelbreite des größten Bildes; bei Dateien `null`."
+                        },
+                        "height": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "variants": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "url": {
+                                "type": "string",
+                                "description": "Dauerhafte, seitenrelative URL `/_ds/media/<siteId>/<id>/<variante>.<endung>` — vom selben Origin wie die Seite."
+                              },
+                              "width": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "format": {
+                                "type": "string",
+                                "enum": [
+                                  "jpeg",
+                                  "webp",
+                                  "avif"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "url",
+                              "width",
+                              "format"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Bildgrößen, nach Breite aufsteigend. Phase 1: JPEG; WebP/AVIF kommen später dazu."
+                        },
+                        "video": {
+                          "description": "Phase 2.",
+                          "type": "object",
+                          "properties": {
+                            "provider": {
+                              "type": "string",
+                              "const": "bunny"
+                            },
+                            "playbackUrl": {
+                              "type": "string"
+                            },
+                            "posterUrl": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "provider",
+                            "playbackUrl",
+                            "posterUrl"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "url": {
+                          "description": "Nur bei `kind: \"file\"`: dauerhafte, seitenrelative URL.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "alt",
+                        "width",
+                        "height",
+                        "variants"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Öffentliches Medium (Bild, Datei). Keine signierten, ablaufenden Links."
+                    }
+                  },
+                  "description": "Je Bild-, Galerie- oder Dateifeld die Medien in der Reihenfolge des CMS — auch in der Liste."
+                }
+              },
+              "required": [
+                "slug",
+                "publishedAt",
+                "data",
+                "media"
+              ],
+              "additionalProperties": false,
+              "description": "Ein veröffentlichter Eintrag. Entwürfe gibt es hier nie."
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Zahl der veröffentlichten Einträge der Sammlung."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "additionalProperties": false
+      },
+      "CollectionEntry": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "publishedAt": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt der Veröffentlichung."
+              },
+              "data": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {},
+                "description": "Werte je Feld des Schemas aus `dealsystem.config.ts`, ohne Medienfelder. Richtext-Felder sind bereinigtes HTML (keine Bilder, keine Einbettungen, keine Stile) — nicht noch einmal als Markdown rendern."
+              },
+              "media": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "Kennung des Mediums (stabil)."
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "image",
+                          "video",
+                          "file"
+                        ]
+                      },
+                      "alt": {
+                        "type": "string",
+                        "description": "Alternativtext aus dem CMS. Leer = dekorativ."
+                      },
+                      "width": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Pixelbreite des größten Bildes; bei Dateien `null`."
+                      },
+                      "height": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "variants": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "description": "Dauerhafte, seitenrelative URL `/_ds/media/<siteId>/<id>/<variante>.<endung>` — vom selben Origin wie die Seite."
+                            },
+                            "width": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "jpeg",
+                                "webp",
+                                "avif"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "url",
+                            "width",
+                            "format"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Bildgrößen, nach Breite aufsteigend. Phase 1: JPEG; WebP/AVIF kommen später dazu."
+                      },
+                      "video": {
+                        "description": "Phase 2.",
+                        "type": "object",
+                        "properties": {
+                          "provider": {
+                            "type": "string",
+                            "const": "bunny"
+                          },
+                          "playbackUrl": {
+                            "type": "string"
+                          },
+                          "posterUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "provider",
+                          "playbackUrl",
+                          "posterUrl"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "url": {
+                        "description": "Nur bei `kind: \"file\"`: dauerhafte, seitenrelative URL.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "alt",
+                      "width",
+                      "height",
+                      "variants"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Öffentliches Medium (Bild, Datei). Keine signierten, ablaufenden Links."
+                  }
+                },
+                "description": "Je Bild-, Galerie- oder Dateifeld die Medien in der Reihenfolge des CMS — auch in der Liste."
+              }
+            },
+            "required": [
+              "slug",
+              "publishedAt",
+              "data",
+              "media"
+            ],
+            "additionalProperties": false,
+            "description": "Ein veröffentlichter Eintrag. Entwürfe gibt es hier nie."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
       }
     }
   }

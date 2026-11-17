@@ -196,6 +196,9 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 				return sendJson(res, 200, await createDevCaptchaChallenge(config.siteId));
 			}
 			if (resource === 'collections' && req.method === 'GET' && key) {
+				const notFound = (message: string) =>
+					sendJson(res, 404, { error: 'Not Found', message, status: 404, code: 'not_found' });
+				if (!config.collections?.[key]) return notFound('Sammlung unbekannt');
 				const snapshot = await readSnapshot(root);
 				const entries = [...(snapshot.collections[key]?.entries ?? [])].sort((a, b) =>
 					b.publishedAt.localeCompare(a.publishedAt),
@@ -203,17 +206,15 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 				if (url.searchParams.get('sort') === 'publishedAt') entries.reverse();
 				if (slug) {
 					const entry = entries.find((e) => e.slug === slug);
-					return entry
-						? sendJson(res, 200, { data: entry })
-						: sendJson(res, 404, {
-								error: 'Not Found',
-								message: 'Eintrag unbekannt',
-								status: 404,
-								code: 'entry_not_found',
-							});
+					return entry ? sendJson(res, 200, { data: entry }) : notFound('Eintrag unbekannt');
 				}
-				const offset = Math.max(0, Number(url.searchParams.get('offset')) || 0);
-				const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit')) || 100));
+				// Wie die Site-API: ohne Angabe 20, höchstens 100, Werte werden geklemmt.
+				const clamp = (name: string, fallback: number, min: number, max: number) => {
+					const value = Number.parseInt(url.searchParams.get(name) ?? '', 10);
+					return Number.isFinite(value) ? Math.min(max, Math.max(min, value)) : fallback;
+				};
+				const limit = clamp('limit', 20, 1, 100);
+				const offset = clamp('offset', 0, 0, 10_000);
 				return sendJson(res, 200, {
 					data: entries.slice(offset, offset + limit),
 					meta: { total: entries.length, limit, offset },
