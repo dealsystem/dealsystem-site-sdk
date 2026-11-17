@@ -1,0 +1,30 @@
+{
+	"name": "dealsystem-site-sdk",
+	"private": true,
+	"description": "SDK, CLI und Starter für Self-Service-Websites auf DealSystem",
+	"license": "MIT",
+	"type": "module",
+	"workspaces": [
+		"packages/*"
+	],
+	"engines": {
+		"node": ">=22.12.0"
+	},
+	"scripts": {
+		"check": "npm run check --workspaces --if-present",
+		"test": "npm run test --workspaces --if-present",
+		"build": "npm run build --workspaces --if-present",
+		"lint": "prettier --check . && eslint .",
+		"format": "prettier --write ."
+	},
+	"devDependencies": {
+		"@eslint/js": "^10.0.1",
+		"eslint": "^10.14.0",
+		"eslint-plugin-svelte": "^3.24.1",
+		"globals": "^17.14.0",
+		"prettier": "^3.10.1",
+		"prettier-plugin-svelte": "^4.1.1",
+		"typescript": "^6.0.3",
+		"typescript-eslint": "^8.72.2"
+	}
+}
