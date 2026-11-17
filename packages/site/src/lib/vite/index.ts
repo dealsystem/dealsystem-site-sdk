@@ -9,8 +9,7 @@ import { dirname, join, relative, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateSiteConfig } from '../config/index.js';
 import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, readSnapshot } from '../content/index.js';
-import { richtextToHtml } from '../richtext/server.js';
-import { resolveTextSlot } from '../slots.js';
+import { defaultRichtextToHtml } from '../richtext/server.js';
 import type { ContentSlotDef, ContentSnapshot, SiteConfig, SiteData, SiteManifest } from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
@@ -90,10 +89,11 @@ export function buildSiteData(
 	const active = new Map(snapshot.funnels.map((funnel) => [funnel.key, funnel.active]));
 	const richtext: Record<string, string> = {};
 	for (const slot of slots) {
-		if (slot.type !== 'richtext') continue;
-		const source =
-			resolveTextSlot(snapshot.slots, slot.key, slot.aliases) ?? (slot.default as string | null) ?? '';
-		richtext[slot.key] = richtextToHtml(source);
+		// Nur der Standardtext aus dem Code wird hier umgewandelt. Eine
+		// Überschreibung aus dem CRM ist schon bereinigtes HTML (in `slots`).
+		if (slot.type === 'richtext' && typeof slot.default === 'string') {
+			richtext[slot.key] = defaultRichtextToHtml(slot.default);
+		}
 	}
 	const siteUrl =
 		env.PUBLIC_DEALSYSTEM_SITE_URL ||

@@ -139,9 +139,14 @@ describe('dealsystem() im Build', () => {
 		expect(data.funnels.rueckruf!.active).toBe(false);
 		expect(data.funnels.neu!.active).toBe(true);
 		expect(data.slots['start.hero.titel']).toEqual({ type: 'text', value: 'Aus dem CRM' });
-		// Richtext ist fertig geprüft: Standard aus dem Code und Überschreibung unter altem Schlüssel.
+		// Standardtexte aus dem Code sind beim Build umgewandelt und geprüft …
 		expect(data.richtext['start.ueber-uns']).toBe('<p>Seit <strong>2010</strong> in Leipzig. </p>\n');
-		expect(data.richtext['start.leistungen']).toBe('<p>Text unter <em>altem</em> Schlüssel</p>\n');
+		expect(data.richtext['start.leistungen']).toBe('<p>Standard</p>\n');
+		// … Texte aus dem CRM bleiben das HTML, das der Server geliefert hat.
+		expect(data.slots['start.angebot']).toEqual({
+			type: 'richtext',
+			value: '<p>Text unter <em>altem</em> Schlüssel</p>',
+		});
 	});
 
 	it('baut ohne Schnappschuss und ohne Umgebung mit Standardwerten für die Entwicklung', async () => {

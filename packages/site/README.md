@@ -109,7 +109,7 @@ Die Standardwerte erfüllen die Kontraste von WCAG 2.1 AA. Wer sie ändert, prü
 
 Für Prüfungen an der Ausgabe setzen die Komponenten feste Attribute: `data-ds-cookie-banner`,
 `data-ds-footer-legal`, `data-ds-impressum`, `data-ds-datenschutz`, `data-ds-lead-form="<funnel>"`,
-`data-ds-image` (am `<img>`), `data-ds-video`, `data-ds-collection="<key>"`, `data-ds-slot="<key>"`.
+`data-ds-image` (am `<img>`), `data-ds-video`, `data-ds-richtext`, `data-ds-collection="<key>"`, `data-ds-slot="<key>"`.
 
 ## Vertrag
 

@@ -1,7 +1,7 @@
 <!--
 @component
-Formatierter Text (Markdown): Absätze, Überschriften, Listen, Links.
-Die Ausgabe ist geprüft; `{@html}` braucht die Seite dafür nie.
+Formatierter Text: Absätze, Überschriften, Listen, Links. Das ist die einzige
+Stelle, an der HTML aus dem CRM ausgegeben wird. `{@html}` schreibt die Seite nie.
 
 Als Text, den der Kunde im CRM ändern kann (`key` und `default` als feste
 Zeichenketten):
@@ -17,7 +17,7 @@ Für ein Richtext-Feld eines CMS-Eintrags:
 ```
 -->
 <script lang="ts" module>
-	import type { RichTextContent } from '../types.js';
+	import type { SafeHtml } from '../types.js';
 
 	export type RichTextProps = { class?: string } & (
 		| {
@@ -31,13 +31,15 @@ Für ein Richtext-Feld eines CMS-Eintrags:
 				group?: string;
 				/** Hinweis für den Kunden im CRM. */
 				help?: string;
+				/** Der Kunde darf den Text im CRM nicht leeren. */
+				required?: boolean;
 				/** Frühere Schlüssel dieses Textes. */
 				aliases?: readonly string[];
 				content?: undefined;
 		  }
 		| {
 				/** Richtext-Feld eines Eintrags aus `getCollection()`, `getEntry()` oder `loadCollection()`. */
-				content: RichTextContent | null | undefined;
+				content: SafeHtml | null | undefined;
 				key?: undefined;
 		  }
 	);
@@ -50,47 +52,21 @@ Für ein Richtext-Feld eines CMS-Eintrags:
 
 	let props: RichTextProps = $props();
 
-	/** Im Browser nachträglich umgewandeltes Markdown, je Quelltext. */
-	let upgraded = $state<{ source: string; html: string } | null>(null);
-
-	const source = $derived(props.key === undefined ? (props.content?.source ?? null) : null);
-
 	const html = $derived.by(() => {
-		if (props.key !== undefined) {
-			const site = getSiteData();
-			const prepared = site.richtext[props.key];
-			if (prepared !== undefined) return prepared;
-			// Der Build kennt diesen Slot nicht (Schlüssel nicht als feste
-			// Zeichenkette). Dann nur als maskierter Text, nie als HTML.
-			return plainParagraphs(resolveTextSlot(site.slots, props.key, props.aliases) ?? props.default);
-		}
-		const content = props.content;
-		if (!content) return '';
-		if (typeof content.html === 'string') return content.html;
-		if (source === null) return '';
-		return upgraded?.source === source ? upgraded.html : plainParagraphs(source);
-	});
-
-	$effect(() => {
-		const current = source;
-		if (current === null) return;
-		let cancelled = false;
-		import('../richtext/browser.js')
-			.then(({ richtextToHtmlInBrowser }) => {
-				if (!cancelled) upgraded = { source: current, html: richtextToHtmlInBrowser(current) };
-			})
-			.catch(() => {
-				// Ohne den Umwandler bleibt der maskierte Text stehen.
-			});
-		return () => {
-			cancelled = true;
-		};
+		if (props.key === undefined) return props.content ?? '';
+		const site = getSiteData();
+		// Text aus dem CRM: vom Server gerendert und bereinigt.
+		const override = resolveTextSlot(site.slots, props.key, props.aliases);
+		if (override !== null) return override;
+		// Standardtext aus dem Code: beim Build umgewandelt. Kennt der Build den
+		// Slot nicht (Schlüssel nicht als feste Zeichenkette), nur maskiert.
+		return site.richtext[props.key] ?? plainParagraphs(props.default);
 	});
 </script>
 
 {#if html}
-	<div class={['ds-richtext', props.class]} data-ds-slot={props.key}>
-		<!-- eslint-disable-next-line svelte/no-at-html-tags -- html ist geprüft (Positiv-Liste) oder maskiert -->
+	<div class={['ds-richtext', props.class]} data-ds-richtext data-ds-slot={props.key}>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -- vom Server bereinigt, beim Build geprüft oder maskiert -->
 		{@html html}
 	</div>
 {/if}

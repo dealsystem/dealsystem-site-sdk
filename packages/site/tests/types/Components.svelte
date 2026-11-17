@@ -18,6 +18,7 @@ Jedes `@ts-expect-error` muss einen echten Fehler treffen.
 		MediaImage,
 		MediaVideo,
 		RichText,
+		Link,
 		Text,
 	} from '../../src/lib/index.js';
 
@@ -50,7 +51,10 @@ Jedes `@ts-expect-error` muss einen echten Fehler treffen.
 	const roh: ComponentProps<typeof RichText> = { content: '<b>x</b>' };
 
 	void [mitAlt, dekorativ, ausDemCms, slot, ohneAlt, slotOhneAlt, widerspruch, ohneQuelle];
-	void [video, text, element, richtext, roh];
+	// @ts-expect-error default eines Links ist ein Objekt mit href und label
+	const link: ComponentProps<typeof Link> = { key: 'start.knopf', default: '/kontakt' };
+
+	void [video, text, element, richtext, roh, link];
 </script>
 
 <!-- Gültige Verwendung -->

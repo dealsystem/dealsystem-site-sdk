@@ -3,7 +3,7 @@
 import { defineSite } from '../../src/lib/config/index.js';
 import { getCollection, getEntry } from '../../src/lib/content/index.js';
 import { loadCollection } from '../../src/lib/index.js';
-import type { CollectionKey, FunnelKey, MediaRef, RichTextContent } from '../../src/lib/index.js';
+import type { CollectionKey, FunnelKey, MediaRef, SafeHtml, SlotKey } from '../../src/lib/index.js';
 
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
 const assert = <T extends true>(): T | void => undefined;
@@ -17,7 +17,13 @@ const angebote = await getCollection('angebote');
 const erstes = angebote[0]!;
 assert<Equal<typeof erstes.data.titel, string>>();
 assert<Equal<typeof erstes.data.preis, number | null>>();
-assert<Equal<typeof erstes.data.beschreibung, RichTextContent | null>>();
+assert<Equal<typeof erstes.data.beschreibung, SafeHtml | null>>();
+// Eine gewöhnliche Zeichenkette ist kein bereinigtes HTML.
+// @ts-expect-error string ist kein SafeHtml
+const roh: SafeHtml = '<b>x</b>';
+void roh;
+// Ohne `slotKeys` in src/dealsystem.d.ts ist jeder Schlüssel erlaubt.
+assert<Equal<SlotKey, string>>();
 assert<Equal<typeof erstes.media.bilder, MediaRef[]>>();
 // @ts-expect-error Bilder stehen unter media, nicht unter data
 void erstes.data.bilder;

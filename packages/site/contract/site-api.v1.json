@@ -62,7 +62,7 @@
 										{
 											"slug": "altbau-leipzig",
 											"publishedAt": "2026-11-01T09:00:00.000Z",
-											"data": { "titel": "Sanierter Altbau", "beschreibung": "**Drei** Zimmer" },
+											"data": { "titel": "Sanierter Altbau", "beschreibung": "<p><strong>Drei</strong> Zimmer</p>" },
 											"media": {
 												"bilder": [
 													{

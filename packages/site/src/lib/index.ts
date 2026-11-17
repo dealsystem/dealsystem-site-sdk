@@ -7,6 +7,7 @@ export { default as ConsentGate, type ConsentGateProps } from './components/Cons
 export { default as CookieBanner, type CookieBannerProps } from './components/CookieBanner.svelte';
 export { default as Datenschutz, type DatenschutzProps } from './components/Datenschutz.svelte';
 export { default as Impressum, type ImpressumProps } from './components/Impressum.svelte';
+export { default as Link, type LinkProps } from './components/Link.svelte';
 export { default as LeadForm, type LeadFormProps } from './components/LeadForm.svelte';
 export { default as MediaImage, type MediaImageProps } from './components/MediaImage.svelte';
 export { default as MediaVideo, type MediaVideoProps } from './components/MediaVideo.svelte';
@@ -22,13 +23,15 @@ export type { SiteApiError, SiteApiErrorKind, SiteApiResult } from './client/sit
 export type {
 	CollectionEntry,
 	CollectionKey,
+	ContentSlotLinkValue,
 	EnhancedPicture,
 	EntryData,
 	EntryMedia,
 	FunnelKey,
 	MediaRef,
 	MediaVariant,
-	RichTextContent,
+	SafeHtml,
+	SlotKey,
 } from './types.js';
 
 export { SDK_VERSION } from './version.js';

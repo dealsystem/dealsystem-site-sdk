@@ -4,13 +4,14 @@ import { render as renderLazy } from 'svelte/server';
 import Datenschutz from '../src/lib/components/Datenschutz.svelte';
 import Impressum from '../src/lib/components/Impressum.svelte';
 import LeadForm from '../src/lib/components/LeadForm.svelte';
+import Link from '../src/lib/components/Link.svelte';
 import MediaImage from '../src/lib/components/MediaImage.svelte';
 import MediaVideo from '../src/lib/components/MediaVideo.svelte';
 import RichText from '../src/lib/components/RichText.svelte';
 import SiteFooterLegal from '../src/lib/components/SiteFooterLegal.svelte';
 import Text from '../src/lib/components/Text.svelte';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
-import type { MediaRef } from '../src/lib/types.js';
+import type { MediaRef, SafeHtml } from '../src/lib/types.js';
 import GateHarness from './fixtures/GateHarness.svelte';
 import LayoutHarness from './fixtures/LayoutHarness.svelte';
 import ListHarness from './fixtures/ListHarness.svelte';
@@ -81,15 +82,30 @@ describe('<Text>', () => {
 });
 
 describe('<RichText>', () => {
-	it('gibt das beim Build geprüfte HTML des Slots aus', () => {
+	it('gibt den beim Build umgewandelten Standardtext des Slots aus', () => {
 		setSiteDataForTests(
 			testSiteData({ richtext: { 'start.ueber-uns': '<p>Seit <strong>2010</strong></p>' } }),
 		);
 		const { body } = render(RichText, { props: { key: 'start.ueber-uns', default: 'Seit **2010**' } });
 		expect(body).toContain('<p>Seit <strong>2010</strong></p>');
+		expect(body).toContain('data-ds-richtext');
 	});
 
-	it('maskiert, wenn der Build den Slot nicht kennt', () => {
+	it('zeigt den Text aus dem CRM als bereinigtes HTML vom Server, auch unter einem früheren Schlüssel', () => {
+		setSiteDataForTests(
+			testSiteData({
+				richtext: { 'start.ueber-uns': '<p>Standard</p>' },
+				slots: { 'start.alt': { type: 'richtext', value: '<p>Aus dem <em>CRM</em></p>' } },
+			}),
+		);
+		const { body } = render(RichText, {
+			props: { key: 'start.ueber-uns', default: 'Standard', aliases: ['start.alt'] },
+		});
+		expect(body).toContain('<p>Aus dem <em>CRM</em></p>');
+		expect(body).not.toContain('Standard');
+	});
+
+	it('maskiert den Standardtext, wenn der Build den Slot nicht kennt', () => {
 		const { body } = render(RichText, {
 			props: { key: 'start.x', default: '<img src=x onerror=alert(1)> **a**' },
 		});
@@ -97,16 +113,42 @@ describe('<RichText>', () => {
 		expect(body).not.toContain('<img');
 	});
 
-	it('gibt vorbereiteten Richtext eines Eintrags aus und Markdown-Quelltext nur maskiert', () => {
-		expect(
-			render(RichText, { props: { content: { kind: 'richtext', html: '<p><em>fertig</em></p>' } } }).body,
-		).toContain('<em>fertig</em>');
-		const raw = render(RichText, {
-			props: { content: { kind: 'richtext', source: '<script>x</script>' } },
-		}).body;
-		expect(raw).toContain('&lt;script&gt;');
-		expect(raw).not.toContain('<script>');
+	it('gibt das bereinigte HTML eines Eintrags aus und für ein leeres Feld nichts', () => {
+		const html = '<p><em>fertig</em></p>' as SafeHtml;
+		expect(render(RichText, { props: { content: html } }).body).toContain('<em>fertig</em>');
 		expect(render(RichText, { props: { content: null } }).body).not.toContain('ds-richtext');
+		expect(render(RichText, { props: { content: '' as SafeHtml } }).body).not.toContain('ds-richtext');
+	});
+});
+
+describe('<Link>', () => {
+	const props = { key: 'start.hero.knopf', default: { href: '/kontakt', label: 'Kontakt aufnehmen' } };
+
+	it('zeigt den Standard, sonst den Wert aus dem CRM', () => {
+		expect(render(Link, { props }).body).toMatch(/<a href="\/kontakt"[^>]*>Kontakt aufnehmen<\/a>/);
+
+		setSiteDataForTests(
+			testSiteData({
+				slots: {
+					'start.hero.knopf': {
+						type: 'link',
+						value: { href: 'https://termin.test', label: 'Termin', newTab: true },
+					},
+				},
+			}),
+		);
+		const { body } = render(Link, { props });
+		expect(body).toContain('href="https://termin.test"');
+		expect(body).toContain('target="_blank"');
+		expect(body).toContain('rel="noopener noreferrer"');
+		expect(body).toContain('>Termin</a>');
+	});
+
+	it('fällt bei einem gefährlichen oder kaputten Wert auf den Standard zurück', () => {
+		for (const value of [{ href: 'javascript:alert(1)', label: 'x' }, { href: '/a' }, 'kaputt']) {
+			setSiteDataForTests(testSiteData({ slots: { 'start.hero.knopf': { type: 'link', value } } }));
+			expect(render(Link, { props }).body).toMatch(/<a href="\/kontakt"[^>]*>Kontakt aufnehmen<\/a>/);
+		}
 	});
 });
 
@@ -326,7 +368,7 @@ describe('<CollectionList>', () => {
 		{
 			slug: 'a',
 			publishedAt: '',
-			data: { titel: 'Altbau', beschreibung: { kind: 'richtext', html: '<p>Hell</p>' } },
+			data: { titel: 'Altbau', beschreibung: '<p>Hell</p>' },
 			media: {},
 		},
 		{ slug: 'b', publishedAt: '', data: { titel: 'Neubau', beschreibung: null }, media: {} },

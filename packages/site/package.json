@@ -16,6 +16,7 @@
 	"files": [
 		"dist",
 		"contract",
+		"docs",
 		"!dist/**/*.test.*"
 	],
 	"svelte": "./dist/index.js",
@@ -38,6 +39,7 @@
 			"types": "./dist/vite/index.d.ts",
 			"default": "./dist/vite/index.js"
 		},
+		"./docs/*": "./docs/*",
 		"./contract/site-api.v1.json": "./contract/site-api.v1.json",
 		"./package.json": "./package.json"
 	},
@@ -51,7 +53,6 @@
 	},
 	"dependencies": {
 		"@friendlycaptcha/sdk": "^1.1.5",
-		"dompurify": "^3.4.18",
 		"esm-env": "^1.2.2",
 		"marked": "^18.2.1",
 		"sanitize-html": "^2.18.2"

@@ -102,6 +102,7 @@ declare global {
 	 * declare global {
 	 * 	interface DealsystemSiteTypes {
 	 * 		config: typeof site;
+	 * 		slotKeys: 'start.hero.titel' | 'start.ueber-uns'; // optional
 	 * 	}
 	 * }
 	 * export {};
@@ -120,6 +121,13 @@ export type FunnelKey = Registered extends null
 		? keyof F & string
 		: never;
 
+/**
+ * Schlüssel der Content-Slots, wenn `src/dealsystem.d.ts` sie unter `slotKeys`
+ * einträgt. Sonst `string`. Die Komponenten nehmen jeden gültigen Schlüssel an:
+ * ein neuer Slot entsteht an der Stelle, an der er verwendet wird.
+ */
+export type SlotKey = DealsystemSiteTypes extends { slotKeys: infer K extends string } ? K : string;
+
 /** Schlüssel der Sammlungen aus `dealsystem.config.ts`. Ohne Registrierung `string`. */
 export type CollectionKey = Registered extends null
 	? string
@@ -133,19 +141,19 @@ type RegisteredFields<K extends string> = Registered extends {
 	? F[number]
 	: never;
 
-/** Vorbereiteter Richtext. Ausgabe nur über `<RichText content={…} />`. */
-export interface RichTextContent {
-	readonly kind: 'richtext';
-	/** Geprüftes HTML, beim Build erzeugt. */
-	readonly html?: string;
-	/** Markdown-Quelltext. Wird im Browser erst nach dem Laden umgewandelt. */
-	readonly source?: string;
-}
+declare const safeHtml: unique symbol;
+
+/**
+ * HTML, das der DealSystem-Server schon geprüft und bereinigt hat (Richtext
+ * aus dem CMS). Eine gewöhnliche Zeichenkette ist kein `SafeHtml`. Ausgabe nur
+ * über `<RichText content={…} />`, nie mit `{@html}`.
+ */
+export type SafeHtml = string & { readonly [safeHtml]: true };
 
 interface FieldValueMap {
 	text: string;
 	textarea: string;
-	richtext: RichTextContent;
+	richtext: SafeHtml;
 	number: number;
 	url: string;
 	date: string;
@@ -217,7 +225,7 @@ export interface EnhancedPicture {
 
 // --------------------------------------------------------------- Content-Slots
 
-/** Typen der Content-Slots. `link` und `image` pflegt das CRM ab Phase 2. */
+/** Typen der Content-Slots. */
 export type ContentSlotType = 'text' | 'textarea' | 'richtext' | 'link' | 'image';
 
 /** Wert eines `link`-Slots. */
@@ -244,7 +252,11 @@ export interface ContentSlotDef {
 	default: string | ContentSlotLinkValue | null;
 }
 
-/** Überschreibung eines Slots aus dem CRM. */
+/**
+ * Überschreibung eines Slots aus dem CRM. `value` je Typ: Text (`text`,
+ * `textarea`), bereinigtes HTML (`richtext`), `{ href, label, newTab? }`
+ * (`link`), `MediaRef` (`image`).
+ */
 export interface SlotOverride {
 	type: ContentSlotType;
 	value: unknown;
@@ -330,6 +342,6 @@ export interface SiteData {
 	funnels: Record<string, FunnelDef & { active: boolean }>;
 	collections: Record<string, { fields: readonly CollectionFieldDef[] }>;
 	slots: Record<string, SlotOverride>;
-	/** Fertiges HTML je Richtext-Slot (Überschreibung oder Standard). */
+	/** HTML des Standardtexts je Richtext-Slot, beim Build aus dem Code erzeugt. */
 	richtext: Record<string, string>;
 }

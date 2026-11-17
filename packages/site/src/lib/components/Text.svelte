@@ -48,6 +48,8 @@ Build liest sie aus dem Quelltext und meldet sie ans CRM.
 		help?: string;
 		/** Höchstlänge im CRM. */
 		maxLength?: number;
+		/** Der Kunde darf den Text im CRM nicht leeren. */
+		required?: boolean;
 		/** Frühere Schlüssel dieses Textes, damit Änderungen des Kunden beim Umbenennen bleiben. */
 		aliases?: readonly string[];
 		class?: string;

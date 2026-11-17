@@ -1,12 +1,12 @@
-// Findet Content-Slots im Quelltext: <Text key=… default=…>, <RichText key=…>
-// und <MediaImage key=…> aus '@dealsystem/site'. Gelesen wird der Quelltext,
+// Findet Content-Slots im Quelltext: <Text key=… default=…>, <RichText key=…>,
+// <Link key=…> und <MediaImage key=…> aus '@dealsystem/site'. Gelesen wird der Quelltext,
 // nichts wird ausgeführt.
 import { parse } from 'svelte/compiler';
 import { SLOT_KEY_MAX_LENGTH, SLOT_KEY_PATTERN } from '../keys.js';
-import type { ContentSlotDef, ContentSlotType } from '../types.js';
+import type { ContentSlotDef, ContentSlotLinkValue, ContentSlotType } from '../types.js';
 
 const PACKAGE = '@dealsystem/site';
-const SLOT_COMPONENTS = ['Text', 'RichText', 'MediaImage'] as const;
+const SLOT_COMPONENTS = ['Text', 'RichText', 'MediaImage', 'Link'] as const;
 type SlotComponent = (typeof SLOT_COMPONENTS)[number];
 
 /** Ein Fehler im Quelltext, mit Fundstelle und Korrektur. */
@@ -55,7 +55,7 @@ function importedNames(ast: Record<string, unknown>): Map<string, SlotComponent>
 }
 
 const DYNAMIC = Symbol('dynamic');
-type Static = string | number | boolean | string[] | typeof DYNAMIC;
+type Static = string | number | boolean | string[] | { [key: string]: Static } | typeof DYNAMIC;
 
 function staticExpression(expression: Node): Static {
 	if (expression.type === 'Literal') {
@@ -71,6 +71,18 @@ function staticExpression(expression: Node): Static {
 	if (expression.type === 'ArrayExpression') {
 		const items = (expression.elements as (Node | null)[]).map((e) => (e ? staticExpression(e) : DYNAMIC));
 		return items.every((item): item is string => typeof item === 'string') ? items : DYNAMIC;
+	}
+	if (expression.type === 'ObjectExpression') {
+		const out: { [key: string]: Static } = {};
+		for (const property of expression.properties as Node[]) {
+			const key = property.key as Node | undefined;
+			if (property.type !== 'Property' || property.computed || !key) return DYNAMIC;
+			const name = key.type === 'Identifier' ? (key.name as string) : staticExpression(key);
+			const value = staticExpression(property.value as Node);
+			if (typeof name !== 'string' || value === DYNAMIC) return DYNAMIC;
+			out[name] = value;
+		}
+		return out;
 	}
 	return DYNAMIC;
 }
@@ -188,10 +200,27 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 		};
 
 		let type: ContentSlotType;
-		let fallback: string | null;
+		let fallback: string | ContentSlotLinkValue | null;
 		if (component === 'MediaImage') {
 			type = 'image';
 			fallback = null;
+		} else if (component === 'Link') {
+			type = 'link';
+			const attribute = attributes.get('default');
+			const value = attribute ? staticAttribute(attribute) : undefined;
+			if (
+				typeof value !== 'object' ||
+				Array.isArray(value) ||
+				typeof value.href !== 'string' ||
+				typeof value.label !== 'string'
+			) {
+				throw new SlotScanError(
+					file,
+					line,
+					`Slot "${key}": default muss ein festes Objekt mit href und label sein, z. B. default={{ href: '/kontakt', label: 'Kontakt aufnehmen' }}.`,
+				);
+			}
+			fallback = { href: value.href, label: value.label, ...(value.newTab === true ? { newTab: true } : {}) };
 		} else {
 			const multiline = attributes.get('multiline');
 			type =
@@ -225,6 +254,8 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 			const value = staticAttribute(maxLength);
 			if (typeof value === 'number' && Number.isInteger(value) && value > 0) slot.maxLength = value;
 		}
+		const required = attributes.get('required');
+		if (required && staticAttribute(required) === true) slot.required = true;
 		const aliases = attributes.get('aliases');
 		if (aliases) {
 			const value = staticAttribute(aliases);
@@ -264,11 +295,11 @@ export function mergeSlots(found: readonly FoundSlot[]): ContentSlotDef[] {
 				`Der Schlüssel "${slot.key}" wird schon in ${where} verwendet, dort als ${first.type}, hier als ${slot.type}. Vergib einen eigenen Schlüssel.`,
 			);
 		}
-		if (first.default !== slot.default) {
+		if (JSON.stringify(first.default) !== JSON.stringify(slot.default)) {
 			throw new SlotScanError(
 				slot.file,
 				slot.line,
-				`Der Schlüssel "${slot.key}" wird schon in ${where} verwendet, dort mit einem anderen Standardtext. Gleiche die Texte an oder vergib einen eigenen Schlüssel.`,
+				`Der Schlüssel "${slot.key}" wird schon in ${where} verwendet, dort mit einem anderen Standardwert. Gleiche die Werte an oder vergib einen eigenen Schlüssel.`,
 			);
 		}
 	}

@@ -22,7 +22,7 @@
 	],
 	"slots": {
 		"start.hero.titel": { "type": "text", "value": "Aus dem CRM" },
-		"start.angebot": { "type": "richtext", "value": "Text unter *altem* Schlüssel" }
+		"start.angebot": { "type": "richtext", "value": "<p>Text unter <em>altem</em> Schlüssel</p>" }
 	},
 	"collections": { "angebote": { "source": "cms", "schemaHash": "h", "entries": [] } }
 }

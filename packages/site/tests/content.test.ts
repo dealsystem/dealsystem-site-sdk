@@ -10,7 +10,6 @@ import {
 	getSlots,
 } from '../src/lib/content/index.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
-import type { RichTextContent } from '../src/lib/types.js';
 import { testSiteData } from './helpers.js';
 
 let dir: string;
@@ -34,7 +33,7 @@ const snapshot = {
 				{
 					slug: 'neu',
 					publishedAt: '2026-06-01T00:00:00.000Z',
-					data: { titel: 'Neu', beschreibung: '**Fett** <script>alert(1)</script>' },
+					data: { titel: 'Neu', beschreibung: '<p><strong>Fett</strong></p>' },
 					media: { bilder: [{ id: 'm', kind: 'image', alt: '', width: 1, height: 1, variants: [] }] },
 				},
 				{ slug: 'mitte', publishedAt: '2026-03-01T00:00:00.000Z', data: { titel: 'Mitte' }, media: {} },
@@ -76,13 +75,10 @@ describe('getCollection', () => {
 		expect(await getCollection('angebote', { limit: 0 })).toEqual([]);
 	});
 
-	it('wandelt Richtext-Felder beim Build in geprüftes HTML um', async () => {
+	it('reicht Richtext-Felder als bereinigtes HTML vom Server unverändert durch', async () => {
 		const [neu, , alt] = await getCollection('angebote');
-		const beschreibung = neu!.data.beschreibung as RichTextContent;
-		expect(beschreibung.kind).toBe('richtext');
-		expect(beschreibung.html).toContain('<strong>Fett</strong>');
-		expect(beschreibung.html).not.toContain('script');
-		expect(alt!.data.beschreibung).toBeNull();
+		expect(neu!.data.beschreibung).toBe('<p><strong>Fett</strong></p>');
+		expect(alt!.data.beschreibung).toBe('');
 		expect(neu!.media.bilder).toHaveLength(1);
 	});
 

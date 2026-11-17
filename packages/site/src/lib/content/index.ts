@@ -6,23 +6,16 @@ import { getSiteData } from '../internal/siteData.js';
 import { emptySnapshot, normalizeSnapshot } from '../snapshot.js';
 import type {
 	CollectionEntry,
-	CollectionFieldDef,
 	CollectionKey,
 	ContentSnapshot,
 	LegalProfile,
 	RawCollectionEntry,
 	SiteInfo,
+	SlotKey,
 	SlotOverride,
 } from '../types.js';
 
-export type {
-	CollectionEntry,
-	CollectionKey,
-	LegalProfile,
-	MediaRef,
-	RichTextContent,
-	SiteInfo,
-} from '../types.js';
+export type { CollectionEntry, CollectionKey, LegalProfile, MediaRef, SiteInfo } from '../types.js';
 
 /** Umgebungsvariable mit dem Pfad des Schnappschusses (setzt der Build-Host). */
 export const CONTENT_FILE_ENV = 'DEALSYSTEM_CONTENT_FILE';
@@ -84,24 +77,13 @@ export async function readSnapshot(root: string = process.cwd()): Promise<Conten
 	return snapshot;
 }
 
-async function toEntry<K extends string>(
-	raw: RawCollectionEntry,
-	fields: readonly CollectionFieldDef[],
-): Promise<CollectionEntry<K>> {
-	const data: Record<string, unknown> = { ...raw.data };
-	const richtextFields = fields.filter((f) => f.type === 'richtext');
-	if (richtextFields.length > 0) {
-		const { richtextToHtml } = await import('../richtext/server.js');
-		for (const field of richtextFields) {
-			const value = raw.data[field.name];
-			data[field.name] =
-				typeof value === 'string' && value !== '' ? { kind: 'richtext', html: richtextToHtml(value) } : null;
-		}
-	}
-	return { slug: raw.slug, publishedAt: raw.publishedAt, data, media: raw.media } as CollectionEntry<K>;
+// Richtext-Felder kommen vom Server schon als bereinigtes HTML. Hier wird
+// nichts umgewandelt, nur typisiert.
+function toEntry<K extends string>(raw: RawCollectionEntry): CollectionEntry<K> {
+	return raw as unknown as CollectionEntry<K>;
 }
 
-function fieldsOf(key: string): readonly CollectionFieldDef[] {
+function assertKnown(key: string): void {
 	const collection = getSiteData().collections[key];
 	if (!collection) {
 		const known = Object.keys(getSiteData().collections);
@@ -110,7 +92,6 @@ function fieldsOf(key: string): readonly CollectionFieldDef[] {
 				(known.length > 0 ? `Vorhanden: ${known.join(', ')}.` : 'Dort ist noch keine Sammlung eingetragen.'),
 		);
 	}
-	return collection.fields;
 }
 
 /** Auswahl und Reihenfolge für `getCollection`. */
@@ -125,7 +106,7 @@ export interface CollectionQuery {
 
 /**
  * Lädt beim Build die veröffentlichten Einträge einer Sammlung. Richtext-Felder
- * kommen fertig geprüft zurück und werden mit `<RichText content={…} />`
+ * sind bereinigtes HTML vom Server und werden mit `<RichText content={…} />`
  * ausgegeben. Eine Sammlung ohne Einträge ergibt `[]`.
  *
  * @example
@@ -143,14 +124,14 @@ export async function getCollection<K extends CollectionKey>(
 	query: CollectionQuery = {},
 ): Promise<CollectionEntry<K>[]> {
 	assertBuildTime('getCollection');
-	const fields = fieldsOf(key);
+	assertKnown(key);
 	const snapshot = await readSnapshot();
 	const entries = [...(snapshot.collections[key]?.entries ?? [])];
 	entries.sort((a, b) => b.publishedAt.localeCompare(a.publishedAt));
 	if (query.sort === 'oldest') entries.reverse();
 	const offset = Math.max(0, query.offset ?? 0);
 	const end = query.limit === undefined ? undefined : offset + Math.max(0, query.limit);
-	return Promise.all(entries.slice(offset, end).map((entry) => toEntry<K>(entry, fields)));
+	return entries.slice(offset, end).map((entry) => toEntry<K>(entry));
 }
 
 /**
@@ -176,10 +157,10 @@ export async function getEntry<K extends CollectionKey>(
 	slug: string,
 ): Promise<CollectionEntry<K> | null> {
 	assertBuildTime('getEntry');
-	const fields = fieldsOf(key);
+	assertKnown(key);
 	const snapshot = await readSnapshot();
 	const raw = snapshot.collections[key]?.entries.find((entry) => entry.slug === slug);
-	return raw ? toEntry<K>(raw, fields) : null;
+	return raw ? toEntry<K>(raw) : null;
 }
 
 /**
@@ -193,7 +174,7 @@ export async function getEntry<K extends CollectionKey>(
 export function collectionEntries<K extends CollectionKey>(key: K): () => Promise<{ slug: string }[]> {
 	return async () => {
 		assertBuildTime('collectionEntries');
-		fieldsOf(key);
+		assertKnown(key);
 		const snapshot = await readSnapshot();
 		return (snapshot.collections[key]?.entries ?? []).map((entry) => ({ slug: entry.slug }));
 	};
@@ -207,7 +188,7 @@ export function collectionEntries<K extends CollectionKey>(key: K): () => Promis
  * const slots = await getSlots();
  * const titel = slots['start.hero.titel']?.value ?? 'Wir kaufen Ihr Haus';
  */
-export async function getSlots(): Promise<Record<string, SlotOverride>> {
+export async function getSlots(): Promise<Partial<Record<SlotKey, SlotOverride>>> {
 	assertBuildTime('getSlots');
 	return (await readSnapshot()).slots;
 }

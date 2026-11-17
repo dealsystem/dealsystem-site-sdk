@@ -1,6 +1,6 @@
 import { mergeSlots, routeOfFile, scanSlots, SlotScanError } from '../src/lib/vite/scan.js';
 
-const page = (markup: string, imports = 'Text, RichText, MediaImage') => `<script lang="ts">
+const page = (markup: string, imports = 'Text, RichText, MediaImage, Link') => `<script lang="ts">
 	import { ${imports} } from '@dealsystem/site';
 	import hero from './hero.jpg?enhanced';
 	let name: string = $state('x');
@@ -66,6 +66,23 @@ Zeile 2\`} multiline help="Zwei Zeilen" aliases={['start.text', 'start.intro']} 
 		]);
 	});
 
+	it('liest Link-Slots und required', () => {
+		const slots = scanSlots(
+			page(`<Link key="start.hero.knopf" default={{ href: '/kontakt', label: "Kontakt aufnehmen", newTab: true }} label="Schaltfläche" />
+<Text key="start.pflicht" default="x" required />`),
+			'src/lib/Hero.svelte',
+		);
+		expect(slots.map(({ file: _f, line: _l, ...slot }) => slot)).toEqual([
+			{
+				key: 'start.hero.knopf',
+				type: 'link',
+				default: { href: '/kontakt', label: 'Kontakt aufnehmen', newTab: true },
+				label: 'Schaltfläche',
+			},
+			{ key: 'start.pflicht', type: 'text', default: 'x', required: true },
+		]);
+	});
+
 	it('überspringt Komponenten ohne key und gleichnamige fremde Komponenten', () => {
 		expect(
 			scanSlots(page('<MediaImage src={hero} alt="x" /><RichText content={null} />'), 'src/lib/A.svelte'),
@@ -94,6 +111,8 @@ Zeile 2\`} multiline help="Zwei Zeilen" aliases={['start.text', 'start.intro']} 
 		['<Text key="start.titel" default="x" label={name} />', /label muss eine feste Zeichenkette sein/],
 		['<Text key="start.titel" default="x" aliases={alte} />', /aliases muss eine feste Liste sein/],
 		['<Text {...props} />', /verwendet \{\.\.\.props\}/],
+		['<Link key="start.knopf" default={{ href: name, label: "x" }} />', /festes Objekt mit href und label/],
+		['<Link key="start.knopf" default="/kontakt" />', /festes Objekt mit href und label/],
 	])('lehnt %s mit Fundstelle ab', (markup, message) => {
 		let error: unknown;
 		try {
@@ -133,7 +152,7 @@ describe('mergeSlots', () => {
 		expect(() => mergeSlots([slot(), slot({ type: 'richtext', file: 'src/b.svelte', line: 9 })])).toThrow(
 			/src\/b\.svelte:9.*schon in src\/a\.svelte:1.*als text, hier als richtext/,
 		);
-		expect(() => mergeSlots([slot(), slot({ default: 'B' })])).toThrow(/anderen Standardtext/);
+		expect(() => mergeSlots([slot(), slot({ default: 'B' })])).toThrow(/anderen Standardwert/);
 	});
 });
 

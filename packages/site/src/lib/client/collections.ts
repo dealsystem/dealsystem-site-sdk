@@ -1,16 +1,9 @@
-import { getSiteData } from '../internal/siteData.js';
 import type { CollectionEntry, CollectionKey, RawCollectionEntry } from '../types.js';
 import { siteApi, type SiteApiResult } from './siteApi.js';
 
-function toEntry<K extends string>(key: K, raw: RawCollectionEntry): CollectionEntry<K> {
-	const fields = getSiteData().collections[key]?.fields ?? [];
-	const data: Record<string, unknown> = { ...raw.data };
-	for (const field of fields) {
-		if (field.type !== 'richtext') continue;
-		const value = raw.data[field.name];
-		data[field.name] = typeof value === 'string' && value !== '' ? { kind: 'richtext', source: value } : null;
-	}
-	return { slug: raw.slug, publishedAt: raw.publishedAt, data, media: raw.media } as CollectionEntry<K>;
+// Richtext-Felder liefert die Site-API schon als bereinigtes HTML.
+function toEntry<K extends string>(raw: RawCollectionEntry): CollectionEntry<K> {
+	return raw as unknown as CollectionEntry<K>;
 }
 
 /** Ergebnis von `loadCollection`. */
@@ -39,7 +32,7 @@ export async function loadCollection<K extends CollectionKey>(
 	if (!result.ok) return result;
 	return {
 		ok: true,
-		data: { entries: result.data.entries.map((e) => toEntry(key, e)), total: result.data.total },
+		data: { entries: result.data.entries.map((e) => toEntry<K>(e)), total: result.data.total },
 	};
 }
 
@@ -57,5 +50,5 @@ export async function loadEntry<K extends CollectionKey>(
 ): Promise<SiteApiResult<CollectionEntry<K>>> {
 	const result = await siteApi().getEntry(key, slug);
 	if (!result.ok) return result;
-	return { ok: true, data: toEntry(key, result.data) };
+	return { ok: true, data: toEntry<K>(result.data) };
 }

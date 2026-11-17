@@ -1,7 +1,7 @@
 import { plainParagraphs } from '../src/lib/richtext/escape.js';
-import { richtextToHtml } from '../src/lib/richtext/server.js';
+import { defaultRichtextToHtml as richtextToHtml, RICHTEXT_MAX_LENGTH } from '../src/lib/richtext/server.js';
 
-describe('richtextToHtml (Build)', () => {
+describe('defaultRichtextToHtml (Standardtexte aus dem Code, beim Build)', () => {
 	it('wandelt Markdown in HTML um', () => {
 		const html = richtextToHtml(
 			'# Titel\n\nEin **fetter** Text mit [Link](https://beispiel.de).\n\n- eins\n- zwei',
@@ -41,8 +41,14 @@ describe('richtextToHtml (Build)', () => {
 		expect(richtextToHtml(null)).toBe('');
 	});
 
+	it('fällt bei tief verschachtelten Zitaten auf maskierten Text zurück statt abzustürzen', () => {
+		const html = richtextToHtml('> '.repeat(9000) + 'x');
+		expect(typeof html).toBe('string');
+		expect(html).not.toContain('<script');
+	});
+
 	it('parst überlange Texte nicht, sondern maskiert sie', () => {
-		const html = richtextToHtml(`<b>x</b>${'a'.repeat(100_001)}`);
+		const html = richtextToHtml(`<b>x</b>${'a'.repeat(RICHTEXT_MAX_LENGTH)}`);
 		expect(html.startsWith('<p>&lt;b&gt;x&lt;/b&gt;')).toBe(true);
 	});
 });
