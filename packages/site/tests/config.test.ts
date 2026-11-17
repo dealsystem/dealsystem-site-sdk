@@ -108,3 +108,26 @@ describe('handleHttpError', () => {
 		);
 	});
 });
+
+describe('Grenzen der Site-API', () => {
+	it('lehnt mehr als 60 Felder je Formular ab', () => {
+		const fields = [
+			{ name: 'email', type: 'email', standardField: 'email' },
+			...Array.from({ length: 60 }, (_, i) => ({ name: `feld${i}`, type: 'text' })),
+		];
+		const problems = validateSiteConfig({ siteId: 's', funnels: { kontakt: { label: 'K', fields } } });
+		expect(problems).toEqual([
+			{ path: 'funnels.kontakt.fields', message: expect.stringContaining('höchstens 60') },
+		]);
+	});
+
+	it('lehnt Feldnamen über 64 Zeichen ab', () => {
+		const problems = validateSiteConfig({
+			siteId: 's',
+			funnels: {
+				kontakt: { label: 'K', fields: [{ name: 'a'.repeat(65), type: 'email', standardField: 'email' }] },
+			},
+		});
+		expect(problems[0]!.path).toBe('funnels.kontakt.fields[0].name');
+	});
+});

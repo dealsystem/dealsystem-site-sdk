@@ -40,6 +40,8 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 		postalCode: 'postal-code',
 		city: 'address-level2',
 	};
+	/** Wert für `captcha`, wenn für die Seite kein Captcha eingerichtet ist. */
+	const NO_CAPTCHA = 'none';
 	type AutoFill =
 		'given-name' | 'family-name' | 'email' | 'tel' | 'address-line1' | 'postal-code' | 'address-level2';
 </script>
@@ -162,7 +164,8 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			code: null,
 			message: 'Die Sicherheitsprüfung konnte nicht geladen werden.',
 			retryAfterSeconds: null,
-			fields: {},
+			invalidFields: [],
+			formInvalid: false,
 		};
 		void tick().then(() => errorElement?.focus());
 	}
@@ -213,8 +216,9 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			submissionId,
 			data: toLeadData(fields, values()),
 			attribution: getFirstTouch(),
-			captcha: captchaSolution ?? undefined,
-			website: honeypot,
+			// Ohne eingerichtetes Captcha (Entwicklung) verlangt der Vertrag trotzdem einen Wert.
+			captcha: captchaSolution ?? NO_CAPTCHA,
+			website: honeypot.slice(0, 500),
 		});
 
 		if (result.ok) {
@@ -233,19 +237,21 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			captchaSolution = null;
 			captchaHandle?.reset();
 		}
-		const known = new Set(fields.map((field) => field.name));
-		const fromServer = Object.entries(result.error.fields).filter(([name]) => known.has(name));
-		if (result.error.kind === 'validation' && fromServer.length > 0) {
+		const rejected = fields.filter((field) => result.error.invalidFields.includes(field.name));
+		if (result.error.kind === 'validation' && rejected.length > 0) {
 			// Text vom Server wird nicht angezeigt: eigene Meldung je Feld.
 			errors = Object.fromEntries(
-				fromServer.map(([name]) => {
-					const field = fields.find((f) => f.name === name)!;
-					return [name, `Bitte prüfen Sie Ihre Angabe bei „${labelOf(field)}“.`];
-				}),
+				rejected.map((field) => [field.name, `Bitte prüfen Sie Ihre Angabe bei „${labelOf(field)}“.`]),
 			);
 			await tick();
 			form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
 			return;
+		}
+		if (result.error.kind === 'validation' && result.error.formInvalid) {
+			failure = {
+				...result.error,
+				message: 'Bitte geben Sie eine E-Mail-Adresse oder eine Telefonnummer an.',
+			};
 		}
 		await tick();
 		errorElement?.focus();
@@ -437,7 +443,9 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			{#if status === 'error' && failure && errorCount === 0}
 				<div class="ds-form__failure" role="alert" tabindex="-1" bind:this={errorElement}>
 					<p><strong>Ihre Anfrage wurde nicht gesendet.</strong> {failure.message}</p>
-					{@render contactFallback()}
+					{#if failure.kind !== 'validation'}
+						{@render contactFallback()}
+					{/if}
 				</div>
 			{/if}
 

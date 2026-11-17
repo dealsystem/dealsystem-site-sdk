@@ -55,12 +55,13 @@ Für ein Richtext-Feld eines CMS-Eintrags:
 	const html = $derived.by(() => {
 		if (props.key === undefined) return props.content ?? '';
 		const site = getSiteData();
-		// Text aus dem CRM: vom Server gerendert und bereinigt.
+		// Der Build legt je Slot das fertige HTML ab: den Text aus dem CRM (vom
+		// Server bereinigt) oder den umgewandelten Standardtext aus dem Code.
+		const prepared = site.richtext[props.key];
+		if (prepared !== undefined) return prepared;
+		// Der Build kennt den Slot nicht (Schlüssel nicht als feste Zeichenkette).
 		const override = resolveTextSlot(site.slots, props.key, props.aliases);
-		if (override !== null) return override;
-		// Standardtext aus dem Code: beim Build umgewandelt. Kennt der Build den
-		// Slot nicht (Schlüssel nicht als feste Zeichenkette), nur maskiert.
-		return site.richtext[props.key] ?? plainParagraphs(props.default);
+		return override ?? plainParagraphs(props.default);
 	});
 </script>
 

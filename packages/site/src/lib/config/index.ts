@@ -46,6 +46,9 @@ const STANDARD_FIELDS: readonly StandardFieldKey[] = [
 	'city',
 ];
 
+/** Höchstzahl der Felder eines Formulars. Mehr nimmt die Site-API nicht an. */
+export const MAX_FUNNEL_FIELDS = 60;
+
 /** Ein Fehler in `dealsystem.config.ts`. */
 export interface ConfigProblem {
 	/** Stelle in der Konfiguration, z. B. `funnels.kontakt.fields[1].type`. */
@@ -89,7 +92,7 @@ function checkFields(
 		if (typeof name !== 'string' || !FIELD_NAME_PATTERN.test(name)) {
 			problems.push({
 				path: `${at}.name`,
-				message: `Der Feldname "${String(name)}" ist ungültig. Erlaubt: Buchstaben, Ziffern und _, beginnend mit einem Buchstaben.`,
+				message: `Der Feldname "${String(name)}" ist ungültig. Erlaubt: Buchstaben, Ziffern und _, beginnend mit einem Buchstaben, höchstens 64 Zeichen.`,
 			});
 			return;
 		}
@@ -156,6 +159,12 @@ export function validateSiteConfig(config: unknown): ConfigProblem[] {
 						message: `standardField "${String(standard)}" am Feld "${String(field.name)}" ist unbekannt. Erlaubt: ${STANDARD_FIELDS.join(', ')}.`,
 					});
 				}
+			}
+			if (fields.length > MAX_FUNNEL_FIELDS) {
+				problems.push({
+					path: `${path}.fields`,
+					message: `Das Formular "${key}" hat ${fields.length} Felder. Erlaubt sind höchstens ${MAX_FUNNEL_FIELDS}.`,
+				});
 			}
 			const reachable = fields.some((f) => f.standardField === 'email' || f.standardField === 'phone');
 			if (fields.length > 0 && !reachable) {

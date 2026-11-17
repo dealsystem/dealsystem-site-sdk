@@ -342,6 +342,6 @@ export interface SiteData {
 	funnels: Record<string, FunnelDef & { active: boolean }>;
 	collections: Record<string, { fields: readonly CollectionFieldDef[] }>;
 	slots: Record<string, SlotOverride>;
-	/** HTML des Standardtexts je Richtext-Slot, beim Build aus dem Code erzeugt. */
+	/** Fertiges HTML je Richtext-Slot: Text aus dem CRM, sonst der Standardtext aus dem Code. */
 	richtext: Record<string, string>;
 }

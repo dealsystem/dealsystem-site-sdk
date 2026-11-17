@@ -130,7 +130,9 @@ export function normalizeSnapshot(raw: unknown): ContentSnapshot {
 			if (!isRecord(slot)) continue;
 			const type = slot.type as ContentSlotType;
 			if (!SLOT_TYPES.includes(type)) continue;
-			if (slot.value === null || slot.value === undefined) continue;
+			// Nur eine echte Überschreibung zählt. `source: "default"` (Wert `null`)
+			// heißt: es gilt der Standard aus dem aktuellen Code.
+			if (slot.source === 'default' || slot.value === null || slot.value === undefined) continue;
 			slots[key] = { type, value: slot.value };
 		}
 	}

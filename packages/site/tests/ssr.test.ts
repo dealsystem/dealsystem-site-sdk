@@ -91,18 +91,24 @@ describe('<RichText>', () => {
 		expect(body).toContain('data-ds-richtext');
 	});
 
-	it('zeigt den Text aus dem CRM als bereinigtes HTML vom Server, auch unter einem früheren Schlüssel', () => {
+	it('zeigt den Text aus dem CRM so, wie der Build ihn abgelegt hat', () => {
 		setSiteDataForTests(
-			testSiteData({
-				richtext: { 'start.ueber-uns': '<p>Standard</p>' },
-				slots: { 'start.alt': { type: 'richtext', value: '<p>Aus dem <em>CRM</em></p>' } },
-			}),
+			testSiteData({ richtext: { 'start.ueber-uns': '<p>a &amp; b aus dem <em>CRM</em></p>' } }),
+		);
+		const { body } = render(RichText, { props: { key: 'start.ueber-uns', default: 'Standard' } });
+		expect(body).toContain('<p>a &amp; b aus dem <em>CRM</em></p>');
+		expect(body).not.toContain('Standard');
+		expect(body).not.toContain('&amp;amp;');
+	});
+
+	it('gibt einen Text aus dem CRM auch aus, wenn der Build den Slot nicht kennt', () => {
+		setSiteDataForTests(
+			testSiteData({ slots: { 'start.alt': { type: 'richtext', value: '<p>Aus dem <em>CRM</em></p>' } } }),
 		);
 		const { body } = render(RichText, {
-			props: { key: 'start.ueber-uns', default: 'Standard', aliases: ['start.alt'] },
+			props: { key: 'start.neu', default: '**Standard**', aliases: ['start.alt'] },
 		});
 		expect(body).toContain('<p>Aus dem <em>CRM</em></p>');
-		expect(body).not.toContain('Standard');
 	});
 
 	it('maskiert den Standardtext, wenn der Build den Slot nicht kennt', () => {

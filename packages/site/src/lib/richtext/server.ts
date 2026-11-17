@@ -101,6 +101,15 @@ const OPTIONS: sanitizeHtml.IOptions = {
 const markdown = new Marked({ gfm: true, breaks: false });
 
 /**
+ * Prüft fertiges HTML gegen die Positiv-Liste. Bereinigtes HTML kommt
+ * unverändert heraus, nichts wird doppelt maskiert.
+ * @internal Benutzt nur das Vite-Plugin.
+ */
+export function sanitizeRichtextHtml(html: string | null | undefined): string {
+	return html ? sanitizeHtml(html, OPTIONS) : '';
+}
+
+/**
  * Wandelt den Standardtext eines Richtext-Slots in geprüftes HTML um.
  * @internal Benutzt nur das Vite-Plugin.
  */

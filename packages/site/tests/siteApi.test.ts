@@ -104,12 +104,15 @@ describe('submitLead', () => {
 
 	it.each([
 		[400, 'captcha_failed', 'captcha_failed'],
-		[400, 'validation_failed', 'validation'],
-		[422, undefined, 'validation'],
+		[400, 'invalid_json', 'rejected'],
+		[405, 'method_not_allowed', 'rejected'],
+		[415, 'unsupported_media_type', 'rejected'],
+		[422, 'validation_error', 'validation'],
 		[404, 'funnel_not_found', 'not_found'],
+		[404, 'site_not_found', 'not_found'],
 		[403, 'origin_not_allowed', 'forbidden'],
 		[500, undefined, 'server'],
-		[503, undefined, 'server'],
+		[503, 'captcha_unavailable', 'server'],
 	])('ordnet Status %i (%s) als %s ein', async (status, code, kind) => {
 		reply = () => json(status, { error: 'x', message: 'Text vom Server', status, code });
 		const result = await api().submitLead(lead);
@@ -117,15 +120,93 @@ describe('submitLead', () => {
 		if (result.ok) return;
 		expect(result.error.kind).toBe(kind);
 		expect(result.error.status).toBe(status);
+		expect(result.error.code).toBe(code ?? null);
 		// Text vom Server wird nie durchgereicht.
 		expect(result.error.message).not.toContain('Text vom Server');
 		expect(result.error.message.length).toBeGreaterThan(10);
+		expect(requests).toHaveLength(1);
 	});
 
-	it('übernimmt Feldfehler des Servers', async () => {
-		reply = () => json(422, { error: 'x', message: 'x', status: 422, fields: { email: 'ungültig', n: 5 } });
+	it('liest bei validation_error die Felder aus details[].path', async () => {
+		reply = () =>
+			json(422, {
+				error: 'Unprocessable Entity',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [
+					{ path: 'data.email', message: 'Ungültige E-Mail' },
+					{ path: 'data.themen.0', message: 'zu lang' },
+					{ path: 'data.email', message: 'doppelt' },
+					{ path: 'captcha', message: 'fehlt' },
+					{ message: 'ohne Pfad' },
+					'kaputt',
+				],
+			});
 		const result = await api().submitLead(lead);
-		expect(result).toMatchObject({ ok: false, error: { kind: 'validation', fields: { email: 'ungültig' } } });
+		expect(result).toMatchObject({
+			ok: false,
+			error: {
+				kind: 'validation',
+				code: 'validation_error',
+				invalidFields: ['email', 'themen'],
+				formInvalid: false,
+			},
+		});
+	});
+
+	it('erkennt path "data" als Fehler des ganzen Formulars', async () => {
+		reply = () =>
+			json(422, {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'data', message: 'x' }],
+			});
+		expect(await api().submitLead(lead)).toMatchObject({
+			ok: false,
+			error: { kind: 'validation', invalidFields: [], formInvalid: true },
+		});
+	});
+
+	it('wiederholt bei internal_error genau einmal mit derselben submissionId', async () => {
+		let calls = 0;
+		reply = () =>
+			++calls === 1
+				? json(500, { error: 'x', message: 'x', status: 500, code: 'internal_error' })
+				: json(201, { data: { accepted: true } });
+		expect(await api().submitLead(lead)).toEqual({ ok: true, data: { accepted: true, dryRun: false } });
+		expect(requests).toHaveLength(2);
+		expect(JSON.parse(requests[1]!.body).submissionId).toBe(lead.submissionId);
+		expect(requests[1]!.body).toBe(requests[0]!.body);
+	});
+
+	it('gibt nach der einen Wiederholung auf', async () => {
+		reply = () => json(500, { error: 'x', message: 'x', status: 500, code: 'internal_error' });
+		expect(await api().submitLead(lead)).toMatchObject({
+			ok: false,
+			error: { kind: 'server', code: 'internal_error' },
+		});
+		expect(requests).toHaveLength(2);
+	});
+
+	it('wiederholt bei anderen Fehlern nicht', async () => {
+		for (const [status, code] of [
+			[503, 'captcha_unavailable'],
+			[429, 'rate_limited'],
+			[500, undefined],
+		] as const) {
+			requests = [];
+			reply = () => json(status, { error: 'x', message: 'x', status, code });
+			await api().submitLead(lead);
+			expect(requests, String(code)).toHaveLength(1);
+		}
+	});
+
+	it('nimmt die Vorschau-Antwort mit Status 200 an', async () => {
+		reply = () => json(200, { data: { accepted: true, dryRun: true } }, { 'X-Captcha-Mode': 'test' });
+		expect(await api().submitLead(lead)).toEqual({ ok: true, data: { accepted: true, dryRun: true } });
 	});
 
 	it('übersteht eine Fehlerseite ohne JSON', async () => {

@@ -51,6 +51,55 @@ describe('normalizeSnapshot', () => {
 		]);
 	});
 
+	it('zählt nur source "override" mit Wert als Überschreibung', () => {
+		const snapshot = normalizeSnapshot({
+			slots: {
+				'start.titel': { type: 'text', source: 'override', value: 'Aus dem CRM' },
+				'start.standard': { type: 'text', source: 'default', value: null },
+				// Widerspruch im Schnappschuss: im Zweifel gilt der Standard aus dem Code.
+				'start.widerspruch': { type: 'text', source: 'default', value: 'darf nicht gelten' },
+				'start.ohne-wert': { type: 'richtext', source: 'override', value: null },
+				'start.alt-format': { type: 'text', value: 'ohne source' },
+			},
+		});
+		expect(Object.keys(snapshot.slots).sort()).toEqual(['start.alt-format', 'start.titel']);
+		expect(resolveTextSlot(snapshot.slots, 'start.titel')).toBe('Aus dem CRM');
+		expect(resolveTextSlot(snapshot.slots, 'start.standard')).toBeNull();
+		expect(resolveTextSlot(snapshot.slots, 'start.widerspruch')).toBeNull();
+		expect(resolveTextSlot(snapshot.slots, 'start.ohne-wert')).toBeNull();
+	});
+
+	it('verträgt null, wo der Core nichts eingetragen hat', () => {
+		const snapshot = normalizeSnapshot({
+			site: { id: 's1', slug: 'kunde', name: 'Kunde', primaryHost: null, locale: 'de' },
+			captcha: { provider: 'friendly-captcha', siteKey: null },
+			legal: {
+				company: null,
+				address: null,
+				representative: null,
+				email: null,
+				phone: null,
+				register: null,
+				vatId: null,
+			},
+			collections: {
+				angebote: {
+					source: 'cms',
+					schemaHash: null,
+					entries: [{ slug: 'a', publishedAt: null, data: {}, media: {} }],
+				},
+			},
+		});
+		expect(snapshot.site.primaryHost).toBe('');
+		expect(snapshot.captcha).toBeNull();
+		expect(snapshot.legal.company).toBe('');
+		expect(snapshot.collections.angebote).toEqual({
+			source: 'cms',
+			schemaHash: '',
+			entries: [{ slug: 'a', publishedAt: '', data: {}, media: {} }],
+		});
+	});
+
 	it('kennt nur den vereinbarten Captcha-Anbieter', () => {
 		expect(normalizeSnapshot({ captcha: { provider: 'anderer', siteKey: 'x' } }).captcha).toBeNull();
 		expect(normalizeSnapshot({ captcha: { provider: 'friendly-captcha' } }).captcha).toBeNull();

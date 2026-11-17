@@ -139,14 +139,13 @@ describe('dealsystem() im Build', () => {
 		expect(data.funnels.rueckruf!.active).toBe(false);
 		expect(data.funnels.neu!.active).toBe(true);
 		expect(data.slots['start.hero.titel']).toEqual({ type: 'text', value: 'Aus dem CRM' });
-		// Standardtexte aus dem Code sind beim Build umgewandelt und geprüft …
+		// `source: "default"` im Schnappschuss: es gilt der Standardtext aus dem
+		// Code, und nur der wird als Markdown gelesen.
+		expect(data.slots).not.toHaveProperty('start.ueber-uns');
 		expect(data.richtext['start.ueber-uns']).toBe('<p>Seit <strong>2010</strong> in Leipzig. </p>\n');
-		expect(data.richtext['start.leistungen']).toBe('<p>Standard</p>\n');
-		// … Texte aus dem CRM bleiben das HTML, das der Server geliefert hat.
-		expect(data.slots['start.angebot']).toEqual({
-			type: 'richtext',
-			value: '<p>Text unter <em>altem</em> Schlüssel</p>',
-		});
+		// Der Text aus dem CRM ist schon bereinigtes HTML: er kommt unverändert
+		// heraus, wird nicht als Markdown gelesen und nicht doppelt maskiert.
+		expect(data.richtext['start.leistungen']).toBe('<p>a &amp; b unter <em>altem</em> Schlüssel</p>');
 	});
 
 	it('baut ohne Schnappschuss und ohne Umgebung mit Standardwerten für die Entwicklung', async () => {

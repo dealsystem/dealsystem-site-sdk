@@ -1,5 +1,9 @@
 import { plainParagraphs } from '../src/lib/richtext/escape.js';
-import { defaultRichtextToHtml as richtextToHtml, RICHTEXT_MAX_LENGTH } from '../src/lib/richtext/server.js';
+import {
+	defaultRichtextToHtml as richtextToHtml,
+	RICHTEXT_MAX_LENGTH,
+	sanitizeRichtextHtml,
+} from '../src/lib/richtext/server.js';
 
 describe('defaultRichtextToHtml (Standardtexte aus dem Code, beim Build)', () => {
 	it('wandelt Markdown in HTML um', () => {
@@ -58,5 +62,28 @@ describe('plainParagraphs', () => {
 		expect(plainParagraphs('Eins <b>\nzwei\n\nDrei & "vier"')).toBe(
 			'<p>Eins &lt;b&gt;<br>zwei</p><p>Drei &amp; &quot;vier&quot;</p>',
 		);
+	});
+});
+
+describe('sanitizeRichtextHtml (Texte aus dem CRM)', () => {
+	it('lässt bereinigtes HTML unverändert und maskiert nichts doppelt', () => {
+		for (const html of [
+			'<p>a &amp; b</p>',
+			'<p>1 &lt; 2 &gt; 0</p>',
+			'<h2>Titel</h2><ul><li><strong>x</strong></li></ul>',
+		]) {
+			expect(sanitizeRichtextHtml(html)).toBe(html);
+		}
+	});
+
+	it('liest HTML nie als Markdown', () => {
+		expect(sanitizeRichtextHtml('<p>**kein** Markdown _hier_</p>')).toBe('<p>**kein** Markdown _hier_</p>');
+	});
+
+	it('entfernt trotzdem, was nicht auf der Positiv-Liste steht', () => {
+		expect(
+			sanitizeRichtextHtml('<p>x</p><script>alert(1)</script><img src="https://fremd.test/a.png">'),
+		).toBe('<p>x</p>');
+		expect(sanitizeRichtextHtml(null)).toBe('');
 	});
 });

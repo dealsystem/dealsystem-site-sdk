@@ -113,5 +113,5 @@ Für Prüfungen an der Ausgabe setzen die Komponenten feste Attribute: `data-ds-
 
 ## Vertrag
 
-`contract/site-api.v1.json` beschreibt die Site-API, gegen die der Client getestet ist
+`contract/site-api.v1.json` ist die Kopie des Vertrags aus dem Core, gegen die der Client getestet ist
 (siehe `contract/README.md`).

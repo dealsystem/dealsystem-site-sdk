@@ -162,7 +162,8 @@ describe('Versand', () => {
 			website: '',
 		});
 		expect(body.submissionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/);
-		expect(body).not.toHaveProperty('captcha');
+		// Ohne eingerichtetes Captcha steht der Platzhalter im Pflichtfeld des Vertrags.
+		expect(body.captcha).toBe('none');
 		expect(body.data).not.toHaveProperty('firstName');
 
 		release(jsonResponse(201, { data: { accepted: true } }));
@@ -259,13 +260,17 @@ describe('Fehlerwege', () => {
 		await expectFailure(user, /Fehler aufgetreten/);
 	});
 
-	it('zeigt Feldfehler des Servers am Feld, mit eigenem Text', async () => {
+	it('zeigt Feldfehler des Servers (details[].path) am Feld, mit eigenem Text', async () => {
 		fetchSpy.mockResolvedValue(
 			jsonResponse(422, {
 				error: 'x',
 				message: 'x',
 				status: 422,
-				fields: { email: '<i>invalid</i>', fremd: 'x' },
+				code: 'validation_error',
+				details: [
+					{ path: 'data.email', message: '<i>invalid</i>' },
+					{ path: 'data.fremd', message: 'x' },
+				],
 			}),
 		);
 		const { user } = setup();
@@ -276,6 +281,47 @@ describe('Fehlerwege', () => {
 		expect(email).toHaveFocus();
 		expect(screen.queryByText(/invalid/)).toBeNull();
 		expect(screen.queryByRole('status')).toBeNull();
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('zeigt path "data" als Fehler des Formulars: E-Mail oder Telefon fehlt', async () => {
+		fetchSpy.mockResolvedValue(
+			jsonResponse(422, {
+				error: 'x',
+				message: 'At least email or phone is required',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'data', message: 'At least email or phone is required' }],
+			}),
+		);
+		const { user } = setup();
+		await fillAndSubmit(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Bitte geben Sie eine E-Mail-Adresse oder eine Telefonnummer an.');
+		expect(alert).not.toHaveTextContent('At least');
+		await waitFor(() => expect(alert).toHaveFocus());
+		expect(screen.queryByRole('status')).toBeNull();
+	});
+
+	it('wiederholt bei internal_error einmal von selbst, mit derselben submissionId', async () => {
+		fetchSpy.mockResolvedValueOnce(
+			jsonResponse(500, { error: 'x', message: 'x', status: 500, code: 'internal_error' }),
+		);
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await screen.findByRole('status');
+		expect(fetchSpy).toHaveBeenCalledTimes(2);
+		expect(sentBody(1).submissionId).toBe(sentBody(0).submissionId);
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('zeigt bei captcha_unavailable den direkten Kontakt', async () => {
+		fetchSpy.mockResolvedValue(
+			jsonResponse(503, { error: 'x', message: 'x', status: 503, code: 'captcha_unavailable' }),
+		);
+		const { user } = setup();
+		await expectFailure(user, /später erneut/);
+		expect(fetchSpy).toHaveBeenCalledTimes(1);
 	});
 
 	it('verwendet beim neuen Versuch dieselbe submissionId', async () => {

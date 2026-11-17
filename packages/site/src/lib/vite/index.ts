@@ -9,7 +9,8 @@ import { dirname, join, relative, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateSiteConfig } from '../config/index.js';
 import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, readSnapshot } from '../content/index.js';
-import { defaultRichtextToHtml } from '../richtext/server.js';
+import { defaultRichtextToHtml, sanitizeRichtextHtml } from '../richtext/server.js';
+import { resolveTextSlot } from '../slots.js';
 import type { ContentSlotDef, ContentSnapshot, SiteConfig, SiteData, SiteManifest } from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
@@ -89,11 +90,13 @@ export function buildSiteData(
 	const active = new Map(snapshot.funnels.map((funnel) => [funnel.key, funnel.active]));
 	const richtext: Record<string, string> = {};
 	for (const slot of slots) {
-		// Nur der Standardtext aus dem Code wird hier umgewandelt. Eine
-		// Überschreibung aus dem CRM ist schon bereinigtes HTML (in `slots`).
-		if (slot.type === 'richtext' && typeof slot.default === 'string') {
-			richtext[slot.key] = defaultRichtextToHtml(slot.default);
-		}
+		if (slot.type !== 'richtext') continue;
+		// Eine Überschreibung aus dem CRM ist schon bereinigtes HTML: sie wird
+		// nie als Markdown gelesen, nur noch einmal gegen die Positiv-Liste
+		// geprüft. Als Markdown gilt allein der Standardtext aus dem Code.
+		const override = resolveTextSlot(snapshot.slots, slot.key, slot.aliases);
+		if (override !== null) richtext[slot.key] = sanitizeRichtextHtml(override);
+		else if (typeof slot.default === 'string') richtext[slot.key] = defaultRichtextToHtml(slot.default);
 	}
 	const siteUrl =
 		env.PUBLIC_DEALSYSTEM_SITE_URL ||
@@ -156,7 +159,9 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 					});
 				}
 				server.config.logger.info(`[dealsystem] Probe-Einsendung „${body.funnelKey}“ (nicht gespeichert)`);
-				return sendJson(res, 201, { data: { accepted: true, dryRun: true } });
+				// Wie ein Vorschau-Host: geprüft, nicht gespeichert.
+				res.setHeader('X-Captcha-Mode', 'test');
+				return sendJson(res, 200, { data: { accepted: true, dryRun: true } });
 			}
 			if (resource === 'collections' && req.method === 'GET' && key) {
 				const snapshot = await readSnapshot(root);

@@ -2,4 +2,4 @@ node_modules
 dist
 .svelte-kit
 package-lock.json
-packages/site/contract/*.json
+packages/site/contract/site-api.v1.json

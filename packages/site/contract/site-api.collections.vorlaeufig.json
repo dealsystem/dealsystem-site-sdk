@@ -1,0 +1,337 @@
+{
+	"openapi": "3.1.0",
+	"info": {
+		"title": "DealSystem Site-API – Sammlungen (vorläufig)",
+		"version": "0.0.0-vorlaeufig",
+		"description": "Von Hand aus dem Konzept abgeleitet, bis der Core die Sammlungs-Endpunkte in seinen Vertrag aufnimmt. Danach entfällt diese Datei."
+	},
+	"paths": {
+		"/api/site/v1/s/{publishableKey}/collections/{key}": {
+			"get": {
+				"operationId": "listCollection",
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/publishableKey"
+					},
+					{
+						"name": "key",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 1,
+							"maximum": 100
+						}
+					},
+					{
+						"name": "offset",
+						"in": "query",
+						"schema": {
+							"type": "integer",
+							"minimum": 0
+						}
+					},
+					{
+						"name": "sort",
+						"in": "query",
+						"schema": {
+							"type": "string",
+							"enum": ["publishedAt", "-publishedAt"]
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Veröffentlichte Einträge",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CollectionListResponse"
+								},
+								"example": {
+									"data": [
+										{
+											"slug": "altbau-leipzig",
+											"publishedAt": "2026-11-01T09:00:00.000Z",
+											"data": {
+												"titel": "Sanierter Altbau",
+												"beschreibung": "<p><strong>Drei</strong> Zimmer</p>"
+											},
+											"media": {
+												"bilder": [
+													{
+														"id": "a1",
+														"kind": "image",
+														"alt": "Fassade des Altbaus",
+														"width": 1600,
+														"height": 1067,
+														"variants": [
+															{
+																"url": "/_ds/media/s1/a1/480.jpg",
+																"width": 480,
+																"format": "jpeg"
+															},
+															{
+																"url": "/_ds/media/s1/a1/1600.jpg",
+																"width": 1600,
+																"format": "jpeg"
+															}
+														]
+													}
+												]
+											}
+										}
+									],
+									"meta": {
+										"total": 1,
+										"limit": 12,
+										"offset": 0
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"$ref": "#/components/responses/Error"
+					},
+					"404": {
+						"$ref": "#/components/responses/Error"
+					},
+					"429": {
+						"$ref": "#/components/responses/Error"
+					}
+				}
+			}
+		},
+		"/api/site/v1/s/{publishableKey}/collections/{key}/{slug}": {
+			"get": {
+				"operationId": "getCollectionEntry",
+				"parameters": [
+					{
+						"$ref": "#/components/parameters/publishableKey"
+					},
+					{
+						"name": "key",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					},
+					{
+						"name": "slug",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Ein veröffentlichter Eintrag",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/CollectionEntryResponse"
+								},
+								"example": {
+									"data": {
+										"slug": "altbau-leipzig",
+										"publishedAt": "2026-11-01T09:00:00.000Z",
+										"data": {
+											"titel": "Sanierter Altbau"
+										},
+										"media": {}
+									}
+								}
+							}
+						}
+					},
+					"403": {
+						"$ref": "#/components/responses/Error"
+					},
+					"404": {
+						"$ref": "#/components/responses/Error"
+					},
+					"429": {
+						"$ref": "#/components/responses/Error"
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"parameters": {
+			"publishableKey": {
+				"name": "publishableKey",
+				"in": "path",
+				"required": true,
+				"schema": {
+					"type": "string"
+				}
+			}
+		},
+		"responses": {
+			"Error": {
+				"description": "Fehler",
+				"content": {
+					"application/json": {
+						"schema": {
+							"$ref": "#/components/schemas/Error"
+						},
+						"example": {
+							"error": "Not Found",
+							"message": "Diese Website ist nicht (mehr) verfügbar.",
+							"status": 404,
+							"code": "site_not_found"
+						}
+					}
+				}
+			}
+		},
+		"schemas": {
+			"Error": {
+				"type": "object",
+				"required": ["error", "message", "status", "code"],
+				"properties": {
+					"error": {
+						"type": "string"
+					},
+					"message": {
+						"type": "string"
+					},
+					"status": {
+						"type": "integer"
+					},
+					"code": {
+						"type": "string"
+					}
+				}
+			},
+			"MediaRef": {
+				"type": "object",
+				"required": ["id", "kind", "alt", "width", "height", "variants"],
+				"properties": {
+					"id": {
+						"type": "string"
+					},
+					"kind": {
+						"enum": ["image", "video", "file"]
+					},
+					"alt": {
+						"type": "string"
+					},
+					"width": {
+						"type": ["integer", "null"]
+					},
+					"height": {
+						"type": ["integer", "null"]
+					},
+					"variants": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"required": ["url", "width", "format"],
+							"properties": {
+								"url": {
+									"type": "string"
+								},
+								"width": {
+									"type": "integer"
+								},
+								"format": {
+									"enum": ["jpeg", "webp", "avif"]
+								}
+							}
+						}
+					},
+					"video": {
+						"type": "object",
+						"required": ["provider", "playbackUrl", "posterUrl"],
+						"properties": {
+							"provider": {
+								"const": "bunny"
+							},
+							"playbackUrl": {
+								"type": "string"
+							},
+							"posterUrl": {
+								"type": "string"
+							}
+						}
+					},
+					"url": {
+						"type": "string"
+					}
+				}
+			},
+			"CollectionEntry": {
+				"type": "object",
+				"required": ["slug", "publishedAt", "data", "media"],
+				"properties": {
+					"slug": {
+						"type": "string"
+					},
+					"publishedAt": {
+						"type": "string"
+					},
+					"data": {
+						"type": "object"
+					},
+					"media": {
+						"type": "object",
+						"additionalProperties": {
+							"type": "array",
+							"items": {
+								"$ref": "#/components/schemas/MediaRef"
+							}
+						}
+					}
+				}
+			},
+			"CollectionListResponse": {
+				"type": "object",
+				"required": ["data"],
+				"properties": {
+					"data": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/CollectionEntry"
+						}
+					},
+					"meta": {
+						"type": "object",
+						"properties": {
+							"total": {
+								"type": "integer"
+							},
+							"limit": {
+								"type": "integer"
+							},
+							"offset": {
+								"type": "integer"
+							}
+						}
+					}
+				}
+			},
+			"CollectionEntryResponse": {
+				"type": "object",
+				"required": ["data"],
+				"properties": {
+					"data": {
+						"$ref": "#/components/schemas/CollectionEntry"
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,274 +1,431 @@
 {
-	"openapi": "3.1.0",
-	"info": {
-		"title": "DealSystem Site-API",
-		"version": "1.0.0-vorlaeufig",
-		"description": "Vorläufige, von Hand aus dem Konzept abgeleitete Fassung. Wird durch die vom Core erzeugte Datei ersetzt."
-	},
-	"paths": {
-		"/api/site/v1/s/{publishableKey}/leads": {
-			"post": {
-				"operationId": "submitLead",
-				"parameters": [{ "$ref": "#/components/parameters/publishableKey" }],
-				"requestBody": {
-					"required": true,
-					"content": { "application/json": { "schema": { "$ref": "#/components/schemas/LeadRequest" } } }
-				},
-				"responses": {
-					"200": {
-						"description": "Angenommen (auch Honeypot-Treffer und wiederholte Einsendung)",
-						"content": {
-							"application/json": {
-								"schema": { "$ref": "#/components/schemas/LeadAcceptedResponse" },
-								"example": { "data": { "accepted": true } }
-							}
-						}
-					},
-					"201": {
-						"description": "Angenommen",
-						"content": {
-							"application/json": {
-								"schema": { "$ref": "#/components/schemas/LeadAcceptedResponse" },
-								"example": { "data": { "accepted": true } }
-							}
-						}
-					},
-					"400": { "$ref": "#/components/responses/Error" },
-					"403": { "$ref": "#/components/responses/Error" },
-					"404": { "$ref": "#/components/responses/Error" },
-					"422": { "$ref": "#/components/responses/Error" },
-					"429": { "$ref": "#/components/responses/Error" }
-				}
-			}
-		},
-		"/api/site/v1/s/{publishableKey}/collections/{key}": {
-			"get": {
-				"operationId": "listCollection",
-				"parameters": [
-					{ "$ref": "#/components/parameters/publishableKey" },
-					{ "name": "key", "in": "path", "required": true, "schema": { "type": "string" } },
-					{ "name": "limit", "in": "query", "schema": { "type": "integer", "minimum": 1, "maximum": 100 } },
-					{ "name": "offset", "in": "query", "schema": { "type": "integer", "minimum": 0 } },
-					{ "name": "sort", "in": "query", "schema": { "type": "string", "enum": ["publishedAt", "-publishedAt"] } }
-				],
-				"responses": {
-					"200": {
-						"description": "Veröffentlichte Einträge",
-						"content": {
-							"application/json": {
-								"schema": { "$ref": "#/components/schemas/CollectionListResponse" },
-								"example": {
-									"data": [
-										{
-											"slug": "altbau-leipzig",
-											"publishedAt": "2026-11-01T09:00:00.000Z",
-											"data": { "titel": "Sanierter Altbau", "beschreibung": "<p><strong>Drei</strong> Zimmer</p>" },
-											"media": {
-												"bilder": [
-													{
-														"id": "a1",
-														"kind": "image",
-														"alt": "Fassade des Altbaus",
-														"width": 1600,
-														"height": 1067,
-														"variants": [
-															{ "url": "/_ds/media/s1/a1/480.jpg", "width": 480, "format": "jpeg" },
-															{ "url": "/_ds/media/s1/a1/1600.jpg", "width": 1600, "format": "jpeg" }
-														]
-													}
-												]
-											}
-										}
-									],
-									"meta": { "total": 1, "limit": 12, "offset": 0 }
-								}
-							}
-						}
-					},
-					"403": { "$ref": "#/components/responses/Error" },
-					"404": { "$ref": "#/components/responses/Error" },
-					"429": { "$ref": "#/components/responses/Error" }
-				}
-			}
-		},
-		"/api/site/v1/s/{publishableKey}/collections/{key}/{slug}": {
-			"get": {
-				"operationId": "getCollectionEntry",
-				"parameters": [
-					{ "$ref": "#/components/parameters/publishableKey" },
-					{ "name": "key", "in": "path", "required": true, "schema": { "type": "string" } },
-					{ "name": "slug", "in": "path", "required": true, "schema": { "type": "string" } }
-				],
-				"responses": {
-					"200": {
-						"description": "Ein veröffentlichter Eintrag",
-						"content": {
-							"application/json": {
-								"schema": { "$ref": "#/components/schemas/CollectionEntryResponse" },
-								"example": {
-									"data": {
-										"slug": "altbau-leipzig",
-										"publishedAt": "2026-11-01T09:00:00.000Z",
-										"data": { "titel": "Sanierter Altbau" },
-										"media": {}
-									}
-								}
-							}
-						}
-					},
-					"403": { "$ref": "#/components/responses/Error" },
-					"404": { "$ref": "#/components/responses/Error" },
-					"429": { "$ref": "#/components/responses/Error" }
-				}
-			}
-		}
-	},
-	"components": {
-		"parameters": {
-			"publishableKey": {
-				"name": "publishableKey",
-				"in": "path",
-				"required": true,
-				"schema": { "type": "string" }
-			}
-		},
-		"responses": {
-			"Error": {
-				"description": "Fehler",
-				"content": {
-					"application/json": {
-						"schema": { "$ref": "#/components/schemas/Error" },
-						"example": { "error": "Bad Request", "message": "Captcha ungültig", "status": 400, "code": "captcha_failed" }
-					}
-				}
-			}
-		},
-		"schemas": {
-			"LeadRequest": {
-				"type": "object",
-				"additionalProperties": false,
-				"required": ["funnelKey", "submissionId", "data", "website"],
-				"properties": {
-					"funnelKey": { "type": "string", "minLength": 1, "maxLength": 100 },
-					"submissionId": { "type": "string", "format": "uuid" },
-					"data": {
-						"type": "object",
-						"additionalProperties": {
-							"oneOf": [
-								{ "type": "string" },
-								{ "type": "boolean" },
-								{ "type": "array", "items": { "type": "string" } }
-							]
-						}
-					},
-					"attribution": {
-						"type": "object",
-						"additionalProperties": false,
-						"properties": {
-							"utmSource": { "type": "string", "maxLength": 200 },
-							"utmMedium": { "type": "string", "maxLength": 200 },
-							"utmCampaign": { "type": "string", "maxLength": 200 },
-							"utmTerm": { "type": "string", "maxLength": 200 },
-							"utmContent": { "type": "string", "maxLength": 200 },
-							"referrerHost": { "type": "string", "maxLength": 255 },
-							"capturedAt": { "type": "string" }
-						}
-					},
-					"captcha": { "type": "string" },
-					"website": { "type": "string" }
-				}
-			},
-			"LeadAcceptedResponse": {
-				"type": "object",
-				"required": ["data"],
-				"properties": {
-					"data": {
-						"type": "object",
-						"required": ["accepted"],
-						"properties": {
-							"accepted": { "const": true },
-							"dryRun": { "type": "boolean" }
-						}
-					}
-				}
-			},
-			"Error": {
-				"type": "object",
-				"required": ["error", "message", "status"],
-				"properties": {
-					"error": { "type": "string" },
-					"message": { "type": "string" },
-					"status": { "type": "integer" },
-					"code": { "type": "string" },
-					"fields": { "type": "object", "additionalProperties": { "type": "string" } }
-				}
-			},
-			"MediaRef": {
-				"type": "object",
-				"required": ["id", "kind", "alt", "width", "height", "variants"],
-				"properties": {
-					"id": { "type": "string" },
-					"kind": { "enum": ["image", "video", "file"] },
-					"alt": { "type": "string" },
-					"width": { "type": ["integer", "null"] },
-					"height": { "type": ["integer", "null"] },
-					"variants": {
-						"type": "array",
-						"items": {
-							"type": "object",
-							"required": ["url", "width", "format"],
-							"properties": {
-								"url": { "type": "string" },
-								"width": { "type": "integer" },
-								"format": { "enum": ["jpeg", "webp", "avif"] }
-							}
-						}
-					},
-					"video": {
-						"type": "object",
-						"required": ["provider", "playbackUrl", "posterUrl"],
-						"properties": {
-							"provider": { "const": "bunny" },
-							"playbackUrl": { "type": "string" },
-							"posterUrl": { "type": "string" }
-						}
-					},
-					"url": { "type": "string" }
-				}
-			},
-			"CollectionEntry": {
-				"type": "object",
-				"required": ["slug", "publishedAt", "data", "media"],
-				"properties": {
-					"slug": { "type": "string" },
-					"publishedAt": { "type": "string" },
-					"data": { "type": "object" },
-					"media": {
-						"type": "object",
-						"additionalProperties": { "type": "array", "items": { "$ref": "#/components/schemas/MediaRef" } }
-					}
-				}
-			},
-			"CollectionListResponse": {
-				"type": "object",
-				"required": ["data"],
-				"properties": {
-					"data": { "type": "array", "items": { "$ref": "#/components/schemas/CollectionEntry" } },
-					"meta": {
-						"type": "object",
-						"properties": {
-							"total": { "type": "integer" },
-							"limit": { "type": "integer" },
-							"offset": { "type": "integer" }
-						}
-					}
-				}
-			},
-			"CollectionEntryResponse": {
-				"type": "object",
-				"required": ["data"],
-				"properties": { "data": { "$ref": "#/components/schemas/CollectionEntry" } }
-			}
-		}
-	}
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DealSystem Site-API (Self-Service-Websites)",
+    "version": "1.0.0",
+    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }`, Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`."
+  },
+  "servers": [
+    {
+      "url": "https://app.dealsystem.io/api/site/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Site-API",
+      "description": "Formulare und Inhalte selbst gebauter Websites."
+    }
+  ],
+  "paths": {
+    "/s/{key}/leads": {
+      "post": {
+        "operationId": "submitLead",
+        "summary": "Formular einreichen",
+        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Honeypot → Body → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "funnelKey": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+                    "description": "Schlüssel des Formulars (kebab-case), wie im Code der Seite: `<LeadForm funnel=\"kontakt\">`."
+                  },
+                  "submissionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "Vom Client je Absendevorgang erzeugt. Dieselbe ID innerhalb von 24 h wird nur einmal angelegt und bekommt dieselbe Antwort."
+                  },
+                  "data": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "pattern": "^[A-Za-z][A-Za-z0-9_-]{0,63}$"
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 10000
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "maxItems": 100,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 500
+                          }
+                        }
+                      ]
+                    },
+                    "description": "Antworten je Feldname. Text, ja/nein (Checkbox) oder Liste (Mehrfachauswahl). Geprüft gegen die Felder, die der Build im Manifest gemeldet hat; unbekannte Felder landen nur in der Notiz, nie in Kontaktfeldern."
+                  },
+                  "attribution": {
+                    "type": "object",
+                    "properties": {
+                      "utmSource": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "utmMedium": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "utmCampaign": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "utmTerm": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "utmContent": {
+                        "type": "string",
+                        "maxLength": 200
+                      },
+                      "referrerHost": {
+                        "type": "string",
+                        "maxLength": 255
+                      },
+                      "capturedAt": {
+                        "type": "string",
+                        "maxLength": 64
+                      }
+                    },
+                    "additionalProperties": false,
+                    "description": "Erste Berührung (UTM, Referrer), vom SDK im `sessionStorage` gehalten. Optional."
+                  },
+                  "captcha": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 16000,
+                    "description": "Lösung des Captcha-Widgets (Friendly Captcha, im SDK enthalten)."
+                  },
+                  "website": {
+                    "description": "Honeypot: unsichtbares Feld, bleibt leer. Ist es gefüllt, wird nichts gespeichert.",
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "funnelKey",
+                  "submissionId",
+                  "data",
+                  "captcha"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "funnelKey": "kontakt",
+                "submissionId": "0b7e3c9a-2f4d-4e8b-9a1c-5d6e7f8a9b0c",
+                "data": {
+                  "firstName": "Erika",
+                  "lastName": "Muster",
+                  "email": "erika@example.de",
+                  "nachricht": "Bitte um Rückruf."
+                },
+                "attribution": {
+                  "utmSource": "newsletter",
+                  "referrerHost": "www.google.com",
+                  "capturedAt": "2026-11-17T09:12:00.000Z"
+                },
+                "captcha": "<Lösung des Widgets>",
+                "website": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vorschau: geprüft, nichts gespeichert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadAccepted"
+                },
+                "example": {
+                  "data": {
+                    "accepted": true,
+                    "dryRun": true
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Angenommen. Auch bei einer wiederholten `submissionId` (dieselbe Antwort, nichts doppelt) und bei gefülltem Honeypot.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LeadAccepted"
+                },
+                "example": {
+                  "data": {
+                    "accepted": true
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "400": {
+            "description": "`captcha_failed`: Captcha ungültig, abgelaufen oder schon benutzt. `invalid_json`: Body ist kein JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Bad Request",
+                  "message": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte erneut versuchen.",
+                  "status": 400,
+                  "code": "captcha_failed"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `funnel_not_found` (nur Leads): Formular unbekannt oder ausgeschaltet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Diese Website ist nicht (mehr) verfügbar.",
+                  "status": 404,
+                  "code": "site_not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET` und `POST`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: `Content-Type` ist nicht `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_error`: Body-Form (unbekanntes Feld, fehlende `submissionId` …) oder Felder gegen das Formular (Pflicht, Typ, Länge, Auswahl; E-Mail-Adresse oder Telefonnummer muss dabei sein). `details` nennt die Felder.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Validation Error",
+                  "message": "data.email: Keine gültige E-Mail-Adresse.",
+                  "status": 422,
+                  "code": "validation_error",
+                  "details": [
+                    {
+                      "path": "data.email",
+                      "message": "Keine gültige E-Mail-Adresse."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Speichern gescheitert; dieselbe `submissionId` darf erneut gesendet werden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`captcha_unavailable`: Captcha-Prüfung nicht eingerichtet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "LeadAccepted": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              },
+              "dryRun": {
+                "description": "Nur aus der Vorschau: geprüft, aber nichts gespeichert.",
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "accepted"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false,
+        "description": "Angenommen. Enthält bewusst keine Kontakt- oder Deal-ID. Nie eine Erfolgsmeldung anzeigen ohne `accepted: true`."
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "HTTP-Statustext. Den Grund trägt `code`."
+          },
+          "message": {
+            "type": "string",
+            "description": "Deutscher Text, zum Anzeigen geeignet."
+          },
+          "status": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "invalid_json",
+              "captcha_failed",
+              "origin_not_allowed",
+              "not_found",
+              "site_not_found",
+              "funnel_not_found",
+              "method_not_allowed",
+              "unsupported_media_type",
+              "validation_error",
+              "rate_limited",
+              "internal_error",
+              "captcha_unavailable"
+            ]
+          },
+          "details": {
+            "description": "Nur bei 422: Feldpfade (`data.email`, `submissionId`) und Grund.",
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "message": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "message"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "error",
+          "message",
+          "status",
+          "code"
+        ],
+        "additionalProperties": false,
+        "description": "Fehlerform aller Endpunkte der Site-API."
+      }
+    }
+  }
 }

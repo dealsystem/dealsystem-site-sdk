@@ -5,7 +5,7 @@ export const SLOT_KEY_PATTERN = /^[a-z0-9]+(\.[a-z0-9-]+){1,4}$/;
 /** Formular- und Sammlungs-Schlüssel in kebab-case, z. B. `kontakt`. */
 export const KEBAB_KEY_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 /** Feldnamen, z. B. `nachricht` oder `firstName`. */
-export const FIELD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]*$/;
+export const FIELD_NAME_PATTERN = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
 
 export const SLOT_KEY_MAX_LENGTH = 120;
 export const KEBAB_KEY_MAX_LENGTH = 100;

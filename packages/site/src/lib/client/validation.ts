@@ -9,7 +9,8 @@ const PHONE = /^[+0-9][0-9 ()/.-]{4,29}$/;
 
 /** Höchstlänge eines Feldes, wenn die Konfiguration keine nennt. */
 export function maxLengthOf(field: FunnelFieldDef): number {
-	return field.maxLength ?? (field.type === 'textarea' ? 5000 : 255);
+	// Die Site-API nimmt je Feld höchstens 10 000 Zeichen an.
+	return Math.min(field.maxLength ?? (field.type === 'textarea' ? 5000 : 255), 10_000);
 }
 
 /** Sichtbare Beschriftung eines Feldes. */

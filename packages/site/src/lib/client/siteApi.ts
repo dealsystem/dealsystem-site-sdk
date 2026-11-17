@@ -11,15 +11,17 @@ export type SiteApiErrorKind =
 	| 'network'
 	/** 429: zu viele Anfragen. */
 	| 'rate_limited'
-	/** 400/422: Eingaben abgelehnt. */
+	/** 422 `validation_error`: Eingaben abgelehnt, siehe `invalidFields` und `formInvalid`. */
 	| 'validation'
 	/** 400 `captcha_failed`. */
 	| 'captcha_failed'
+	/** 400, 405, 415: der Server versteht die Anfrage nicht. Ein Fehler im SDK, nicht des Besuchers. */
+	| 'rejected'
 	/** 404: Formular, Sammlung oder Eintrag gibt es nicht. */
 	| 'not_found'
 	/** 403: die Seite darf von dieser Adresse aus nicht anfragen. */
 	| 'forbidden'
-	/** 5xx. */
+	/** 5xx, auch `captcha_unavailable` (503). */
 	| 'server'
 	/** Antwort hat nicht die vereinbarte Form. */
 	| 'invalid_response';
@@ -35,8 +37,10 @@ export interface SiteApiError {
 	message: string;
 	/** Bei `rate_limited`: frühester neuer Versuch in Sekunden. */
 	retryAfterSeconds: number | null;
-	/** Bei `validation`: Meldung je Feldname, soweit der Server sie nennt. */
-	fields: Record<string, string>;
+	/** Bei `validation`: Namen der abgelehnten Felder (`details[].path` ohne `data.`). */
+	invalidFields: string[];
+	/** Bei `validation`: das Formular als Ganzes ist abgelehnt (`path: "data"`), z. B. weil E-Mail und Telefon fehlen. */
+	formInvalid: boolean;
 }
 
 /** Ergebnis jedes Aufrufs: entweder Daten oder ein Fehler, nie eine Ausnahme. */
@@ -60,9 +64,10 @@ export interface LeadRequest {
 	submissionId: string;
 	data: Record<string, string | string[] | boolean>;
 	attribution?: LeadAttribution;
-	captcha?: string;
+	/** Lösung des Captchas, 1 bis 16 000 Zeichen. */
+	captcha: string;
 	/** Honeypot. Echte Besucher lassen das Feld leer. */
-	website: string;
+	website?: string;
 }
 
 export interface LeadAccepted {
@@ -91,6 +96,7 @@ const MESSAGES: Record<SiteApiErrorKind, string> = {
 	rate_limited: 'Im Moment gehen zu viele Anfragen ein. Bitte versuchen Sie es in ein paar Minuten erneut.',
 	validation: 'Bitte prüfen Sie Ihre Angaben.',
 	captcha_failed: 'Die Sicherheitsprüfung ist fehlgeschlagen. Bitte versuchen Sie es erneut.',
+	rejected: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
 	not_found: 'Der angefragte Inhalt ist nicht verfügbar.',
 	forbidden: 'Die Anfrage wurde abgelehnt.',
 	server: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
@@ -104,7 +110,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function fail(
 	kind: SiteApiErrorKind,
 	status: number | null,
-	extra: Partial<Pick<SiteApiError, 'code' | 'retryAfterSeconds' | 'fields'>> = {},
+	extra: Partial<Pick<SiteApiError, 'code' | 'retryAfterSeconds' | 'invalidFields' | 'formInvalid'>> = {},
 ): { ok: false; error: SiteApiError } {
 	return {
 		ok: false,
@@ -114,7 +120,8 @@ function fail(
 			code: extra.code ?? null,
 			message: MESSAGES[kind],
 			retryAfterSeconds: extra.retryAfterSeconds ?? null,
-			fields: extra.fields ?? {},
+			invalidFields: extra.invalidFields ?? [],
+			formInvalid: extra.formInvalid ?? false,
 		},
 	};
 }
@@ -124,19 +131,30 @@ function kindOf(status: number, code: string | null): SiteApiErrorKind {
 	if (status === 429) return 'rate_limited';
 	if (status === 404) return 'not_found';
 	if (status === 403) return 'forbidden';
-	if (status === 400 || status === 422) return 'validation';
+	if (status === 422) return 'validation';
 	if (status >= 500) return 'server';
-	return 'invalid_response';
+	return 'rejected';
 }
 
-function fieldErrors(body: Record<string, unknown>): Record<string, string> {
-	const out: Record<string, string> = {};
-	if (isRecord(body.fields)) {
-		for (const [name, message] of Object.entries(body.fields)) {
-			if (typeof message === 'string') out[name] = message.slice(0, 300);
+/** Liest `details: [{ path, message }]` eines `validation_error`. Texte des Servers werden nicht übernommen. */
+function validationDetails(
+	body: Record<string, unknown>,
+): Pick<SiteApiError, 'invalidFields' | 'formInvalid'> {
+	const invalidFields: string[] = [];
+	let formInvalid = false;
+	if (Array.isArray(body.details)) {
+		for (const detail of body.details) {
+			const path = isRecord(detail) ? detail.path : null;
+			if (typeof path !== 'string') continue;
+			if (path === 'data') formInvalid = true;
+			else if (path.startsWith('data.')) {
+				// `data.themen.0` gehört zum Feld `themen`.
+				const name = path.slice('data.'.length).split('.')[0]!;
+				if (name && !invalidFields.includes(name)) invalidFields.push(name);
+			}
 		}
 	}
-	return out;
+	return { invalidFields, formInvalid };
 }
 
 /** @internal */
@@ -188,7 +206,7 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 			return fail(kindOf(response.status, code), response.status, {
 				code,
 				retryAfterSeconds: Number.isFinite(retryAfter) && retryAfter >= 0 ? retryAfter : null,
-				fields: fieldErrors(record),
+				...validationDetails(record),
 			});
 		}
 		if (!isRecord(body)) return fail('invalid_response', response.status);
@@ -197,11 +215,17 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 
 	return {
 		async submitLead(lead) {
-			const result = await request('/leads', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(lead),
-			});
+			const send = () =>
+				request('/leads', {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(lead),
+				});
+			let result = await send();
+			// `internal_error` darf mit derselben submissionId wiederholt werden: einmal, automatisch.
+			if (!result.ok && result.error.status === 500 && result.error.code === 'internal_error') {
+				result = await send();
+			}
 			if (!result.ok) return result;
 			const data = result.data.data;
 			// Nie ein Erfolg ohne ausdrückliches `accepted: true`.
