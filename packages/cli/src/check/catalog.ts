@@ -300,7 +300,7 @@ export const RULES: readonly RuleMeta[] = [
 		severity: 'error',
 		stages: ['source'],
 		title: 'Schlüssel-Formate (Slots, Formulare, Sammlungen), kein Slot-Schlüssel mit zwei Typen',
-		fix: 'Erlaubt sind Kleinbuchstaben, Ziffern und Bindestriche; Slots mit Punkten, z. B. `start.hero.titel`.',
+		fix: 'Formular- und Sammlungs-Schlüssel: Kleinbuchstaben, Ziffern und Bindestriche, z. B. `kontakt`. Slot-Schlüssel: zwei bis fünf Teile mit Punkten, der erste ohne Bindestrich, z. B. `ueberuns.team.titel` für die Seite „Über uns“.',
 	},
 	{
 		id: 'QUA-007',

@@ -15,7 +15,9 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/komponenten.md`, `gestaltung.m
 4. Genau eine Überschrift der ersten Ebene (`as="h1"`), darunter `h2`, dann `h3`.
 5. Jeder sichtbare Text, auch eine kurze Überschrift wie „Anfahrt“, ist ein `<Text>` (kurz) oder
    `<RichText>` (formatiert) mit festem `key` nach dem
-   Muster `<seite>.<abschnitt>.<name>`, einem `default`, einem `label` und der `group` der Seite. So kann der
+   Muster `<seite>.<abschnitt>.<name>`, einem `default`, einem `label` und der `group` der Seite. Der erste
+   Teil besteht nur aus Kleinbuchstaben und Ziffern, ohne Bindestrich: Seite `ueber-uns` → `ueberuns.team.titel`,
+   nicht `ueber-uns.team.titel`. Die weiteren Teile dürfen Bindestriche haben. So kann der
    Kunde ihn später selbst ändern. Erfinde keine Fakten über das Unternehmen und keine Leistungsversprechen
    („fester Ansprechpartner“, „keine Provision“, „Antwort in 24 Stunden“), die der Kunde nicht genannt hat.
    Mehrzeilige Texte: `default={'Zeile 1\nZeile 2'}` in geschweiften Klammern, nie `default="…\n…"`.

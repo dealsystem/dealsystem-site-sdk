@@ -247,3 +247,47 @@ describe('austauschbares Bild (Beispiel aus komponenten.md)', () => {
 		},
 	);
 });
+
+describe('ungültige Slot-Schlüssel: Grund und Vorschlag', () => {
+	it.each([
+		[
+			'ueber-uns.team.titel',
+			/Bindestrich oder Unterstrich im ersten Teil ist nicht erlaubt\. Nimm "ueberuns\.team\.titel"/,
+		],
+		['Über-Uns.Team.Titel', /Großbuchstaben sind nicht erlaubt.*Nimm "ueberuns\.team\.titel"/],
+		['start.hero titel', /nicht erlaubt: Leerzeichen\. Nimm "start\.hero-titel"/],
+		['start..titel', /leerer Teil.*Nimm "start\.titel"/],
+		['titel', /mindestens zwei Teile/],
+	])('%s', (key, message) => {
+		const code = page(`<Text key="${key}" default="x" />`);
+		expect(() => scanSlots(code, 'src/routes/ueber-uns/+page.svelte')).toThrow(message);
+	});
+
+	it('der vorgeschlagene Schlüssel ist gültig und nennt die Regel für den ersten Teil', () => {
+		let error: unknown;
+		try {
+			scanSlots(
+				page('<MediaImage key="ueber-uns.inhaber.foto" default={hero} alt="Haus" />'),
+				'src/routes/+page.svelte',
+			);
+		} catch (e) {
+			error = e;
+		}
+		expect(error).toBeInstanceOf(SlotScanError);
+		const suggested = /Nimm "([^"]+)"/.exec((error as Error).message)?.[1];
+		expect(suggested).toBe('ueberuns.inhaber.foto');
+		expect(
+			scanSlots(
+				page(`<MediaImage key="${suggested}" default={hero} alt="Haus" />`),
+				'src/routes/+page.svelte',
+			),
+		).toHaveLength(1);
+		expect((error as Error).message).toContain('Erster Teil nur Kleinbuchstaben und Ziffern');
+	});
+
+	it('ohne gültigen Vorschlag nennt die Meldung nur den Grund', () => {
+		expect(() => scanSlots(page('<Text key="titel" default="x" />'), 'src/routes/+page.svelte')).toThrow(
+			/^(?!.*Nimm).*mindestens zwei Teile/s,
+		);
+	});
+});

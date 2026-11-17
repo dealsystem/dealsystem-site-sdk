@@ -2,7 +2,7 @@
 // <Link key=…> und <MediaImage key=…> aus '@dealsystem/site'. Gelesen wird der Quelltext,
 // nichts wird ausgeführt.
 import { parse } from 'svelte/compiler';
-import { SLOT_KEY_MAX_LENGTH, SLOT_KEY_PATTERN } from '../keys.js';
+import { explainSlotKey, SLOT_KEY_RULE } from '../keys.js';
 import type { ContentSlotDef, ContentSlotLinkValue, ContentSlotType } from '../types.js';
 
 const PACKAGE = '@dealsystem/site';
@@ -177,11 +177,13 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 				`<${String(node.name)}>: key muss eine feste Zeichenkette sein, z. B. key="start.hero.titel". Variablen und zusammengesetzte Werte gehen nicht.`,
 			);
 		}
-		if (!SLOT_KEY_PATTERN.test(key) || key.length > SLOT_KEY_MAX_LENGTH) {
+		const invalid = explainSlotKey(key);
+		if (invalid) {
+			const proposal = invalid.suggestion ? ` Nimm "${invalid.suggestion}".` : '';
 			throw new SlotScanError(
 				file,
 				line,
-				`Der Schlüssel "${key}" ist ungültig. Erlaubt: Kleinbuchstaben, Ziffern und Punkte in zwei bis fünf Teilen, z. B. "start.hero.titel".`,
+				`Der Schlüssel "${key}" ist ungültig: ${invalid.reasons.join('; ')}.${proposal} ${SLOT_KEY_RULE}`,
 			);
 		}
 

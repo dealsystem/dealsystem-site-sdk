@@ -43,7 +43,7 @@ Sag ihm klar, was er tun soll und wo. Umgehe es nie.
 - Keine Zugangsdaten, keine `.env`, kein eigenes `fetch` zu DealSystem.
 - Formulare nur mit `<LeadForm>`. Felder stehen in `dealsystem.config.ts`.
 - Bilder nur mit `<MediaImage>` und einem `alt`, das das Bild beschreibt. Fotos zum Selbst-Tauschen (Porträt, Team) mit `key` und `default` (`gestaltung.md`).
-- Sichtbare Texte, auch kurze Überschriften, als `<Text>` oder `<RichText>` mit festem `key` und `default`, damit der Kunde sie im CRM ändern kann. Adresse, Telefon und E-Mail nie fest in den Code: Sie kommen als `data.site` aus dem CRM.
+- Sichtbare Texte, auch kurze Überschriften, als `<Text>` oder `<RichText>` mit festem `key` (erster Teil ohne Bindestrich: `ueberuns.team.titel`) und `default`. Adresse, Telefon und E-Mail kommen als `data.site` aus dem CRM, nie fest in den Code.
 - Nichts von fremden Servern: Schriften lokal (`@fontsource/…`), keine CDN-Links. Eine Karte gibt es mit `<MapEmbed>`. Andere fremde Dienste (Google Maps, YouTube, Widgets) lassen sich nicht einbetten, auch nicht in `<ConsentGate>`: Verlinke sie und sag das dem Kunden.
 - Kein `{@html}`. Formatierten Text gibt `<RichText>` aus.
 - Jede Seite: genau eine `h1`, eigener `<title>`, eigene `meta description`. `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.

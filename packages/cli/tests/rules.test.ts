@@ -1018,6 +1018,21 @@ describe('Zuordnung der SDK-Meldungen aus validateSiteConfig', () => {
 	});
 });
 
+describe('QUA-006: Slot-Schlüssel vom Seitennamen', () => {
+	it('nennt den Grund und schlägt einen gültigen Schlüssel vor', async () => {
+		const found = (
+			await findingsFor('source', {
+				'src/routes/+page.svelte': homePage('<Text key="ueber-uns.titel" default="Über uns" as="h1" />'),
+			})
+		).filter((f) => f.rule === 'QUA-006');
+		expect(found).toHaveLength(1);
+		expect(found[0]!.severity).toBe('error');
+		expect(found[0]!.message).toContain('Bindestrich oder Unterstrich im ersten Teil ist nicht erlaubt');
+		expect(found[0]!.message).toContain('Nimm "ueberuns.titel"');
+		expect(found[0]!.fix).toContain('`ueberuns.team.titel`');
+	});
+});
+
 describe('SEC-008: CSP der fertigen Seite und die Site-API', () => {
 	const csp = (connect: string): Overlay => ({
 		'index.html': page({
