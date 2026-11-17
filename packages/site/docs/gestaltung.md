@@ -56,10 +56,16 @@ Nie `<img>` schreiben, immer `<MediaImage>` (`A11Y-002`).
 - `sizes` nennt die Anzeigebreite, z. B. `sizes="(min-width: 60rem) 33vw, 100vw"`. Das wichtigste Bild im
   sichtbaren Bereich bekommt `priority`.
 - Große Videos gehören ins CRM, nicht ins Projekt.
-- **Fotos vom Kunden** (z. B. ein Porträt für „Über uns“): Er schickt dir die Datei, du baust sie wie oben
-  als eigenes Bild ein und lädst neu hoch. Einen Bereich im CRM, in dem er solche Bilder selbst auf die Seite
-  bringt, gibt es nicht; sag ihm das nicht zu. Nur Bilder in Sammlungen (Angebote, Referenzen) pflegt er im
-  CRM unter CMS, beim jeweiligen Eintrag.
+- **Fotos, die der Kunde selbst tauschen will** (Porträt für „Über uns“, Team, Titelbild): als Bild-Slot
+  einbauen, mit festem `key` und einem Bild aus dem Projekt als `default`:
+  `<MediaImage key="team.inhaber.foto" default={portrait} width={1200} height={1500} alt="…" label="Foto des Inhabers" group="Über uns" />`.
+  `key`, `label`, `group` und `help` stehen als feste Zeichenketten in Anführungszeichen, sonst scheitern
+  Build und Prüfung (`QUA-006`). Hat der Kunde noch kein Foto, nimm ein neutrales Platzhalterbild aus dem
+  Projekt und sag ihm das.
+- **So erklärst du es dem Kunden, in dieser Reihenfolge:** Erst baust du den Platz für das Bild ein, dann
+  lädst du die Seite hoch, danach kann er das Bild im CRM unter Eigene Website → Inhalte selbst tauschen.
+  Vorher gibt es dort nichts zu tauschen. Einen anderen Ort im CRM dafür nennst du nicht.
+- Bilder in Sammlungen (Angebote, Referenzen) pflegt er dagegen im CRM unter CMS, beim jeweiligen Eintrag.
 
 ## Barrierefreiheit (WCAG 2.1 AA)
 

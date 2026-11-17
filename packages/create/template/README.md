@@ -10,5 +10,6 @@ Was Sie selbst tun:
 - die Anmeldung bei DealSystem im Browser bestätigen, wenn der Agent Sie darum bittet
 - Impressum, Datenschutzerklärung und Firmendaten im CRM unter Eigene Website → Rechtliches eintragen
 - Angebote und andere Sammlungen samt ihren Bildern im CRM unter CMS pflegen
-- Fotos für die übrigen Seiten (z. B. ein Porträt) dem Agenten geben; er baut sie ein
+- Fotos und Texte, für die der Agent einen Platz eingebaut hat, nach dem Hochladen im CRM unter
+  Eigene Website → Inhalte selbst tauschen; für neue Plätze (z. B. ein Porträt) den Agenten fragen
 - die Vorschau ansehen und sagen, ob die Seite veröffentlicht werden soll

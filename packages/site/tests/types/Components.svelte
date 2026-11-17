@@ -62,6 +62,16 @@ Jedes `@ts-expect-error` muss einen echten Fehler treffen.
 <MediaImage src="/haus.jpg" alt={dynamisch} />
 <MediaImage src="/muster.svg" alt="" decorative />
 <MediaImage {media} />
+<MediaImage
+	key="team.inhaber.foto"
+	default="/inhaber.jpg"
+	width={1200}
+	height={1500}
+	alt="Porträt des Inhabers"
+	label="Foto des Inhabers"
+	group="Über uns"
+	help="Hochformat"
+/>
 <LeadForm funnel="kontakt" submitLabel="Anfrage senden" />
 <CollectionList collection="angebote" limit={12}>
 	{#snippet item(angebot)}

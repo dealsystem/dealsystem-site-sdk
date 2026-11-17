@@ -5,15 +5,15 @@ geschrieben, immer `<MediaImage>`.
 `alt` beschreibt, was auf dem Bild zu sehen ist. Nur bei reinem Schmuck:
 `alt="" decorative`.
 
-Lokales Bild (mit `?enhanced` entstehen WebP/AVIF und `srcset` automatisch):
+Lokales Bild (`width` und `height` sind die echten Maße der Datei):
 
 ```svelte
 <script lang="ts">
 	import { MediaImage } from '@dealsystem/site';
-	import heroBild from '$lib/bilder/hero.jpg?enhanced';
+	import heroBild from '$lib/bilder/hero.jpg';
 </script>
 
-<MediaImage src={heroBild} alt="Sanierter Altbau in Leipzig" sizes="100vw" priority />
+<MediaImage src={heroBild} alt="Sanierter Altbau in Leipzig" width={1600} height={1067} sizes="100vw" priority />
 ```
 
 Bild aus dem CMS (der Alternativtext kommt aus dem CMS):
@@ -22,10 +22,29 @@ Bild aus dem CMS (der Alternativtext kommt aus dem CMS):
 <MediaImage media={angebot.media.bilder[0]} sizes="(min-width: 800px) 50vw, 100vw" />
 ```
 
-Bild, das der Kunde später im CRM austauschen kann:
+Bild, das der Kunde selbst austauschen kann (Porträt, Team, Titelbild): mit
+`key` und `default`. Nach dem Hochladen tauscht er es im CRM unter Eigene
+Website → Inhalte. `key`, `label`, `group` und `help` müssen feste
+Zeichenketten in Anführungszeichen sein; mit einer Variablen scheitern Build
+und `dealsystem check` (QUA-006). `default` ist das Bild aus dem Projekt.
 
 ```svelte
-<MediaImage key="start.hero.bild" default={heroBild} alt="Sanierter Altbau in Leipzig" />
+<script lang="ts">
+	import { MediaImage } from '@dealsystem/site';
+	import portrait from '$lib/bilder/inhaber.jpg';
+</script>
+
+<MediaImage
+	key="team.inhaber.foto"
+	default={portrait}
+	width={1200}
+	height={1500}
+	alt="Porträt des Inhabers vor dem Büro"
+	label="Foto des Inhabers"
+	group="Über uns"
+	help="Hochformat, am besten mit Gesicht in der Mitte."
+	sizes="(min-width: 60rem) 33vw, 100vw"
+/>
 ```
 -->
 <script lang="ts" module>
@@ -79,6 +98,8 @@ Bild, das der Kunde später im CRM austauschen kann:
 					label?: string;
 					/** Gruppe im CRM. */
 					group?: string;
+					/** Hinweis für den Kunden im CRM. */
+					help?: string;
 					/** Frühere Schlüssel dieses Bildes. */
 					aliases?: readonly string[];
 					src?: undefined;

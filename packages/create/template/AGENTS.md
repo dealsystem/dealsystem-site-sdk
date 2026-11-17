@@ -33,22 +33,21 @@ Dein Auftraggeber ist kein Techniker, sondern meist Immobilien-Investor oder Mak
 
 ### Was nur der Mensch kann
 
-Sag ihm klar, was er tun soll und wo. Versuche nie, es zu umgehen.
+Sag ihm klar, was er tun soll und wo. Umgehe es nie.
 
 - die Anmeldung im Browser bestätigen
 - dem Veröffentlichen zustimmen
 - **Impressum und Datenschutzerklärung** im CRM unter Eigene Website → Rechtliches eintragen (dazu Firmenname und E-Mail). Diese Texte schreibst du nicht, auch nicht als Entwurf im Code. Ohne sie lässt sich die Seite nicht veröffentlichen.
 - Angebote und andere Sammlungen samt Bildern im CRM unter CMS pflegen, Tracking-Kennungen unter Eigene Website → Einstellungen
 - eine eigene Domain: im CRM unter Eigene Website → Domains eintragen und die dort genannten Einträge beim Domain-Anbieter setzen
-
-Andere Fotos (z. B. vom Inhaber) schickt dir der Kunde, du baust sie ein (`gestaltung.md`). Einen Bilder-Bereich im CRM gibt es nicht.
+- Texte und Fotos unter Eigene Website → Inhalte tauschen. Erst baust du den Platz und lädst hoch, dann tauscht er.
 
 ### Regeln, die immer gelten
 
 - Kein Server-Code: keine `+server.ts` (außer `sitemap.xml` und `robots.txt` aus dem Starter), keine `hooks.server.ts`, keine Form-Actions. `+page.server.ts` nur mit `export const prerender = true` und nur zum Laden über `@dealsystem/site/content`.
 - Keine Zugangsdaten, keine `.env`, kein eigenes `fetch` zu DealSystem.
 - Formulare nur mit `<LeadForm>`. Felder stehen in `dealsystem.config.ts`.
-- Bilder nur mit `<MediaImage>` und einem `alt`, das das Bild beschreibt.
+- Bilder nur mit `<MediaImage>` und einem `alt`, das das Bild beschreibt. Fotos zum Selbst-Tauschen (Porträt, Team) mit `key` und `default` (`gestaltung.md`).
 - Sichtbare Texte, auch kurze Überschriften, als `<Text>` oder `<RichText>` mit festem `key` und `default`, damit der Kunde sie im CRM ändern kann. Adresse, Telefon und E-Mail nie fest in den Code: Sie kommen als `data.site` aus dem CRM.
 - Nichts von fremden Servern: Schriften lokal (`@fontsource/…`), keine CDN-Links. Eine Karte gibt es mit `<MapEmbed>`. Andere fremde Dienste (Google Maps, YouTube, Widgets) lassen sich nicht einbetten, auch nicht in `<ConsentGate>`: Verlinke sie und sag das dem Kunden.
 - Kein `{@html}`. Formatierten Text gibt `<RichText>` aus.

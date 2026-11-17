@@ -212,3 +212,38 @@ describe('mehrzeilige Standardtexte (Beispiele aus komponenten.md)', () => {
 		expect(slot?.default).toBe('1. Eins\\n2. Zwei');
 	});
 });
+
+describe('austauschbares Bild (Beispiel aus komponenten.md)', () => {
+	it('<MediaImage key>: das Beispiel kompiliert und meldet label, group und help ans CRM', () => {
+		const source = readFileSync(new URL('../src/lib/components/MediaImage.svelte', import.meta.url), 'utf8');
+		const example = [...source.matchAll(/```svelte\n([\s\S]*?)```/g)]
+			.map((m) => m[1]!)
+			.find((code) => code.includes('key="team.inhaber.foto"'));
+		expect(example).toBeDefined();
+		expect(() => compile(example!, { generate: 'server' })).not.toThrow();
+		const slots = scanSlots(example!, 'src/routes/ueber-uns/+page.svelte');
+		expect(slots).toEqual([
+			{
+				key: 'team.inhaber.foto',
+				type: 'image',
+				default: null,
+				label: 'Foto des Inhabers',
+				group: 'Über uns',
+				help: 'Hochformat, am besten mit Gesicht in der Mitte.',
+				route: '/ueber-uns',
+				file: 'src/routes/ueber-uns/+page.svelte',
+				line: expect.any(Number),
+			},
+		]);
+	});
+
+	it.each(['label', 'group', 'help'])(
+		'%s als Variable bricht den Scan mit verständlicher Meldung ab',
+		(name) => {
+			const code = page(`<MediaImage key="team.inhaber.foto" default={hero} alt="Haus" ${name}={name} />`);
+			expect(() => scanSlots(code, 'src/routes/+page.svelte')).toThrow(
+				new RegExp(`${name} muss eine feste Zeichenkette sein`),
+			);
+		},
+	);
+});

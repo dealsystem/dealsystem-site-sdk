@@ -19,8 +19,10 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/komponenten.md`, `gestaltung.m
    Kunde ihn später selbst ändern. Erfinde keine Fakten über das Unternehmen und keine Leistungsversprechen
    („fester Ansprechpartner“, „keine Provision“, „Antwort in 24 Stunden“), die der Kunde nicht genannt hat.
    Mehrzeilige Texte: `default={'Zeile 1\nZeile 2'}` in geschweiften Klammern, nie `default="…\n…"`.
-6. Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos vom Kunden schickt er dir als Datei; du baust
-   sie ein (`gestaltung.md`, „Bilder“). Einen Bereich im CRM, in dem er sie selbst hochlädt, gibt es nicht.
+6. Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos, die der Kunde selbst tauschen will
+   (Porträt, Team, Titelbild), baust du als Bild-Slot ein: `<MediaImage key="…" default={bild} alt="…"
+label="…" group="…" />`, alles außer `default` als feste Zeichenkette (`gestaltung.md`, „Bilder“). Sag ihm:
+   erst baust du den Platz, dann lädst du hoch, danach tauscht er das Bild unter Eigene Website → Inhalte.
 7. Trag die Seite im Menü in `src/routes/+layout.svelte` ein: `<a href={resolve('/ueber-uns')}>…</a>`,
    so wie die vorhandenen Einträge.
 8. Prüfen: `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alles beheben, bis die

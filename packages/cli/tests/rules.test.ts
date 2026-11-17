@@ -771,6 +771,13 @@ const CASES: Record<string, RuleCase[]> = {
 						`\tconst dynamisch = 'a.b';\n`,
 					),
 				},
+				// Beschriftung eines Bild-Slots als Variable: Der Build kann sie nicht ans CRM melden.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<MediaImage key="start.hero.bild" default="/haus.jpg" alt="Haus" label={beschriftung} />',
+						`\tconst beschriftung = 'Titelbild';\n`,
+					),
+				},
 			],
 		},
 	],
