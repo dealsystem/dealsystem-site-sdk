@@ -95,11 +95,10 @@ function normalizeLegal(raw: unknown): LegalProfile {
 	return {
 		company: str(r.company),
 		address: str(r.address),
-		representative: str(r.representative),
 		email: str(r.email),
 		phone: str(r.phone),
-		register: str(r.register),
-		vatId: str(r.vatId),
+		imprintHtml: str(r.imprintHtml),
+		privacyHtml: str(r.privacyHtml),
 	};
 }
 

@@ -8,7 +8,8 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateSiteConfig } from '../config/index.js';
-import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, readSnapshot } from '../content/index.js';
+import { readSnapshot } from '../content/index.js';
+import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
 import { defaultRichtextToHtml, sanitizeRichtextHtml } from '../richtext/server.js';
 import { resolveTextSlot } from '../slots.js';
 import type { ContentSlotDef, ContentSnapshot, SiteConfig, SiteData, SiteManifest } from '../types.js';
@@ -18,14 +19,12 @@ import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
 export { scanSlots, mergeSlots, SlotScanError, type FoundSlot } from './scan.js';
 export type { SiteManifest } from '../types.js';
 
-/** Umgebungsvariable mit dem Zielpfad des Manifests (setzt der Build-Host). */
-export const MANIFEST_FILE_ENV = 'DEALSYSTEM_MANIFEST_FILE';
-/** Zielpfad des Manifests ohne Umgebungsvariable. */
-export const LOCAL_MANIFEST_FILE = '.dealsystem/manifest.json';
+export { LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
 /** Publishable Key in der Entwicklung. Der Dev-Server beantwortet ihn selbst. */
 export const DEV_SITE_KEY = 'dev';
 
-const SITE_DATA_MODULE = /[\\/]dealsystem-site-data\.(?:js|ts)(?:\?.*)?$/;
+// Platzhalter-Dateien des Pakets, deren Inhalt das Plugin beim Laden ersetzt.
+const EMBEDDED_MODULE = /[\\/]dealsystem-(site-data|legal-imprint|legal-privacy)\.(?:js|ts)(?:\?.*)?$/;
 const PACKAGE = '@dealsystem/site';
 
 async function svelteFiles(dir: string): Promise<string[]> {
@@ -107,7 +106,12 @@ export function buildSiteData(
 			siteKey: env.PUBLIC_DEALSYSTEM_SITE_KEY || DEV_SITE_KEY,
 		},
 		site: { ...snapshot.site, id: snapshot.site.id || config.siteId, url: siteUrl.replace(/\/+$/, '') },
-		legal: snapshot.legal,
+		legal: {
+			company: snapshot.legal.company,
+			address: snapshot.legal.address,
+			email: snapshot.legal.email,
+			phone: snapshot.legal.phone,
+		},
 		tracking: snapshot.tracking,
 		funnels: Object.fromEntries(
 			Object.entries(config.funnels ?? {}).map(([key, funnel]) => [
@@ -119,7 +123,7 @@ export function buildSiteData(
 		collections: Object.fromEntries(
 			Object.entries(config.collections ?? {}).map(([key, collection]) => [
 				key,
-				{ fields: collection.fields },
+				{ route: collection.route, fields: collection.fields },
 			]),
 		),
 		slots: snapshot.slots,
@@ -242,13 +246,19 @@ export function dealsystem(config: SiteConfig): Plugin {
 	}
 
 	let root = process.cwd();
-	let code: string | null = null;
+	let code: Record<string, string> | null = null;
 	const loadedIds = new Set<string>();
 
 	async function refresh(): Promise<SiteManifest> {
 		const snapshot = await readSnapshot(root);
 		const { slots, routes } = await collectSlots(root);
-		code = `export default ${JSON.stringify(buildSiteData(config, snapshot, slots, process.env))};`;
+		const module = (value: unknown) => `export default ${JSON.stringify(value)};`;
+		code = {
+			'site-data': module(buildSiteData(config, snapshot, slots, process.env)),
+			// Rechtstexte des Kunden: im Core bereinigt, hier noch einmal gegen die Positiv-Liste geprüft.
+			'legal-imprint': module(sanitizeRichtextHtml(snapshot.legal.imprintHtml)),
+			'legal-privacy': module(sanitizeRichtextHtml(snapshot.legal.privacyHtml)),
+		};
 		return buildManifest(config, slots, routes);
 	}
 
@@ -279,10 +289,11 @@ export function dealsystem(config: SiteConfig): Plugin {
 		},
 
 		async load(id) {
-			if (!SITE_DATA_MODULE.test(id)) return null;
+			const match = EMBEDDED_MODULE.exec(id);
+			if (!match) return null;
 			loadedIds.add(id);
 			if (code === null) await refresh();
-			return code;
+			return code![match[1]!] ?? null;
 		},
 
 		configureServer(server) {
@@ -295,14 +306,14 @@ export function dealsystem(config: SiteConfig): Plugin {
 				const isContent = resolve(file) === contentFile;
 				const isSource = file.endsWith('.svelte') && !file.includes('node_modules');
 				if (!isContent && !isSource) return;
-				const before = code;
+				const before = JSON.stringify(code);
 				try {
 					await writeManifest(await refresh());
 				} catch (error) {
 					server.config.logger.error(error instanceof Error ? error.message : String(error));
 					return;
 				}
-				if (code === before) return;
+				if (JSON.stringify(code) === before) return;
 				for (const environment of Object.values(server.environments)) {
 					for (const id of loadedIds) {
 						const module = environment.moduleGraph.getModuleById(id);

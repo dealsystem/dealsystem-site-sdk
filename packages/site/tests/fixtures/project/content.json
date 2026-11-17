@@ -7,27 +7,55 @@
 		"primaryHost": "kunde.de",
 		"locale": "de"
 	},
-	"captcha": { "provider": "altcha" },
+	"captcha": {
+		"provider": "altcha"
+	},
 	"legal": {
 		"company": "Kunde GmbH",
 		"address": "Musterstraße 1, 04109 Leipzig",
-		"representative": "E. Muster",
 		"email": "info@kunde.de",
-		"phone": "0341 1234567"
+		"phone": "0341 1234567",
+		"imprintHtml": "<h2>Anbieter</h2><p>Kunde GmbH</p><script>alert(1)</script>",
+		"privacyHtml": "<p>Datenschutz a &amp; b</p>"
 	},
-	"tracking": { "metaPixelId": "1234567890", "googleTagId": null },
+	"tracking": {
+		"metaPixelId": "1234567890",
+		"googleTagId": null
+	},
 	"funnels": [
-		{ "key": "kontakt", "active": true, "fields": [] },
-		{ "key": "rueckruf", "active": false, "fields": [] }
+		{
+			"key": "kontakt",
+			"active": true,
+			"fields": []
+		},
+		{
+			"key": "rueckruf",
+			"active": false,
+			"fields": []
+		}
 	],
 	"slots": {
-		"start.hero.titel": { "type": "text", "source": "override", "value": "Aus dem CRM" },
-		"start.ueber-uns": { "type": "richtext", "source": "default", "value": null },
+		"start.hero.titel": {
+			"type": "text",
+			"source": "override",
+			"value": "Aus dem CRM"
+		},
+		"start.ueber-uns": {
+			"type": "richtext",
+			"source": "default",
+			"value": null
+		},
 		"start.angebot": {
 			"type": "richtext",
 			"source": "override",
 			"value": "<p>a &amp; b unter <em>altem</em> Schlüssel</p>"
 		}
 	},
-	"collections": { "angebote": { "source": "cms", "schemaHash": "h", "entries": [] } }
+	"collections": {
+		"angebote": {
+			"source": "cms",
+			"schemaHash": "h",
+			"entries": []
+		}
+	}
 }

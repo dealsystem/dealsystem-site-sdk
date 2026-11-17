@@ -3,12 +3,13 @@
 // `export const prerender = true` — nie im Browser.
 import { BROWSER } from 'esm-env';
 import { getSiteData } from '../internal/siteData.js';
+import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
 import { emptySnapshot, normalizeSnapshot } from '../snapshot.js';
 import type {
 	CollectionEntry,
 	CollectionKey,
+	ContactProfile,
 	ContentSnapshot,
-	LegalProfile,
 	RawCollectionEntry,
 	SiteInfo,
 	SlotKey,
@@ -17,10 +18,7 @@ import type {
 
 export type { CollectionEntry, CollectionKey, LegalProfile, MediaRef, SiteInfo } from '../types.js';
 
-/** Umgebungsvariable mit dem Pfad des Schnappschusses (setzt der Build-Host). */
-export const CONTENT_FILE_ENV = 'DEALSYSTEM_CONTENT_FILE';
-/** Lokale Kopie des Schnappschusses, geschrieben von `dealsystem sync`. */
-export const LOCAL_CONTENT_FILE = '.dealsystem/content.json';
+export { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE } from '../paths.js';
 
 let cache: { file: string; mtimeMs: number; snapshot: ContentSnapshot } | null = null;
 let warnedMissing = false;
@@ -194,18 +192,100 @@ export async function getSlots(): Promise<Partial<Record<SlotKey, SlotOverride>>
 }
 
 /**
- * Liefert beim Build Name, Adresse und Firmendaten der Seite, z. B. für
- * `<title>` oder strukturierte Daten.
+ * Liefert beim Build Name und Adresse der Seite und die Firmendaten aus dem
+ * CRM (`company`, `address`, `email`, `phone`), z. B. für `<title>` oder
+ * strukturierte Daten. Felder, die im CRM leer sind, sind leere Zeichenketten.
  *
  * @example
  * // src/routes/+layout.server.ts
+ * import { getSite } from '@dealsystem/site/content';
+ *
  * export const prerender = true;
+ *
  * export async function load() {
  * 	return { site: await getSite() };
  * }
  */
-export async function getSite(): Promise<SiteInfo & { url: string; legal: LegalProfile }> {
+export async function getSite(): Promise<SiteInfo & ContactProfile & { url: string }> {
 	assertBuildTime('getSite');
+	const { site, legal } = getSiteData();
+	return { ...site, company: legal.company, address: legal.address, email: legal.email, phone: legal.phone };
+}
+
+async function readRoutes(): Promise<string[]> {
+	const { readFile } = await import('node:fs/promises');
+	const { resolve } = await import('node:path');
+	const file = resolve(process.cwd(), process.env[MANIFEST_FILE_ENV] || LOCAL_MANIFEST_FILE);
+	try {
+		const manifest = JSON.parse(await readFile(file, 'utf8')) as { routes?: unknown };
+		return Array.isArray(manifest.routes)
+			? manifest.routes.filter((r): r is string => typeof r === 'string')
+			: [];
+	} catch {
+		return [];
+	}
+}
+
+function escapeXml(text: string): string {
+	return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+/**
+ * Erzeugt beim Build die `sitemap.xml` mit allen Seiten, auch den Detailseiten
+ * der Sammlungen. Gehört in `src/routes/sitemap.xml/+server.ts` — eine der zwei
+ * erlaubten `+server.ts`-Dateien.
+ *
+ * @example
+ * // src/routes/sitemap.xml/+server.ts
+ * import { sitemap } from '@dealsystem/site/content';
+ *
+ * export const prerender = true;
+ *
+ * export const GET = () => sitemap();
+ */
+export async function sitemap(): Promise<Response> {
+	assertBuildTime('sitemap');
+	const site = getSiteData();
 	const snapshot = await readSnapshot();
-	return { ...snapshot.site, url: getSiteData().site.url, legal: snapshot.legal };
+	const paths = new Set<string>();
+	for (const route of await readRoutes()) {
+		if (!route.includes('[')) {
+			paths.add(route);
+			continue;
+		}
+		// Detailseiten: die Route einer Sammlung mit jedem veröffentlichten Slug.
+		for (const [key, collection] of Object.entries(site.collections)) {
+			if (collection.route.replace(/:slug/g, '[slug]') !== route) continue;
+			for (const entry of snapshot.collections[key]?.entries ?? []) {
+				paths.add(collection.route.replace(/:slug/g, encodeURIComponent(entry.slug)));
+			}
+		}
+	}
+	const urls = [...paths].sort().map((path) => `\t<url><loc>${escapeXml(site.site.url + path)}</loc></url>`);
+	const xml =
+		'<?xml version="1.0" encoding="UTF-8"?>\n' +
+		'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+		`${urls.join('\n')}${urls.length > 0 ? '\n' : ''}</urlset>\n`;
+	return new Response(xml, { headers: { 'Content-Type': 'application/xml; charset=utf-8' } });
+}
+
+/**
+ * Erzeugt beim Build die `robots.txt` mit dem Verweis auf die Sitemap. Gehört
+ * in `src/routes/robots.txt/+server.ts` — eine der zwei erlaubten
+ * `+server.ts`-Dateien.
+ *
+ * @example
+ * // src/routes/robots.txt/+server.ts
+ * import { robots } from '@dealsystem/site/content';
+ *
+ * export const prerender = true;
+ *
+ * export const GET = () => robots();
+ */
+export function robots(): Response {
+	assertBuildTime('robots');
+	const { url } = getSiteData().site;
+	const lines = ['User-agent: *', 'Allow: /'];
+	if (url) lines.push('', `Sitemap: ${url}/sitemap.xml`);
+	return new Response(`${lines.join('\n')}\n`, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } });
 }

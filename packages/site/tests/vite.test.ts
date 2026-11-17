@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from 'vite';
-import { CONTENT_FILE_ENV } from '../src/lib/content/index.js';
+import { CONTENT_FILE_ENV } from '../src/lib/paths.js';
 import type { SiteConfig, SiteData, SiteManifest } from '../src/lib/types.js';
 import { SDK_VERSION } from '../src/lib/version.js';
 import { collectSlots, dealsystem, MANIFEST_FILE_ENV } from '../src/lib/vite/index.js';
@@ -53,6 +53,7 @@ afterEach(() => {
 	for (const key of ENV_KEYS) delete process.env[key];
 });
 
+let lastLegal = { imprint: '', privacy: '' };
 let builds = 0;
 let outDir = '';
 
@@ -77,6 +78,7 @@ async function buildFixture(): Promise<SiteData> {
 		},
 	});
 	const module = await import(pathToFileURL(await outputFile()).href);
+	lastLegal = module.legal as { imprint: string; privacy: string };
 	return module.data as SiteData;
 }
 
@@ -131,7 +133,15 @@ describe('dealsystem() im Build', () => {
 			siteKey: 'dsp_ABCD1234_abcdefghijklmnopqrstuvwx',
 		});
 		expect(data.site).toMatchObject({ name: 'Kunde Immobilien', url: 'https://kunde.de', locale: 'de' });
-		expect(data.legal.company).toBe('Kunde GmbH');
+		// Firmendaten für den Ausweichkontakt; die Rechtstexte liegen in eigenen Dateien.
+		expect(data.legal).toEqual({
+			company: 'Kunde GmbH',
+			address: 'Musterstraße 1, 04109 Leipzig',
+			email: 'info@kunde.de',
+			phone: '0341 1234567',
+		});
+		expect(lastLegal.imprint).toBe('<h2>Anbieter</h2><p>Kunde GmbH</p>');
+		expect(lastLegal.privacy).toBe('<p>Datenschutz a &amp; b</p>');
 		// Was der Schnappschuss zum Captcha sagt, braucht die Seite nicht.
 		expect(data).not.toHaveProperty('captcha');
 		expect(data.tracking).toEqual({ metaPixelId: '1234567890', googleTagId: null });
@@ -154,6 +164,7 @@ describe('dealsystem() im Build', () => {
 		try {
 			const data = await buildFixture();
 			expect(data.api).toEqual({ baseUrl: '', siteKey: 'dev' });
+			expect(lastLegal).toEqual({ imprint: '', privacy: '' });
 			expect(data.slots).toEqual({});
 			expect(data.richtext['start.leistungen']).toBe('<p>Standard</p>\n');
 			expect(data.funnels.rueckruf!.active).toBe(true);

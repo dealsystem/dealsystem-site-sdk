@@ -10,6 +10,8 @@ import MediaVideo from '../src/lib/components/MediaVideo.svelte';
 import RichText from '../src/lib/components/RichText.svelte';
 import SiteFooterLegal from '../src/lib/components/SiteFooterLegal.svelte';
 import Text from '../src/lib/components/Text.svelte';
+import { setImprintForTests } from '../src/lib/internal/imprint.js';
+import { setPrivacyForTests } from '../src/lib/internal/privacy.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
 import type { MediaRef, SafeHtml } from '../src/lib/types.js';
 import GateHarness from './fixtures/GateHarness.svelte';
@@ -44,7 +46,11 @@ function render<C extends Component<any>>(component: C, options: { props: Compon
 }
 
 beforeEach(() => setSiteDataForTests(testSiteData()));
-afterEach(() => setSiteDataForTests(null));
+afterEach(() => {
+	setSiteDataForTests(null);
+	setImprintForTests(null);
+	setPrivacyForTests(null);
+});
 
 describe('ohne Vite-Plugin', () => {
 	it('erklärt, was in vite.config.ts fehlt', () => {
@@ -280,49 +286,59 @@ describe('Einwilligung im fertigen HTML', () => {
 });
 
 describe('Rechtstexte', () => {
-	it('<Impressum> nennt die Firmendaten aus dem CRM', () => {
+	it('<Impressum> gibt den Text des Kunden aus dem CRM aus und erzeugt keinen eigenen', () => {
+		setImprintForTests(
+			'<p>Kunde Immobilien GmbH, Musterstraße 1</p><p>Vertreten durch <strong>Erika Muster</strong></p>',
+		);
 		const { body } = render(Impressum, { props: {} });
 		expect(body).toContain('data-ds-impressum');
 		expect(body).toMatch(/<h1[^>]*>Impressum<\/h1>/);
-		expect(body).toContain('Kunde Immobilien GmbH');
-		expect(body).toContain('Musterstraße 1');
-		expect(body).toContain('04109 Leipzig');
-		expect(body).toContain('Vertreten durch: Erika Muster');
-		expect(body).toContain('href="tel:03411234567"');
-		expect(body).toContain('href="mailto:info@kunde.de"');
-		expect(body).not.toContain('Angabe fehlt');
+		expect(body).toContain('<p>Kunde Immobilien GmbH, Musterstraße 1</p>');
+		expect(body).toContain('<strong>Erika Muster</strong>');
+		expect(body).not.toContain('fehlt');
+		// Kein Text, den der Kunde nicht geschrieben hat.
+		expect(body).not.toMatch(/§|DDG|Angaben gemäß/);
 	});
 
-	it('<Impressum> zeigt fehlende Angaben sichtbar an, statt sie zu verschweigen', () => {
-		setSiteDataForTests(testSiteData({ legal: { ...testSiteData().legal, company: '', phone: '' } }));
-		const { body } = render(Impressum, { props: { headingLevel: 2 } });
-		expect(body.match(/Angabe fehlt/g)).toHaveLength(2);
-		expect(body).toMatch(/<h2[^>]*>Impressum<\/h2>/);
-		expect(body).toMatch(/<h3[^>]*>Kontakt<\/h3>/);
+	it('<Datenschutz> gibt den Text des Kunden aus und bietet den Widerruf der Einwilligung an', () => {
+		setPrivacyForTests('<p>Wir verarbeiten Ihre Daten nur zur Bearbeitung Ihrer Anfrage.</p>');
+		const { body } = render(Datenschutz, { props: {} });
+		expect(body).toContain('data-ds-datenschutz');
+		expect(body).toMatch(/<h1[^>]*>Datenschutzerklärung<\/h1>/);
+		expect(body).toContain('<p>Wir verarbeiten Ihre Daten nur zur Bearbeitung Ihrer Anfrage.</p>');
+		expect(body).toMatch(/<button[^>]*>\s*Cookie-Einstellungen öffnen\s*<\/button>/);
+		expect(body).not.toMatch(/Art\. 6|DSGVO|Friendly|Google|Meta/);
 	});
 
-	it('<Datenschutz> beschreibt nur, was die Seite nutzt', () => {
-		const plain = render(Datenschutz, { props: {} }).body;
-		expect(plain).toContain('data-ds-datenschutz');
-		expect(plain).toContain('Kunde Immobilien GmbH');
-		expect(plain).toContain('Formulare');
-		expect(plain).toContain('Schutz vor Missbrauch');
-		expect(plain).toContain('keine Daten an andere Anbieter');
-		expect(plain).not.toContain('Meta Pixel');
-		expect(plain).not.toContain('Google');
+	it.each([
+		['Impressum', Impressum, 'Der Impressumstext fehlt.', 'imprint'],
+		['Datenschutz', Datenschutz, 'Der Datenschutztext fehlt.', 'privacy'],
+	] as const)(
+		'<%s> sagt in der Vorschau, wo der fehlende Text einzutragen ist',
+		(_name, component, text, marker) => {
+			for (const empty of ['', '<p> </p>', '<p>&nbsp;</p><br>']) {
+				setImprintForTests(empty);
+				setPrivacyForTests(empty);
+				const { body } = render(component, { props: {} });
+				expect(body).toContain(text);
+				expect(body).toContain('im CRM unter Website → Einstellungen');
+				expect(body).toContain(`data-ds-legal-missing="${marker}"`);
+			}
+		},
+	);
 
-		setSiteDataForTests(
-			testSiteData({
-				funnels: {},
-				tracking: { metaPixelId: '1234567890', googleTagId: 'G-ABCDEF1234' },
-			}),
-		);
-		const full = render(Datenschutz, { props: {} }).body;
-		// Ohne Formular gibt es auch keine Rechenaufgabe zu erklären.
-		expect(full).not.toContain('Schutz vor Missbrauch');
-		expect(full).toContain('Meta Pixel');
-		expect(full).toContain('Google Tag');
-		expect(full).not.toMatch(/<h2[^>]*>Formulare/);
+	it('ordnet die Überschriften im Text des Kunden unter die Überschrift der Seite ein', () => {
+		setImprintForTests('<h1>Anbieter</h1><p>a</p><h3 class="x">Kontakt</h3><p>b</p><h1>Haftung</h1>');
+		const { body } = render(Impressum, { props: {} });
+		expect(body.match(/<h1/g)).toHaveLength(1);
+		expect(body).toContain('<h2>Anbieter</h2>');
+		expect(body).toContain('<h3 class="x">Kontakt</h3>');
+		expect(body).toContain('<h2>Haftung</h2>');
+
+		const nested = render(Impressum, { props: { headingLevel: 2 } }).body;
+		expect(nested).toMatch(/<h2[^>]*>Impressum<\/h2>/);
+		expect(nested).toContain('<h3>Anbieter</h3>');
+		expect(nested).toContain('<h4 class="x">Kontakt</h4>');
 	});
 
 	it('<SiteFooterLegal> verlinkt Impressum und Datenschutz und bietet den Widerruf an', () => {

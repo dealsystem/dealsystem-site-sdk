@@ -264,16 +264,25 @@ export interface SlotOverride {
 
 // ------------------------------------------------------- Schnappschuss, Manifest
 
-/** Firmendaten für Impressum und Datenschutz. Leere Zeichenkette = fehlt. */
-export interface LegalProfile {
+/** Firmendaten der Seite für Ausweichkontakt und strukturierte Daten. Leere Zeichenkette = fehlt. */
+export interface ContactProfile {
 	company: string;
+	/** Optional. */
 	address: string;
-	representative: string;
 	email: string;
+	/** Optional: nicht jeder Kunde veröffentlicht eine Telefonnummer. */
 	phone: string;
-	/** Optional: Registergericht und -nummer, USt-IdNr. */
-	register: string;
-	vatId: string;
+}
+
+/**
+ * Firmendaten und Rechtstexte aus dem CRM. Die beiden Texte schreibt und
+ * verantwortet der Kunde; sie kommen als bereinigtes HTML.
+ */
+export interface LegalProfile extends ContactProfile {
+	/** Text der Seite `/impressum`. */
+	imprintHtml: string;
+	/** Text der Seite `/datenschutz`. */
+	privacyHtml: string;
 }
 
 export interface TrackingConfig {
@@ -330,10 +339,11 @@ export interface SiteManifest {
 export interface SiteData {
 	api: { baseUrl: string; siteKey: string };
 	site: SiteInfo & { url: string };
-	legal: LegalProfile;
+	/** Firmendaten ohne die Rechtstexte: die liegen in eigenen Dateien. */
+	legal: ContactProfile;
 	tracking: TrackingConfig;
 	funnels: Record<string, FunnelDef & { active: boolean }>;
-	collections: Record<string, { fields: readonly CollectionFieldDef[] }>;
+	collections: Record<string, { route: string; fields: readonly CollectionFieldDef[] }>;
 	slots: Record<string, SlotOverride>;
 	/** Fertiges HTML je Richtext-Slot: Text aus dem CRM, sonst der Standardtext aus dem Code. */
 	richtext: Record<string, string>;

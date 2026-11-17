@@ -19,7 +19,13 @@ describe('normalizeSnapshot', () => {
 			snapshotVersion: 1,
 			site: { id: 's1', slug: 'kunde', name: 'Kunde', primaryHost: 'kunde.de', locale: 'de', geheim: 'x' },
 			captcha: { provider: 'altcha' },
-			legal: { company: 'Kunde GmbH', email: 'a@b.de', kontakte: ['privat'] },
+			legal: {
+				company: 'Kunde GmbH',
+				email: 'a@b.de',
+				imprintHtml: '<p>Impressum</p>',
+				vatId: 'DE1',
+				kontakte: ['privat'],
+			},
 			tracking: { metaPixelId: '123456', googleTagId: '' },
 			funnels: [{ key: 'kontakt', active: false, fields: [] }, { active: true }, 'x'],
 			slots: {
@@ -41,8 +47,14 @@ describe('normalizeSnapshot', () => {
 		});
 		// Angaben zum Captcha im Schnappschuss werden nicht gelesen.
 		expect(snapshot).not.toHaveProperty('captcha');
-		expect(snapshot.legal).toMatchObject({ company: 'Kunde GmbH', email: 'a@b.de', phone: '' });
-		expect(snapshot.legal).not.toHaveProperty('kontakte');
+		expect(snapshot.legal).toEqual({
+			company: 'Kunde GmbH',
+			address: '',
+			email: 'a@b.de',
+			phone: '',
+			imprintHtml: '<p>Impressum</p>',
+			privacyHtml: '',
+		});
 		expect(snapshot.tracking).toEqual({ metaPixelId: '123456', googleTagId: null });
 		expect(snapshot.funnels).toEqual([{ key: 'kontakt', active: false }]);
 		expect(Object.keys(snapshot.slots)).toEqual(['start.hero.titel']);
@@ -72,15 +84,7 @@ describe('normalizeSnapshot', () => {
 	it('verträgt null, wo der Core nichts eingetragen hat', () => {
 		const snapshot = normalizeSnapshot({
 			site: { id: 's1', slug: 'kunde', name: 'Kunde', primaryHost: null, locale: 'de' },
-			legal: {
-				company: null,
-				address: null,
-				representative: null,
-				email: null,
-				phone: null,
-				register: null,
-				vatId: null,
-			},
+			legal: { company: null, address: null, email: null, phone: null, imprintHtml: null, privacyHtml: null },
 			collections: {
 				angebote: {
 					source: 'cms',

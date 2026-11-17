@@ -27,7 +27,7 @@ export function emptySiteData(): SiteData {
 	return {
 		api: { baseUrl: '', siteKey: 'dev' },
 		site: { id: '', slug: '', name: '', primaryHost: '', locale: 'de', url: '' },
-		legal: { company: '', address: '', representative: '', email: '', phone: '', register: '', vatId: '' },
+		legal: { company: '', address: '', email: '', phone: '' },
 		tracking: { metaPixelId: null, googleTagId: null },
 		funnels: {},
 		collections: {},

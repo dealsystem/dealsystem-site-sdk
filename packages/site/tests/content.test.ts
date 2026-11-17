@@ -8,7 +8,10 @@ import {
 	getEntry,
 	getSite,
 	getSlots,
+	robots,
+	sitemap,
 } from '../src/lib/content/index.js';
+import { MANIFEST_FILE_ENV } from '../src/lib/paths.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
 import { testSiteData } from './helpers.js';
 
@@ -84,7 +87,9 @@ describe('getCollection', () => {
 
 	it('ergibt für eine Sammlung ohne Einträge im Schnappschuss eine leere Liste', async () => {
 		setSiteDataForTests(
-			testSiteData({ collections: { ...testSiteData().collections, blog: { fields: [] } } }),
+			testSiteData({
+				collections: { ...testSiteData().collections, blog: { route: '/blog/:slug', fields: [] } },
+			}),
 		);
 		expect(await getCollection('blog')).toEqual([]);
 	});
@@ -119,11 +124,57 @@ describe('getEntry, collectionEntries, getSlots, getSite', () => {
 
 	it('liefert Überschreibungen und Angaben zur Seite', async () => {
 		expect(await getSlots()).toEqual({ 'start.hero.titel': { type: 'text', value: 'Aus dem CRM' } });
-		expect(await getSite()).toMatchObject({
+		const site = await getSite();
+		expect(site).toMatchObject({
 			name: 'Kunde Immobilien',
 			url: 'https://kunde.de',
-			legal: { company: 'Kunde GmbH' },
+			company: 'Kunde Immobilien GmbH',
+			email: 'info@kunde.de',
+			phone: '0341 1234567',
 		});
+		// Die Rechtstexte gehören nicht in die Daten jeder Seite.
+		expect(JSON.stringify(site)).not.toMatch(/imprintHtml|privacyHtml/);
+	});
+});
+
+describe('sitemap und robots', () => {
+	let manifestDir: string;
+
+	beforeEach(async () => {
+		manifestDir = await mkdtemp(join(tmpdir(), 'ds-manifest-'));
+		await writeFile(
+			join(manifestDir, 'manifest.json'),
+			JSON.stringify({ routes: ['/', '/angebote', '/angebote/[slug]', '/kontakt', '/blog/[id]'] }),
+		);
+		process.env[MANIFEST_FILE_ENV] = join(manifestDir, 'manifest.json');
+	});
+
+	afterEach(async () => {
+		delete process.env[MANIFEST_FILE_ENV];
+		await rm(manifestDir, { recursive: true, force: true });
+	});
+
+	it('listet alle Seiten und die Detailseiten der Sammlung mit voller Adresse', async () => {
+		const response = await sitemap();
+		expect(response.headers.get('Content-Type')).toContain('application/xml');
+		const locs = [...(await response.text()).matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+		expect(locs).toEqual([
+			'https://kunde.de/',
+			'https://kunde.de/angebote',
+			'https://kunde.de/angebote/alt',
+			'https://kunde.de/angebote/mitte',
+			'https://kunde.de/angebote/neu',
+			'https://kunde.de/kontakt',
+		]);
+	});
+
+	it('bleibt ohne Manifest eine gültige, leere Sitemap', async () => {
+		process.env[MANIFEST_FILE_ENV] = join(manifestDir, 'fehlt.json');
+		expect(await (await sitemap()).text()).toMatch(/<urlset[^>]*>\n<\/urlset>/);
+	});
+
+	it('verweist in robots.txt auf die Sitemap', async () => {
+		expect(await robots().text()).toBe('User-agent: *\nAllow: /\n\nSitemap: https://kunde.de/sitemap.xml\n');
 	});
 });
 

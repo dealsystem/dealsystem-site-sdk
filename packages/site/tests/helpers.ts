@@ -16,12 +16,9 @@ export function testSiteData(overrides: Partial<SiteData> = {}): SiteData {
 		},
 		legal: {
 			company: 'Kunde Immobilien GmbH',
-			address: 'Musterstraße 1\n04109 Leipzig',
-			representative: 'Erika Muster',
+			address: 'Musterstraße 1, 04109 Leipzig',
 			email: 'info@kunde.de',
 			phone: '0341 1234567',
-			register: '',
-			vatId: '',
 		},
 		funnels: {
 			kontakt: {
@@ -36,6 +33,7 @@ export function testSiteData(overrides: Partial<SiteData> = {}): SiteData {
 		},
 		collections: {
 			angebote: {
+				route: '/angebote/:slug',
 				fields: [
 					{ name: 'titel', type: 'text', required: true },
 					{ name: 'beschreibung', type: 'richtext' },
