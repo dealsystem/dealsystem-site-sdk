@@ -7,8 +7,8 @@ Pflichtangaben sind im Typ ohne `?` notiert; fehlt eine, meldet `npm run check` 
 
 ## Text
 
-Ein kurzer Text (Überschrift, Satz, Beschriftung), den der Kunde später im CRM
-selbst ändern kann.
+Ein kurzer Text (Überschrift, Satz, Beschriftung), den der Kunde im CRM ändern
+kann.
 Angezeigt wird der Text aus dem CRM, sonst `default`.
 
 `key` und `default` müssen feste Zeichenketten sein (keine Variablen): der
@@ -16,6 +16,14 @@ Build liest sie aus dem Quelltext und meldet sie ans CRM.
 
 ```svelte
 <Text key="start.hero.titel" default="Wir kaufen Ihr Haus" as="h1" label="Überschrift" group="Startseite" />
+```
+
+Mehrere Zeilen: `multiline` und den Text in geschweiften Klammern, dann ist
+`\n` ein Zeilenumbruch. In `default="…"` wäre `\n` kein Umbruch, sondern
+stünde wörtlich auf der Seite (`dealsystem check` warnt, CNT-003).
+
+```svelte
+<Text key="kontakt.zeiten" multiline default={'Mo bis Fr 9 bis 18 Uhr\nSa nach Vereinbarung'} />
 ```
 
 Eigenschaften:
@@ -79,6 +87,17 @@ Zeichenketten):
 <RichText key="start.ueber-uns" default="Wir sind **seit 2010** in Leipzig tätig." />
 ```
 
+Liste oder mehrere Absätze: den Text in geschweifte Klammern, dann ist `\n`
+ein Zeilenumbruch und `\n\n` ein neuer Absatz. In `default="…"` stünde `\n`
+wörtlich auf der Seite (`dealsystem check` warnt, CNT-003).
+
+```svelte
+<RichText
+	key="ankauf.ablauf"
+	default={'1. Sie schicken uns die Eckdaten.\n2. Wir prüfen und melden uns.\n3. Sie erhalten ein Angebot.\n\nDer Ablauf ist für Sie kostenlos.'}
+/>
+```
+
 Für ein Richtext-Feld eines CMS-Eintrags:
 
 ```svelte
@@ -116,8 +135,9 @@ export type RichTextProps = { class?: string } & (
 
 ## Link
 
-Ein Link, dessen Ziel und Beschriftung der Kunde im CRM ändern kann, z. B. die
-wichtigste Schaltfläche der Startseite. Für gewöhnliche Links reicht `<a href>`.
+Ein Link, dessen Ziel und Beschriftung der Kunde im CRM ändern kann. Gedacht
+z. B. für die wichtigste Schaltfläche der Startseite; für gewöhnliche Links
+reicht `<a href>`.
 
 `key` und `default` müssen fest im Quelltext stehen (keine Variablen).
 
@@ -380,6 +400,9 @@ export interface MapEmbedProps {
 ## CookieBanner
 
 Hinweis zur Einwilligung. Gehört einmal in `src/routes/+layout.svelte`.
+Er erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht:
+Tracking mit Kennung aus dem CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video
+eines anderen Anbieters. Sonst bleibt er unsichtbar, und es wird nichts gespeichert.
 „Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Die Wahl wird im
 Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
 `<SiteFooterLegal />`.
@@ -388,7 +411,7 @@ Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
 <CookieBanner />
 ```
 
-Nutzt die Seite nur manche Zwecke, nenne sie:
+Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lassen sie sich so:
 
 ```svelte
 <CookieBanner categories={['marketing']} />
@@ -398,7 +421,7 @@ Eigenschaften:
 
 ```ts
 export interface CookieBannerProps {
-  /** Zwecke, die die Seite nutzt. Standard: alle. */
+  /** Zwecke, nach denen gefragt wird. Standard: die, die Bausteine auf der Seite brauchen. */
   categories?: readonly ConsentCategory[];
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
@@ -456,7 +479,7 @@ export interface ConsentGateProps {
 ## Tracking
 
 Bindet Meta Pixel und Google Tag ein. Die IDs stehen im CRM unter
-Website → Einstellungen, nie im Code. Geladen wird erst nach der Einwilligung
+Eigene Website → Einstellungen, nie im Code. Geladen wird erst nach der Einwilligung
 „Marketing“. Eigene Pixel-Snippets sind nicht erlaubt.
 
 ```svelte
@@ -469,7 +492,7 @@ Website → Einstellungen, nie im Code. Geladen wird erst nach der Einwilligung
 ## Impressum
 
 Das Impressum der Seite. Gibt den Text aus, den der Kunde im CRM unter
-Website → Einstellungen eingetragen hat. Der Text steht nie im Code, und die
+Eigene Website → Rechtliches eingetragen hat. Der Text steht nie im Code, und die
 Komponente erzeugt keinen eigenen. Gehört auf `src/routes/impressum/+page.svelte`.
 
 Fehlt der Text noch, zeigt die Vorschau einen Hinweis, wo er einzutragen ist.
@@ -497,7 +520,7 @@ export interface ImpressumProps {
 ## Datenschutz
 
 Die Datenschutzerklärung der Seite. Gibt den Text aus, den der Kunde im CRM
-unter Website → Einstellungen eingetragen hat. Der Text steht nie im Code, und
+unter Eigene Website → Rechtliches eingetragen hat. Der Text steht nie im Code, und
 die Komponente erzeugt keinen eigenen. Gehört auf
 `src/routes/datenschutz/+page.svelte`.
 
@@ -527,6 +550,8 @@ export interface DatenschutzProps {
 
 Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellungen“
 (Widerruf der Einwilligung). Gehört in den Footer von `src/routes/+layout.svelte`.
+„Cookie-Einstellungen“ erscheint nur, wenn es etwas einzustellen gibt (wie beim
+`<CookieBanner />`).
 
 ```svelte
 <footer>

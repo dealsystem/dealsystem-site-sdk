@@ -3,7 +3,7 @@
 ## Wer die Texte schreibt
 
 Impressum und Datenschutzerklärung schreibt und verantwortet **der Kunde**. Er trägt sie im CRM unter
-Website → Einstellungen ein. DealSystem liefert keine vorformulierten Rechtstexte, und du schreibst auch
+Eigene Website → Rechtliches ein. DealSystem liefert keine vorformulierten Rechtstexte, und du schreibst auch
 keine: nicht als Vorschlag, nicht als Platzhalter, nicht im Code. Frag der Kunde danach, verweise ihn auf
 seinen Anwalt oder einen Generator seiner Wahl; den fertigen Text fügt er im CRM ein.
 
@@ -52,7 +52,7 @@ stehen sie auf jeder Seite als `data.site` bereit:
 Das Formular zeigt sie von selbst als Ausweichkontakt, wenn das Senden scheitert. Schreibe Adresse,
 Telefonnummer und E-Mail-Adresse nie fest in den Code, auch wenn der Kunde sie dir im Gespräch nennt
 (`CNT-002`): Ändert er sie im CRM, soll die Seite folgen. Bitte ihn stattdessen, sie im CRM unter
-Website → Einstellungen einzutragen. Ein Feld, das dort leer ist, lässt du auf der Seite weg.
+Eigene Website → Rechtliches einzutragen. Ein Feld, das dort leer ist, lässt du auf der Seite weg.
 
 ## Einwilligung
 
@@ -62,6 +62,11 @@ Website → Einstellungen einzutragen. Ein Feld, das dort leer ist, lässt du au
 - Karte: `<MapEmbed lat={…} lon={…} title="…" />` (OpenStreetMap). Sie fragt selbst nach der Zustimmung.
 - Andere fremde Dienste (Google Maps, YouTube, Bewertungs-Widgets) lassen sich nicht einbetten, auch nicht
   hinter der Einwilligung: Verlinke sie.
-- Nutzt die Seite nur manche Zwecke, nenne sie: `<CookieBanner categories={['marketing']} />`.
+- Der Hinweis erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht: Tracking-Kennungen im
+  CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters. Sonst bleibt er unsichtbar, und
+  „Cookie-Einstellungen“ fehlt ebenfalls; es gibt dann nichts einzuwilligen. `<CookieBanner />` und
+  `<SiteFooterLegal />` bleiben trotzdem im Layout. Ein `<ConsentGate category="marketing">` zählt nur mit
+  Tracking-Kennung, denn andere Werbe-Dienste erlauben die Sicherheitsregeln nicht.
+- Gefragt wird nur nach den Zwecken, die die Seite braucht. Fest vorgeben: `<CookieBanner categories={['marketing']} />`.
 - Das Formular schützt eine Rechenaufgabe im Hintergrund (ALTCHA) vor Missbrauch. Sie kommt von
   DealSystem selbst, setzt kein Cookie und braucht keine Einwilligung.

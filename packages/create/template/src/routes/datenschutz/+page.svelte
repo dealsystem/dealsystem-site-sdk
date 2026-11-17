@@ -9,7 +9,7 @@
 	<meta name="description" content="Datenschutzerklärung dieser Website." />
 </svelte:head>
 
-<!-- Der Text kommt aus dem CRM (Website → Einstellungen), nie aus dem Code. -->
+<!-- Der Text kommt aus dem CRM (Eigene Website → Rechtliches), nie aus dem Code. -->
 <div class="section page">
 	<Datenschutz />
 </div>

@@ -49,6 +49,10 @@ export interface MockState {
 	versions: MockVersion[];
 	nextFinalStatus: 'ready' | 'rejected' | 'failed';
 	rejectedCheck: unknown;
+	/** `legalProfileMissing` der Seite; `null` = Feld fehlt in der Antwort (älterer Core). */
+	legalMissing: string[] | null;
+	/** Log-Auszug abgelehnter Versionen. */
+	logExcerpt: string;
 	publishError: { status: number; code: string; message: string; [extra: string]: unknown } | null;
 	refreshCount: number;
 }
@@ -120,6 +124,8 @@ export async function startMockServer(): Promise<MockServer> {
 			],
 			warnings: [],
 		},
+		legalMissing: [],
+		logExcerpt: 'vite build: Fehler',
 		publishError: null,
 		refreshCount: 0,
 	};
@@ -254,6 +260,7 @@ export async function startMockServer(): Promise<MockServer> {
 						...site,
 						domains: [{ host: 'kunde.de', kind: 'primary', activatedAt: null }],
 						liveVersion: live && summary(live),
+						...(state.legalMissing ? { legalProfileMissing: state.legalMissing } : {}),
 					},
 				});
 			}
@@ -360,7 +367,7 @@ export async function startMockServer(): Promise<MockServer> {
 		return {
 			...summary(v),
 			checkResult: v.checkResult,
-			logExcerpt: v.status === 'rejected' ? 'vite build: Fehler' : null,
+			logExcerpt: v.status === 'rejected' ? state.logExcerpt : null,
 		};
 	}
 

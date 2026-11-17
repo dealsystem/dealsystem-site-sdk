@@ -2,6 +2,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { CliError, EXIT } from '../api/errors.js';
+import { legalStatus, legalStatusLine } from '../api/legal.js';
 import type { Website } from '../api/types.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
 import { defaultSiteConfig, SITE_CONFIG_FILE, writeSiteIdIntoConfig } from '../project/siteConfig.js';
@@ -87,10 +88,12 @@ export async function statusCommand(ctx: CommandContext): Promise<CommandResult>
 	const api = ctx.api();
 	const [site, versions] = await Promise.all([api.getWebsite(id), api.listVersions(id, 5)]);
 	const live = site.liveVersion;
+	const legal = legalStatus(site);
 	const lines = [
 		`Seite: ${site.name} (${site.slug}), Zustand ${site.status}`,
 		`Adresse: ${site.primaryHost ?? site.defaultHost ?? '–'}`,
 		`Live: ${live ? `Version ${live.number}` : 'noch nichts live'}`,
+		legalStatusLine(legal),
 		'Letzte Versionen:',
 		...(versions.length
 			? versions.map((v) => `  ${v.number}  ${v.status}  ${v.previewUrl ?? ''}  ${v.message ?? ''}`.trimEnd())
@@ -100,5 +103,5 @@ export async function statusCommand(ctx: CommandContext): Promise<CommandResult>
 			? site.domains.map((d) => `  ${d.host} (${d.kind}${d.active ? ', aktiv' : ', noch nicht aktiv'})`)
 			: ['  keine']),
 	];
-	return { exitCode: EXIT.ok, data: { site, versions }, text: lines.join('\n') };
+	return { exitCode: EXIT.ok, data: { site, versions, legal }, text: lines.join('\n') };
 }

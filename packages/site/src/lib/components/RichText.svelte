@@ -10,6 +10,17 @@ Zeichenketten):
 <RichText key="start.ueber-uns" default="Wir sind **seit 2010** in Leipzig tätig." />
 ```
 
+Liste oder mehrere Absätze: den Text in geschweifte Klammern, dann ist `\n`
+ein Zeilenumbruch und `\n\n` ein neuer Absatz. In `default="…"` stünde `\n`
+wörtlich auf der Seite (`dealsystem check` warnt, CNT-003).
+
+```svelte
+<RichText
+	key="ankauf.ablauf"
+	default={'1. Sie schicken uns die Eckdaten.\n2. Wir prüfen und melden uns.\n3. Sie erhalten ein Angebot.\n\nDer Ablauf ist für Sie kostenlos.'}
+/>
+```
+
 Für ein Richtext-Feld eines CMS-Eintrags:
 
 ```svelte

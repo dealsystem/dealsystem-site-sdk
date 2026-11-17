@@ -19,7 +19,7 @@ const DOCS_SRC = join(SITE, 'docs-src');
 const DOCS_OUT = join(SITE, 'docs');
 const TEMPLATE = join(ROOT, 'packages/create/template');
 
-/** Obergrenze des Blocks in AGENTS.md, in Bytes. */
+/** Obergrenze der ganzen AGENTS.md des Starters (Kopf, Marker und Block), in Bytes. Der Block allein bleibt darunter. */
 export const AGENTS_BLOCK_MAX_BYTES = 8192;
 const DOCS_PATH = 'node_modules/@dealsystem/site/docs';
 const GENERATED = '<!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand ändern. -->';
@@ -299,9 +299,9 @@ async function build() {
 
 	// --- agents-block.md
 	const docsIndex = [
-		['ablauf.md', 'der ganze Weg von der Anmeldung bis zur veröffentlichten Seite'],
+		['ablauf.md', 'der ganze Weg bis zur veröffentlichten Seite'],
 		['komponenten.md', 'alle Bausteine mit Pflichtangaben und Beispielen'],
-		['inhalte.md', 'Angebote und andere Inhalte aus dem CRM laden'],
+		['inhalte.md', 'Angebote und andere Sammlungen laden'],
 		['konfiguration.md', 'Formulare und Sammlungen in dealsystem.config.ts'],
 		['gestaltung.md', 'Farben, Schrift, Bilder, Barrierefreiheit'],
 		['rechtstexte.md', 'Impressum, Datenschutz, Cookie-Hinweis'],
@@ -348,14 +348,19 @@ async function build() {
 	);
 
 	// --- Starter: AGENTS.md mit dem Block
-	files.set(
-		join(TEMPLATE, 'AGENTS.md'),
+	const agentsMd =
 		'# Anleitung für KI-Agenten\n\n' +
-			'Diese Datei sagt deinem KI-Agenten, wie er an dieser Website arbeitet. Eigene Hinweise kannst du\n' +
-			'über oder unter dem markierten Block ergänzen. Den Block selbst erneuert `npx dealsystem sync`.\n\n' +
-			`<!-- dealsystem:begin ${version} -->\n${block}\n<!-- dealsystem:end -->\n`,
-	);
-	return { files, bytes, version };
+		'Eigene Hinweise gehören über oder unter den Block; ihn erneuert `npx dealsystem sync`.\n\n' +
+		`<!-- dealsystem:begin ${version} -->\n${block}\n<!-- dealsystem:end -->\n`;
+	// Agenten lesen AGENTS.md ganz; manche kürzen lange Dateien. Deshalb gilt die Grenze für die ganze Datei.
+	const agentsMdBytes = Buffer.byteLength(agentsMd, 'utf8');
+	if (agentsMdBytes > AGENTS_BLOCK_MAX_BYTES) {
+		throw new Error(
+			`AGENTS.md des Starters hat ${agentsMdBytes} Bytes, erlaubt sind ${AGENTS_BLOCK_MAX_BYTES}. Kürze docs-src/agents-block.md.`,
+		);
+	}
+	files.set(join(TEMPLATE, 'AGENTS.md'), agentsMd);
+	return { files, bytes, agentsMdBytes, version };
 }
 
 function firstSentence(text) {
@@ -368,7 +373,7 @@ function firstSentence(text) {
 
 /** Baut alle Dateien und meldet, welche auf der Platte fehlen, veraltet oder überzählig sind. */
 export async function diffAgentDocs() {
-	const { files, bytes, version } = await build();
+	const { files, bytes, agentsMdBytes, version } = await build();
 	const stale = [];
 	for (const [file, content] of files) {
 		const current = await read(file).catch(() => null);
@@ -378,7 +383,14 @@ export async function diffAgentDocs() {
 		[...files.keys()].filter((f) => f.startsWith(DOCS_OUT)).map((f) => relative(DOCS_OUT, f)),
 	);
 	const extra = (await readdir(DOCS_OUT).catch(() => [])).filter((f) => !expected.has(f));
-	return { files, stale, extra: extra.map((f) => join('packages/site/docs', f)), bytes, version };
+	return {
+		files,
+		stale,
+		extra: extra.map((f) => join('packages/site/docs', f)),
+		bytes,
+		agentsMdBytes,
+		version,
+	};
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

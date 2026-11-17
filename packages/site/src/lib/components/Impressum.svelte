@@ -1,7 +1,7 @@
 <!--
 @component
 Das Impressum der Seite. Gibt den Text aus, den der Kunde im CRM unter
-Website → Einstellungen eingetragen hat. Der Text steht nie im Code, und die
+Eigene Website → Rechtliches eingetragen hat. Der Text steht nie im Code, und die
 Komponente erzeugt keinen eigenen. Gehört auf `src/routes/impressum/+page.svelte`.
 
 Fehlt der Text noch, zeigt die Vorschau einen Hinweis, wo er einzutragen ist.
@@ -41,8 +41,8 @@ Live schalten lässt sich die Seite erst mit Text.
 		{@html html}
 	{:else}
 		<p class="ds-legal__missing" data-ds-legal-missing="imprint">
-			<strong>Der Impressumstext fehlt.</strong> Bitte tragen Sie ihn im CRM unter Website → Einstellungen ein.
-			Ohne Impressum kann die Seite nicht live geschaltet werden.
+			<strong>Der Impressumstext fehlt.</strong> Bitte tragen Sie ihn im CRM unter Eigene Website → Rechtliches
+			ein. Ohne Impressum kann die Seite nicht live geschaltet werden.
 		</p>
 	{/if}
 </section>

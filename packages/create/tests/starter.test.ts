@@ -87,7 +87,7 @@ describe('Starter ohne Inhalte aus dem CRM (erster Tag)', () => {
 	it('zeigt statt eines erfundenen Rechtstexts den Hinweis, wo der Kunde ihn einträgt', async () => {
 		const impressum = await page(project.dir, 'impressum.html');
 		expect(impressum).toContain('Der Impressumstext fehlt.');
-		expect(impressum).toContain('im CRM unter Website → Einstellungen');
+		expect(impressum).toContain('im CRM unter Eigene Website → Rechtliches');
 		expect(await page(project.dir, 'datenschutz.html')).toContain('Der Datenschutztext fehlt.');
 	});
 

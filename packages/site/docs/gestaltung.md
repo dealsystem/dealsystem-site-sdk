@@ -56,6 +56,10 @@ Nie `<img>` schreiben, immer `<MediaImage>` (`A11Y-002`).
 - `sizes` nennt die Anzeigebreite, z. B. `sizes="(min-width: 60rem) 33vw, 100vw"`. Das wichtigste Bild im
   sichtbaren Bereich bekommt `priority`.
 - Große Videos gehören ins CRM, nicht ins Projekt.
+- **Fotos vom Kunden** (z. B. ein Porträt für „Über uns“): Er schickt dir die Datei, du baust sie wie oben
+  als eigenes Bild ein und lädst neu hoch. Einen Bereich im CRM, in dem er solche Bilder selbst auf die Seite
+  bringt, gibt es nicht; sag ihm das nicht zu. Nur Bilder in Sammlungen (Angebote, Referenzen) pflegt er im
+  CRM unter CMS, beim jeweiligen Eintrag.
 
 ## Barrierefreiheit (WCAG 2.1 AA)
 

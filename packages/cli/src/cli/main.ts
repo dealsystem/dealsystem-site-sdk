@@ -95,7 +95,7 @@ export const COMMANDS: Record<string, CommandDef> = {
 		run: checkCommand,
 	},
 	deploy: {
-		summary: 'Prüfen, hochladen, bauen lassen, Vorschau-URL ausgeben',
+		summary: 'Prüfen, lokal bauen, hochladen, Vorschau-URL ausgeben',
 		usage: 'dealsystem deploy [-m <Notiz>] [--publish [--confirm]] [--no-wait] [--timeout <s>]',
 		options: {
 			message: { type: 'string', short: 'm' },
@@ -131,7 +131,7 @@ export const COMMANDS: Record<string, CommandDef> = {
 		run: rollbackCommand,
 	},
 	status: {
-		summary: 'Seite, Live-Version, letzte Versionen, Domains',
+		summary: 'Seite, Live-Version, Rechtstexte, letzte Versionen, Domains',
 		usage: 'dealsystem status',
 		options: {},
 		flags: [],

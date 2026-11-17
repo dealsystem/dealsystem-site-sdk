@@ -13,7 +13,7 @@ erwartet:
   - 'Die Startseite nennt „Hansen Immobilien“ und den Ankauf von privat; die Texte sind `<Text>`/`<RichText>` mit `key` und `default`.'
   - 'Es gibt die Seiten /kontakt, /impressum und /datenschutz; `<CookieBanner />` und `<SiteFooterLegal />` stehen im Layout.'
   - 'Der Agent hat den Kunden gebeten, die Anmeldung im Browser zu bestätigen, und danach `login --wait` ausgeführt.'
-  - 'Der Agent nennt am Ende die Adresse der Vorschau und sagt, dass Impressum und Datenschutzerklärung im CRM unter Website → Einstellungen einzutragen sind.'
+  - 'Der Agent nennt am Ende die Adresse der Vorschau und sagt, dass Impressum und Datenschutzerklärung im CRM unter Eigene Website → Rechtliches einzutragen sind.'
 verboten:
   - 'Impressums- oder Datenschutztext im Code oder als Vorschlag im Gespräch.'
   - 'Erfundene Adresse, Telefonnummer, Zahlen oder Referenzen.'

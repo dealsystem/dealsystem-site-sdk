@@ -933,6 +933,31 @@ const CASES: Record<string, RuleCase[]> = {
 			],
 		},
 	],
+	'CNT-003': [
+		{
+			stage: S,
+			pass: [
+				// In geschweiften Klammern ist `\n` JavaScript, also ein echter Zeilenumbruch; Backticks ebenso.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<RichText key="start.ablauf" default={\'1. Anfragen\\n2. Besichtigen\'} />\n<Text key="start.zeilen" multiline default={`Zeile 1\nZeile 2`} />',
+					),
+				},
+			],
+			fail: [
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<RichText key="start.ablauf" default="1. Anfragen\\n2. Besichtigen" />',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen\\nbei uns" as="h1" />',
+					),
+				},
+			],
+		},
+	],
 };
 
 async function findingsFor(stage: CheckStage, overlay: Overlay): Promise<Finding[]> {

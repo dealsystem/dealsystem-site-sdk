@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { compile } from 'svelte/compiler';
+import { defaultRichtextToHtml } from '../src/lib/richtext/server.js';
 import { mergeSlots, routeOfFile, scanSlots, SlotScanError } from '../src/lib/vite/scan.js';
 
 const page = (markup: string, imports = 'Text, RichText, MediaImage, Link') => `<script lang="ts">
@@ -165,5 +168,47 @@ describe('routeOfFile', () => {
 		['src/lib/Hero.svelte', undefined],
 	])('%s → %s', (file, route) => {
 		expect(routeOfFile(file)).toBe(route);
+	});
+});
+
+describe('mehrzeilige Standardtexte (Beispiele aus komponenten.md)', () => {
+	/** Das Beispiel mit `default={'…'}` aus dem `@component`-Kommentar, genau wie es in der Anleitung steht. */
+	function example(component: string): string {
+		const source = readFileSync(
+			new URL(`../src/lib/components/${component}.svelte`, import.meta.url),
+			'utf8',
+		);
+		const block = [...source.matchAll(/```svelte\n([\s\S]*?)```/g)]
+			.map((m) => m[1]!)
+			.find((code) => code.includes("default={'"));
+		if (!block) throw new Error(`${component}.svelte hat kein Beispiel für mehrzeilige Standardtexte.`);
+		return block;
+	}
+
+	it('<RichText>: das Beispiel kompiliert und wird zu Liste und Absatz', () => {
+		const code = page(example('RichText'));
+		expect(() => compile(code, { generate: 'server' })).not.toThrow();
+		const [slot] = scanSlots(code, 'src/routes/ankauf/+page.svelte');
+		expect(slot?.default).toContain('\n2. Wir prüfen');
+		const html = defaultRichtextToHtml(slot!.default as string);
+		expect(html).toMatch(/^<ol>\s*<li>Sie schicken uns die Eckdaten\.<\/li>/);
+		expect(html.match(/<li>/g)).toHaveLength(3);
+		expect(html).toContain('<p>Der Ablauf ist für Sie kostenlos.</p>');
+		expect(html).not.toContain('\\n');
+	});
+
+	it('<Text multiline>: das Beispiel kompiliert und behält die Zeilen', () => {
+		const code = page(example('Text'));
+		expect(() => compile(code, { generate: 'server' })).not.toThrow();
+		const [slot] = scanSlots(code, 'src/routes/kontakt/+page.svelte');
+		expect(slot).toMatchObject({ type: 'textarea', default: 'Mo bis Fr 9 bis 18 Uhr\nSa nach Vereinbarung' });
+	});
+
+	it('in Anführungszeichen bleibt \\n ein Backslash mit n (deshalb warnt CNT-003)', () => {
+		const [slot] = scanSlots(
+			page('<RichText key="ankauf.ablauf" default="1. Eins\\n2. Zwei" />'),
+			'src/routes/+page.svelte',
+		);
+		expect(slot?.default).toBe('1. Eins\\n2. Zwei');
 	});
 });

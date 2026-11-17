@@ -326,7 +326,8 @@ describe('Rechtstexte', () => {
 		expect(body).not.toMatch(/§|DDG|Angaben gemäß/);
 	});
 
-	it('<Datenschutz> gibt den Text des Kunden aus und bietet den Widerruf der Einwilligung an', () => {
+	it('<Datenschutz> gibt den Text des Kunden aus und bietet mit Tracking den Widerruf der Einwilligung an', () => {
+		setSiteDataForTests(testSiteData({ tracking: { metaPixelId: '1234567890', googleTagId: null } }));
 		setPrivacyForTests('<p>Wir verarbeiten Ihre Daten nur zur Bearbeitung Ihrer Anfrage.</p>');
 		const { body } = render(Datenschutz, { props: {} });
 		expect(body).toContain('data-ds-datenschutz');
@@ -347,7 +348,7 @@ describe('Rechtstexte', () => {
 				setPrivacyForTests(empty);
 				const { body } = render(component, { props: {} });
 				expect(body).toContain(text);
-				expect(body).toContain('im CRM unter Website → Einstellungen');
+				expect(body).toContain('im CRM unter Eigene Website → Rechtliches');
 				expect(body).toContain(`data-ds-legal-missing="${marker}"`);
 			}
 		},
@@ -367,12 +368,21 @@ describe('Rechtstexte', () => {
 		expect(nested).toContain('<h4 class="x">Kontakt</h4>');
 	});
 
-	it('<SiteFooterLegal> verlinkt Impressum und Datenschutz und bietet den Widerruf an', () => {
+	it('<SiteFooterLegal> verlinkt Impressum und Datenschutz und bietet mit Tracking den Widerruf an', () => {
+		setSiteDataForTests(testSiteData({ tracking: { metaPixelId: null, googleTagId: 'G-ABCDEF1234' } }));
 		const { body } = render(SiteFooterLegal, { props: {} });
 		expect(body).toContain('href="/impressum"');
 		expect(body).toContain('href="/datenschutz"');
 		expect(body).toMatch(/<button[^>]*>Cookie-Einstellungen<\/button>/);
 		expect(body).toContain('aria-label="Rechtliches"');
+	});
+
+	it('ohne Tracking gibt es im fertigen HTML nichts einzustellen', () => {
+		const footer = render(SiteFooterLegal, { props: {} }).body;
+		expect(footer).toContain('href="/datenschutz"');
+		expect(footer).not.toContain('Cookie-Einstellungen');
+		setPrivacyForTests('<p>Text</p>');
+		expect(render(Datenschutz, { props: {} }).body).not.toContain('Cookie-Einstellungen');
 	});
 });
 

@@ -48,7 +48,7 @@ Regeln lokal prüfen (Exit-Code 1 bei Fehlern).
 
 ## `dealsystem deploy [-m <Notiz>] [--publish [--confirm]] [--no-wait] [--timeout <s>]`
 
-Prüfen, hochladen, bauen lassen, Vorschau-URL ausgeben.
+Prüfen, lokal bauen, hochladen, Vorschau-URL ausgeben.
 
 - `-m, --message <Notiz>` – Notiz zur Version
 - `--publish` – danach live schalten (nur mit Bestätigung)
@@ -72,7 +72,7 @@ Auf eine frühere Version zurückschalten (mit Bestätigung).
 
 ## `dealsystem status`
 
-Seite, Live-Version, letzte Versionen, Domains.
+Seite, Live-Version, Rechtstexte, letzte Versionen, Domains.
 
 ## Exit-Codes
 

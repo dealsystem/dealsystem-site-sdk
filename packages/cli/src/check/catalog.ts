@@ -1,7 +1,9 @@
 // Regelkatalog von `dealsystem check` (Konzept Abschnitt 7, „Regeln von dealsystem check“).
 // Neue Regeln kommen zuerst als Warnung und werden frühestens mit der nächsten Minor-Version zum Fehler,
-// sonst scheitert der Inhalts-Rebuild einer unveränderten Seite. Jede Änderung an Regeln oder
-// Schweregraden erhöht `RULE_SET_VERSION`.
+// sonst scheitert der Inhalts-Rebuild einer unveränderten Seite. `RULE_SET_VERSION` steigt, sobald sich
+// das Urteil ändern kann: eine neue oder geänderte Fehler-Regel, ein geänderter Schweregrad. Der Core gibt
+// die Version dem Build-Host vor (`SELF_SITE_RULE_SET_VERSION`); weicht sie ab, scheitert jeder Build.
+// Eine neue Warnung lässt das Urteil gleich und erhöht die Version deshalb nicht (CNT-003).
 
 import type { RuleMeta } from './types.js';
 
@@ -321,6 +323,13 @@ export const RULES: readonly RuleMeta[] = [
 		stages: ['source'],
 		title: 'Adresse, Telefonnummer und E-Mail-Adresse kommen aus dem CRM, nicht aus dem Code',
 		fix: 'Nimm die Angabe aus dem CRM: `getSite()` aus `@dealsystem/site/content` liefert `company`, `address`, `email` und `phone` (im Starter als `data.site` auf jeder Seite). Gib sie mit `{data.site.address}` aus. Ändert der Kunde sie im CRM, folgt die Seite.',
+	},
+	{
+		id: 'CNT-003',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'kein `\\n` im `default` von `<Text>`/`<RichText>`: im Attribut ist es kein Zeilenumbruch',
+		fix: "Setz den Text in geschweifte Klammern, dann ist `\\n` ein echter Zeilenumbruch: `default={'1. Erster Schritt\\n2. Zweiter Schritt'}`. Leerzeile (`\\n\\n`) = neuer Absatz. Bei `<Text>` zusätzlich `multiline`. Beispiele: komponenten.md, `<Text>` und `<RichText>`.",
 	},
 	// ------------------------------------------------- Meldungen des Build-Hosts
 	{

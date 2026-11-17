@@ -22,6 +22,11 @@ export interface WebsiteDomain {
 export interface WebsiteDetails extends Website {
 	domains: WebsiteDomain[];
 	liveVersion: VersionSummary | null;
+	/**
+	 * Pflichtangaben für Rechtstexte, die im CRM noch fehlen (`legalProfileMissing`: `company`, `email`,
+	 * `imprintHtml`, `privacyHtml`); leer = vollständig. `null`, wenn der Server das Feld nicht liefert.
+	 */
+	legalProfileMissing: string[] | null;
 }
 
 export interface CheckFinding {

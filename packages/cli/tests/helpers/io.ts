@@ -4,7 +4,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { run } from '../../src/cli/main.js';
-import type { CliIO } from '../../src/cli/io.js';
+import type { CliIO, ProcessResult } from '../../src/cli/io.js';
 
 export interface TestIO extends CliIO {
 	out: string[];
@@ -12,6 +12,10 @@ export interface TestIO extends CliIO {
 	opened: string[];
 	sleeps: number[];
 	answers: string[];
+	/** Gestartete Prozesse (lokaler Build). */
+	runs: { command: string; args: string[]; cwd: string }[];
+	/** Antwort auf den nächsten Prozess; Standard: Erfolg ohne Ausgabe. */
+	runResults: ProcessResult[];
 }
 
 export function testIO(opts: {
@@ -29,6 +33,8 @@ export function testIO(opts: {
 		opened: [],
 		sleeps: [],
 		answers: [],
+		runs: [],
+		runResults: [],
 		stdout: (t) => io.out.push(t),
 		stderr: (t) => io.err.push(t),
 		isInteractive: opts.interactive ?? false,
@@ -42,6 +48,10 @@ export function testIO(opts: {
 		sleep: async (ms) => {
 			io.sleeps.push(ms);
 			clock += ms;
+		},
+		run: async (command, args, options) => {
+			io.runs.push({ command, args, cwd: options.cwd });
+			return io.runResults.shift() ?? { exitCode: 0, output: '' };
 		},
 	};
 	return io;

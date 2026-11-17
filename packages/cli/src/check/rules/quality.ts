@@ -394,5 +394,28 @@ const cnt002 = sourceRule('CNT-002', (ctx) => {
 	return out;
 });
 
-export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001, cnt002];
+// ------------------------------------------------------------------ CNT-003
+
+const cnt003 = sourceRule('CNT-003', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.svelteFiles()) {
+		for (const el of ctx.svelte(path)?.elements ?? []) {
+			if (el.kind !== 'component' || (el.name !== COMPONENT.text && el.name !== COMPONENT.richText)) continue;
+			const attr = getAttr(el, 'default');
+			// Nur der feste Wert in Anführungszeichen. In `{…}` ist `\n` JavaScript und ein echter Zeilenumbruch.
+			if (attr?.kind !== 'attribute' || typeof attr.value !== 'string' || !attr.value.includes('\\n'))
+				continue;
+			out.push(
+				ctx.at(
+					path,
+					attr.start,
+					`Im \`default\` von \`<${el.name}>\` steht \`\\n\`. In \`default="…"\` ist das kein Zeilenumbruch; auf der Seite steht dann wörtlich „\\n“.`,
+				),
+			);
+		}
+	}
+	return out;
+});
+
+export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001, cnt002, cnt003];
 export const qualityOutputRules: OutputRule[] = [qua001, qua002, qua003, qua004];

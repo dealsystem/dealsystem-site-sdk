@@ -39,10 +39,13 @@ function parseJson(text: string): unknown {
 	}
 }
 
+/** Was zu tun ist, wenn Rechtstexte oder Firmendaten fehlen (Server-Fehler und Vorprüfung in `publish`). */
+export const LEGAL_PROFILE_FIX =
+	'Bitte den Inhaber, im CRM unter „Eigene Website → Rechtliches“ die fehlenden Angaben einzutragen: Impressum, Datenschutzerklärung, Firmenname und E-Mail-Adresse. Diese Texte schreibt er selbst. Danach `npx dealsystem sync`, neu hochladen, die neue Vorschau zeigen und neu fragen.';
+
 /** Korrektur-Anweisungen für bekannte Fehlercodes der API. */
 const FIXES: Record<string, string> = {
-	legal_profile_incomplete:
-		'Bitte den Inhaber, im CRM unter „Website → Einstellungen“ die fehlenden Angaben einzutragen: Impressum, Datenschutzerklärung, Firmenname und E-Mail-Adresse. Diese Texte schreibt er selbst. Danach `npx dealsystem sync`, neu hochladen, die neue Vorschau zeigen und neu fragen.',
+	legal_profile_incomplete: LEGAL_PROFILE_FIX,
 	plan_limit_reached:
 		'Das Limit des Abos ist erreicht. Bitte den Inhaber, das Abo zu erweitern, oder lösche alte Seiten.',
 	app_disabled:
@@ -218,6 +221,9 @@ export class HttpDeployApi implements DeployApi {
 			...normalizeWebsite(raw),
 			domains: arr(o.domains).map(normalizeDomain),
 			liveVersion: o.liveVersion ? normalizeVersionSummary(o.liveVersion) : null,
+			legalProfileMissing: Array.isArray(o.legalProfileMissing)
+				? o.legalProfileMissing.filter((f): f is string => typeof f === 'string')
+				: null,
 		};
 	}
 

@@ -7,9 +7,9 @@ Beginne mit agents-block.md. Die übrigen Seiten sind Nachschlagewerke zu je ein
 ## Anleitung
 
 - [agents-block.md](agents-block.md): Regeln, Ablauf und Gesprächsführung; steht auch in AGENTS.md des Projekts
-- [ablauf.md](ablauf.md): der ganze Weg von der Anmeldung bis zur veröffentlichten Seite
+- [ablauf.md](ablauf.md): der ganze Weg bis zur veröffentlichten Seite
 - [komponenten.md](komponenten.md): alle Bausteine mit Pflichtangaben und Beispielen
-- [inhalte.md](inhalte.md): Angebote und andere Inhalte aus dem CRM laden
+- [inhalte.md](inhalte.md): Angebote und andere Sammlungen laden
 - [konfiguration.md](konfiguration.md): Formulare und Sammlungen in dealsystem.config.ts
 - [gestaltung.md](gestaltung.md): Farben, Schrift, Bilder, Barrierefreiheit
 - [rechtstexte.md](rechtstexte.md): Impressum, Datenschutz, Cookie-Hinweis

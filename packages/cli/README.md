@@ -25,10 +25,10 @@ Quelltext: [github.com/dealsystem/dealsystem-site-sdk](https://github.com/dealsy
 | `sync [--offline] [--fix-config]`                                   | Schnappschuss → `.dealsystem/content.json`, Abgleich CRM ↔ Config, `src/dealsystem.d.ts` anlegen, AGENTS.md-Block |
 | `dev [--port] [--media-origin <url>]`                               | Vite des Projekts; `…/leads` → `dev/leads` (`dryRun`), `/_ds/media/*` durchgereicht                               |
 | `check [--output build] [--allowed] [--rules]`                      | Regelkatalog lokal, Exit-Code 1 bei Fehlern                                                                       |
-| `deploy [-m …] [--publish [--confirm]] [--no-wait] [--timeout <s>]` | check → packen → hochladen → Build abwarten → Vorschau-URL                                                        |
+| `deploy [-m …] [--publish [--confirm]] [--no-wait] [--timeout <s>]` | check → lokal bauen → packen → hochladen → Build abwarten → Vorschau-URL                                          |
 | `publish [--version <id\|nummer>] [--confirm]`                      | fertige Version live schalten                                                                                     |
 | `rollback [--version <id\|nummer>] [--confirm]`                     | auf eine frühere Version zurück                                                                                   |
-| `status`                                                            | Seite, Live-Version, letzte Versionen, Domains                                                                    |
+| `status`                                                            | Seite, Live-Version, Rechtstexte, letzte Versionen, Domains                                                       |
 
 Allgemein: `--json`, `--dir <ordner>`, `--site <id>`, `--api-url <url>` (oder `DEALSYSTEM_API_URL`),
 `--quiet`. Für eigene CI: API-Schlüssel in `DEALSYSTEM_TOKEN`.

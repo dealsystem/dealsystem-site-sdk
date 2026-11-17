@@ -13,6 +13,7 @@ interface Diff {
 	stale: string[];
 	extra: string[];
 	bytes: number;
+	agentsMdBytes: number;
 	version: string;
 }
 
@@ -34,6 +35,12 @@ describe('erzeugte Anleitungen', () => {
 		expect(AGENTS_BLOCK_MAX_BYTES).toBe(8192);
 		expect(diff.bytes).toBeLessThanOrEqual(AGENTS_BLOCK_MAX_BYTES);
 		expect(Buffer.byteLength(block.trim(), 'utf8')).toBe(diff.bytes);
+	});
+
+	it('die ganze AGENTS.md des Starters bleibt unter 8 KB', async () => {
+		const agents = await readFile(join(ROOT, 'packages/create/template/AGENTS.md'));
+		expect(agents.byteLength).toBe(diff.agentsMdBytes);
+		expect(agents.byteLength).toBeLessThanOrEqual(AGENTS_BLOCK_MAX_BYTES);
 	});
 
 	it('AGENTS.md des Starters trägt den Block mit der Version des Pakets zwischen den Markern', async () => {
@@ -61,6 +68,8 @@ describe('Inhalt des Blocks', () => {
 		expect(block).toContain('ohne Fachbegriffe');
 		expect(block).toMatch(/Melde nach jedem größeren Schritt in einem Satz/);
 		expect(block).toContain('Erfinde nichts über das Unternehmen');
+		expect(block).toContain('keine Leistungsversprechen');
+		expect(block).toContain('erfinde keine Bereiche');
 	});
 
 	it('beschreibt den festen Ablauf in der richtigen Reihenfolge', () => {
@@ -73,9 +82,11 @@ describe('Inhalt des Blocks', () => {
 			'dealsystem deploy',
 			'publish --confirm',
 		];
-		const positions = steps.map((step) => block.indexOf(step));
+		// `sync` steht zusätzlich am Anfang (zu Beginn jeder Sitzung); die Schritte suchen der Reihe nach.
+		const positions: number[] = [];
+		for (const step of steps) positions.push(block.indexOf(step, (positions.at(-1) ?? -1) + 1));
 		expect(positions.every((p) => p >= 0)).toBe(true);
-		expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+		expect(block).toContain('Zu Beginn jeder Sitzung `npx dealsystem sync` ausführen');
 		expect(block).toMatch(/nur nach einem ausdrücklichen Ja/);
 		// Die Zustimmung gilt nur der Vorschau, die der Mensch gesehen hat.
 		expect(block).toContain('Jede neue Vorschau braucht ein neues Ja');

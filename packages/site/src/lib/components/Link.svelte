@@ -1,7 +1,8 @@
 <!--
 @component
-Ein Link, dessen Ziel und Beschriftung der Kunde im CRM ändern kann, z. B. die
-wichtigste Schaltfläche der Startseite. Für gewöhnliche Links reicht `<a href>`.
+Ein Link, dessen Ziel und Beschriftung der Kunde im CRM ändern kann. Gedacht
+z. B. für die wichtigste Schaltfläche der Startseite; für gewöhnliche Links
+reicht `<a href>`.
 
 `key` und `default` müssen fest im Quelltext stehen (keine Variablen).
 
