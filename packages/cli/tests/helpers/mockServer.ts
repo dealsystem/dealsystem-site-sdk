@@ -74,8 +74,12 @@ export interface MockState {
 	testRunsSupported: boolean;
 	/** Angenommene Testläufe (Body wie gesendet). */
 	testRuns: Record<string, unknown>[];
-	/** Antwort auf den nächsten Testlauf statt 201, z. B. 422 aus der Prüfung. */
+	/** Antwort statt 201, z. B. 422 bei falschem Body. */
 	testRunError: { status: number; body: unknown } | null;
+	/** `rejection` des Testlaufs (`outcome: "rejected"`); `null` = angenommen. */
+	testRunRejection: { code: string; message: string; details?: unknown } | null;
+	/** Antwort von `…/dev/booking/{key}/qualify`. */
+	qualifyAnswer: unknown;
 }
 
 export interface MockSource {
@@ -176,6 +180,8 @@ export async function startMockServer(): Promise<MockServer> {
 		testRunsSupported: true,
 		testRuns: [],
 		testRunError: null,
+		testRunRejection: null,
+		qualifyAnswer: { qualified: true },
 	};
 	let deviceIssued = false;
 
@@ -496,7 +502,9 @@ export async function startMockServer(): Promise<MockServer> {
 			}
 			if (state.testRunsSupported && rest[0] === 'dev' && rest[1] === 'booking' && req.method === 'GET') {
 				const key = rest[2] ?? '';
-				if (key !== 'erstgespraech') return error(404, 'booking_unavailable', 'Buchung unbekannt');
+				if (key !== 'erstgespraech') return error(404, 'booking_not_found', 'Buchung unbekannt');
+				if (url.searchParams.get('eventType') === 'gibt-es-nicht')
+					return error(404, 'event_type_not_found', 'Terminart unbekannt');
 				if (rest[3] === 'slots') {
 					return reply(200, {
 						data: {
@@ -521,6 +529,9 @@ export async function startMockServer(): Promise<MockServer> {
 					},
 				});
 			}
+			if (state.testRunsSupported && rest[0] === 'dev' && rest[1] === 'booking' && rest[3] === 'qualify') {
+				return reply(200, { data: state.qualifyAnswer });
+			}
 			if (state.testRunsSupported && rest[0] === 'test-runs' && rest.length === 1 && req.method === 'POST') {
 				if (state.testRunError) {
 					const e = state.testRunError;
@@ -529,19 +540,62 @@ export async function startMockServer(): Promise<MockServer> {
 				}
 				const b = jsonBody();
 				state.testRuns.push(b);
+				const booking = b.kind === 'booking';
 				return reply(201, {
 					data: {
 						id: `tr_${state.testRuns.length}`,
-						kind: b.kind,
 						createdAt: '2026-11-17T10:00:00Z',
-						url: `https://app.example/t/ws_a/website/testlaeufe/tr_${state.testRuns.length}`,
-						summary: {
-							headline: 'Kontakt Erika Muster (neu)',
-							lines: ['Pipeline Verkauf → Phase Neu', 'Tags: website'],
-						},
-						...(b.kind === 'booking'
-							? { start: '2026-12-01T08:00:00.000Z', end: '2026-12-01T08:45:00.000Z' }
-							: {}),
+						kind: b.kind,
+						key: b.key,
+						outcome: state.testRunRejection ? 'rejected' : 'accepted',
+						rejection: state.testRunRejection,
+						summary: booking
+							? 'Buchung „Erstgespräch“ wäre angekommen: Termin Di 1.12. 9:00.'
+							: 'Anfrage über „Kontakt“ wäre angekommen: Kontakt neu, Deal „Erika Muster“ in Verkauf → Erstkontakt.',
+						lead: booking
+							? null
+							: {
+									funnel: { key: b.key, label: 'Kontakt' },
+									fields: [],
+									contact: { match: 'new', fills: ['email'] },
+									deal: {
+										name: 'Erika Muster',
+										pipeline: { id: 'p1', name: 'Verkauf' },
+										stage: { id: 's1', name: 'Erstkontakt' },
+									},
+									tags: [{ id: 't1', name: 'website' }],
+									contactList: null,
+									leadSource: null,
+									assignee: null,
+									teamMail: { recipients: [] },
+									confirmation: {
+										wouldSend: true,
+										blocker: null,
+										to: 'erika@beispiel.de',
+										subject: 'Danke',
+										body: 'x',
+										note: null,
+									},
+								},
+						booking: booking
+							? {
+									eventType: { id: 'e1', slug: 'beratung-45', title: 'Beratung' },
+									source: 'event_type',
+									start: '2026-12-01T08:00:00.000Z',
+									end: '2026-12-01T08:45:00.000Z',
+									timezone: 'Europe/Berlin',
+									slotFree: true,
+									qualification: { qualified: true, headline: null, message: null },
+									hosts: { users: [], note: null },
+									contact: { match: 'existing', fills: [] },
+									confirmation: {
+										wouldSend: false,
+										blocker: null,
+										to: 'erika@beispiel.de',
+										note: 'Geht erst, wenn die Website live ist.',
+									},
+								}
+							: null,
 					},
 				});
 			}

@@ -70,6 +70,11 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
 `slots(from, to)` (freie Zeiten in UTC) und `book({ start, firstName, email, … })`. Zum Anzeigen:
 `groupSlotsByDay(slots, visitorTimeZone())` gruppiert nach Tag in der Zeitzone des Besuchers.
 
+- `info().flow === 'contact_first'`: erst Angaben und Fragen, dann `qualify(answers)`, erst danach die
+  Zeitwahl. `qualify` schreibt nichts. Bei `{ ok: true, qualified: false }` zeig `headline`, `message` und den
+  Ausweichkontakt statt der Zeiten; ein technischer Fehler lässt den Besucher weiter (die Buchung prüft noch
+  einmal).
+
 - Setz `<LeadHoneypot client={termin} />` in die Oberfläche (Bot-Falle) und ruf `termin.prepare()` auf,
   sobald eine Zeit gewählt ist (startet die Sicherheitsprüfung).
 - `book()` gibt nie eine Ausnahme, sondern `{ ok: false, reason, message, fallback }`:
@@ -82,7 +87,9 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
 ## Ausprobieren
 
 - `npm run dev` mit Anmeldung und verbundener Seite: echte Terminart, Fragen, Reihenfolge und freie Zeiten aus
-  dem CRM (vor dem ersten Hochladen über `eventType`). Eine Buchung legt keinen Termin, keinen Kontakt und keine
+  dem CRM. Vor dem ersten Hochladen gilt `eventType` (nur bei genau einer aktiven Terminart mit diesem Slug);
+  kennt die Seite den Schlüssel schon, gilt ihre Zuordnung im CRM. Wäre die Buchung live abgelehnt worden
+  (Zeit vergeben, Antworten passen nicht), zeigt die Seite denselben Fehler. Eine Buchung legt keinen Termin, keinen Kontakt und keine
   Mail an; DealSystem hält sie als **Testlauf** fest, zu sehen unter Eigene Website → Testläufe („so wäre es
   angekommen“). Lass den Kunden nach dem Einbau einmal selbst buchen (`ablauf.md`, „Testlauf mit echten
   Daten“).

@@ -78,7 +78,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	const HORIZON_DAYS = 180;
 
 	/** `confirm` nur bei `contact_first`: Angaben stehen, Zeit gewählt, jetzt buchen. */
-	type Step = 'loading' | 'pick' | 'details' | 'confirm' | 'done' | 'unavailable';
+	type Step = 'loading' | 'pick' | 'details' | 'confirm' | 'not_qualified' | 'done' | 'unavailable';
 	let step = $state<Step>('loading');
 	let info = $state<BookingInfo | null>(null);
 	let calendarZone = $state<string | null>(null);
@@ -102,6 +102,9 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	let errors = $state<Record<string, string>>({});
 	let sending = $state(false);
 	let booked = $state<{ when: string; dryRun: boolean } | null>(null);
+	/** `contact_first`: Antworten werden geprüft (vor der Zeitwahl). */
+	let qualifying = $state(false);
+	let rejection = $state<{ headline: string; message: string } | null>(null);
 
 	let heading = $state<HTMLElement | null>(null);
 	let form = $state<HTMLFormElement | null>(null);
@@ -238,8 +241,24 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		problem = null;
 		errors = client.validate({ ...person, answers }, info.questions);
 		if (errorCount > 0) return focusFirstInvalid();
+		if (qualifying) return;
 		// Die Sicherheitsprüfung läuft schon, während der Besucher die Zeit wählt.
 		client.prepare();
+		qualifying = true;
+		const check = await client.qualify(answers);
+		qualifying = false;
+		if (!check.ok) {
+			problem = check;
+			await tick();
+			problemElement?.focus();
+			return;
+		}
+		if (!check.qualified) {
+			rejection = { headline: check.headline, message: check.message };
+			step = 'not_qualified';
+			await focusHeading();
+			return;
+		}
 		step = 'pick';
 		notice = groups.length > 0 ? '' : 'In diesem Zeitraum ist kein Termin frei.';
 		await focusHeading();
@@ -299,19 +318,23 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	const live = $derived(
 		step === 'loading'
 			? 'Freie Termine werden geladen.'
-			: step === 'done' && booked
-				? booked.dryRun
-					? `Vorschau: Termin am ${booked.when} geprüft, nicht gebucht.`
-					: `Termin gebucht: ${booked.when}.`
-				: sending
-					? client.status === 'captcha'
-						? 'Die Sicherheitsprüfung läuft. Ihr Termin wird gleich gebucht.'
-						: 'Ihr Termin wird gebucht.'
-					: errorCount > 0
-						? errorCount === 1
-							? 'Bitte prüfen Sie das markierte Feld.'
-							: `Bitte prüfen Sie die ${errorCount} markierten Felder.`
-						: notice,
+			: step === 'not_qualified' && rejection
+				? rejection.headline
+				: qualifying
+					? 'Ihre Angaben werden geprüft.'
+					: step === 'done' && booked
+						? booked.dryRun
+							? `Vorschau: Termin am ${booked.when} geprüft, nicht gebucht.`
+							: `Termin gebucht: ${booked.when}.`
+						: sending
+							? client.status === 'captcha'
+								? 'Die Sicherheitsprüfung läuft. Ihr Termin wird gleich gebucht.'
+								: 'Ihr Termin wird gebucht.'
+							: errorCount > 0
+								? errorCount === 1
+									? 'Bitte prüfen Sie das markierte Feld.'
+									: `Bitte prüfen Sie die ${errorCount} markierten Felder.`
+								: notice,
 	);
 </script>
 
@@ -375,6 +398,13 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		<div class="ds-booker__notice" role="alert" tabindex="-1" bind:this={problemElement}>
 			<p>{problem?.message ?? 'Die Terminbuchung ist zurzeit nicht verfügbar.'}</p>
 			{@render contactFallback()}
+		</div>
+	{:else if step === 'not_qualified' && rejection}
+		<div class="ds-booker__done">
+			{@render stepHeading(rejection.headline)}
+			<p>{rejection.message}</p>
+			{@render contactFallback()}
+			<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
 		</div>
 	{:else if step === 'done' && booked}
 		<div class="ds-booker__done">
@@ -619,7 +649,15 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 			{@render privacy()}
 			{#if contactFirst}
-				<button type="submit" class="ds-booker__submit">Weiter zur Terminwahl</button>
+				{#if problem}
+					<div class="ds-booker__failure" role="alert" tabindex="-1" bind:this={problemElement}>
+						<p>{problem.message}</p>
+						{@render contactFallback()}
+					</div>
+				{/if}
+				<button type="submit" class="ds-booker__submit" aria-disabled={qualifying}>
+					{qualifying ? 'Wird geprüft …' : 'Weiter zur Terminwahl'}
+				</button>
 			{:else}
 				{@render failureBox()}
 				{@render submitButton()}

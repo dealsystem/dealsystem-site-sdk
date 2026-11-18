@@ -143,9 +143,11 @@ export interface DeployApi {
 	devBookingSlots(
 		id: string,
 		key: string,
-		range: { from: string; to: string },
+		range: { from: string; to: string; tz?: string },
 		eventType: string | null,
 	): Promise<RawResponse>;
+	/** Passen die Antworten zur Terminart (`POST …/dev/booking/{key}/qualify`)? Schreibt nichts. */
+	devBookingQualify(id: string, key: string, body: unknown, eventType: string | null): Promise<RawResponse>;
 	/** Testlauf: Einsendung oder Buchung, die nichts anlegt, im CRM festhalten (`POST /websites/{id}/test-runs`). */
 	createTestRun(id: string, input: TestRunInput): Promise<RawResponse>;
 }

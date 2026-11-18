@@ -102,6 +102,21 @@ export type BookingResult =
 	  }
 	| BookingFailure;
 
+/**
+ * Ergebnis von `qualify()`. `qualified: false`: Die Antworten passen nach der Regel im CRM nicht zu dieser
+ * Terminart; zeig `headline`, `message` und den Ausweichkontakt statt der Zeitwahl.
+ */
+export type BookingQualifyResult =
+	| { ok: true; qualified: true }
+	| {
+			ok: true;
+			qualified: false;
+			headline: string;
+			message: string;
+			fallback: LeadFallback;
+	  }
+	| BookingFailure;
+
 /** Was der Client gerade tut, reaktiv. */
 export type BookingClientStatus = 'idle' | 'loading' | 'captcha' | 'sending';
 
@@ -129,6 +144,12 @@ export interface BookingClient<K extends string = string> {
 		input: Omit<BookingInput, 'start'>,
 		questions?: readonly BookingQuestion[],
 	): Record<string, string>;
+	/**
+	 * Bei „erst Angaben, dann Termin“ (`info.flow === 'contact_first'`): Passen die Antworten zur Terminart? Vor der
+	 * Zeitwahl aufrufen; schreibt nichts. Ein technischer Fehler lässt den Besucher weiter (die Buchung prüft noch
+	 * einmal).
+	 */
+	qualify(answers: BookingInput['answers']): Promise<BookingQualifyResult>;
 	/** Startet die Sicherheitsprüfung im Hintergrund, z. B. sobald eine Zeit gewählt ist. */
 	prepare(): void;
 	/** Wert der Bot-Falle (`<LeadHoneypot client={booking} />`). Echte Besucher lassen sie leer. */
@@ -496,6 +517,25 @@ export function createBookingClient<K extends BookingKey>(
 			}
 		},
 		validate,
+		async qualify(input) {
+			if (!definition) return unavailable();
+			const answers = answersOf({ start: '', firstName: '', email: '', answers: input });
+			const result = await siteApi().qualifyBooking(String(booking), answers ? { answers } : {});
+			if (result.ok) {
+				if (result.data.qualified) return { ok: true, qualified: true };
+				return {
+					ok: true,
+					qualified: false,
+					headline: result.data.headline || 'Dafür bieten wir leider keinen Termin an',
+					message: result.data.message || MESSAGES.not_qualified,
+					fallback,
+				};
+			}
+			const error = result.error;
+			// Nur echte Absagen halten auf; sonst weiter, die Buchung prüft selbst.
+			if (error.code === 'booking_unavailable' || error.kind === 'rate_limited') return failure(error);
+			return { ok: true, qualified: true };
+		},
 		prepare() {
 			captcha.start();
 		},

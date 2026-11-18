@@ -176,6 +176,17 @@ export interface BookingConfirmed {
 	end: string | null;
 }
 
+/** Antwort von `POST …/booking/{bookingKey}/qualify` (bei `contact_first` vor der Zeitwahl). */
+export type BookingQualification =
+	| { qualified: true }
+	| {
+			qualified: false;
+			/** Überschrift für Besucher aus der Regel im CRM. */
+			headline: string | null;
+			/** Text für Besucher aus der Regel im CRM. */
+			message: string | null;
+	  };
+
 const LOCATION_TYPES: readonly BookingLocationType[] = ['google_meet', 'in_person', 'phone', 'link'];
 
 function str(value: unknown): string | null {
@@ -338,6 +349,11 @@ export interface SiteApi {
 		range: { from: string; to: string },
 	): Promise<SiteApiResult<BookingSlots>>;
 	createBooking(bookingKey: string, request: BookingRequest): Promise<SiteApiResult<BookingConfirmed>>;
+	/** Passen die Antworten zur Terminart? Schreibt nichts. */
+	qualifyBooking(
+		bookingKey: string,
+		request: { answers?: BookingRequest['answers'] },
+	): Promise<SiteApiResult<BookingQualification>>;
 }
 
 /**
@@ -476,6 +492,23 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 					to: str(data.to) ?? range.to,
 					slots,
 				},
+			};
+		},
+
+		async qualifyBooking(bookingKey, body) {
+			const result = await request(`/booking/${encodeURIComponent(bookingKey)}/qualify`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body.answers ? { answers: body.answers } : {}),
+			});
+			if (!result.ok) return result;
+			const data = result.data.data;
+			if (!isRecord(data) || typeof data.qualified !== 'boolean') return fail('invalid_response', 200);
+			return {
+				ok: true,
+				data: data.qualified
+					? { qualified: true }
+					: { qualified: false, headline: str(data.headline), message: str(data.message) },
 			};
 		},
 

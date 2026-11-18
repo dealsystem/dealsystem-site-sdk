@@ -704,19 +704,36 @@ describe('dev-Middleware', () => {
 						submissionId: 's1',
 						start: '2026-12-01T08:00:00.000Z',
 						attendee: { firstName: 'Erika', email: 'erika@beispiel.de' },
+						website: '',
 					},
 				},
 			]);
 			// Das Token bleibt auf dem Server.
 			const run = server.requests.find((q) => q.path.endsWith('/test-runs'));
 			expect(run!.headers.authorization).toBe('Bearer at_1');
-			expect(dev.log.join('\n')).toContain(
-				'Testlauf gespeichert, nichts angelegt, keine Mail: Kontakt Erika Muster (neu)',
+			const out = dev.log.join('\n');
+			expect(out).toContain(
+				'[dealsystem] Testlauf: nichts angelegt, keine Mail verschickt. Buchung „Erstgespräch“ wäre angekommen',
 			);
-			expect(dev.log.join('\n')).toContain('  - Pipeline Verkauf → Phase Neu');
-			expect(dev.log.join('\n')).toContain(
-				'So wäre es angekommen: https://app.example/t/ws_a/website/testlaeufe/tr_1',
-			);
+			expect(out).toContain('  - Kontakt: schon vorhanden');
+			expect(out).toContain('  - Terminart: Beratung (aus eventType in dealsystem.config.ts)');
+			expect(out).toContain('  - Geht erst, wenn die Website live ist.');
+			expect(out).toContain('im CRM unter Eigene Website → Testläufe');
+
+			// Antworten vor der Zeitwahl (contact_first) prüft der Core; nichts wird geschrieben.
+			server.state.qualifyAnswer = { qualified: false, headline: 'Leider nicht', message: 'Nur Verkauf.' };
+			const q = await post(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech/qualify`, {
+				answers: { anliegen: 'Miete' },
+			});
+			expect(await q.json()).toEqual({
+				data: { qualified: false, headline: 'Leider nicht', message: 'Nur Verkauf.' },
+			});
+			expect(
+				server.requests.some(
+					(r) =>
+						r.path === `/api/v1/websites/${SITE_ID}/dev/booking/erstgespraech/qualify?eventType=beratung-45`,
+				),
+			).toBe(true);
 		} finally {
 			await dev.close();
 		}
@@ -737,6 +754,32 @@ describe('dev-Middleware', () => {
 				key: 'kontakt',
 				payload: { funnelKey: 'kontakt', data: { email: 'a@b.de' } },
 			});
+			expect(dev.log.join('\n')).toContain('  - Deal: Erika Muster in Verkauf → Erstkontakt');
+			expect(dev.log.join('\n')).toContain('  - Tags: website');
+			expect(dev.log.join('\n')).toContain('  - Bestätigungsmail an erika@beispiel.de');
+
+			// Wäre es live abgelehnt worden (outcome rejected), sieht die Seite denselben Fehler wie live.
+			server.state.testRunRejection = {
+				code: 'validation_error',
+				message: 'Eingaben ungültig',
+				details: [{ path: 'data.email', message: 'x' }],
+			};
+			const live422 = await post(`${dev.url}/api/site/v1/s/dev/leads`, { funnelKey: 'kontakt', data: {} });
+			expect(live422.status).toBe(422);
+			expect(await live422.json()).toEqual({
+				error: 'validation_error',
+				message: 'Eingaben ungültig',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'data.email', message: 'x' }],
+			});
+			expect(dev.log.join('\n')).toContain('Abgelehnt (validation_error): Eingaben ungültig');
+			server.state.testRunRejection = { code: 'slot_taken', message: 'vergeben' };
+			const taken = await post(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech/bookings`, {
+				start: '2026-12-01T08:00:00.000Z',
+			});
+			expect(taken.status).toBe(409);
+			server.state.testRunRejection = null;
 
 			const rejected = {
 				error: 'x',
@@ -860,5 +903,40 @@ describe('Aufruf', () => {
 		const r = await runCli(io, 'status', '--api-url', 'http://app.dealsystem.io', '--json');
 		expect(r.code).toBe(2);
 		expect(r.json.error.code).toBe('invalid_api_url');
+	});
+});
+
+describe('dev: Hinweise zur echten Terminbuchung', () => {
+	it('falscher eventType: Fehler an die Seite, einmal ein Hinweis mit list_website_bookings; tz geht mit', async () => {
+		await loggedIn();
+		const store = new CredentialStore(io.env);
+		const api = new HttpDeployApi(server.url, {
+			getToken: async () => store.get(server.url)!.accessToken,
+			refresh: async () => null,
+		});
+		const log: string[] = [];
+		const middleware = createDevMiddleware({
+			api,
+			siteId: SITE_ID,
+			mediaOrigin: null,
+			fetch,
+			log: (m) => log.push(m),
+			live: { eventTypes: { erstgespraech: 'gibt-es-nicht' } },
+		});
+		const vite = createServer((req, res) => middleware(req, res, () => res.end('vite')));
+		await new Promise<void>((r) => vite.listen(0, '127.0.0.1', r));
+		const url = `http://127.0.0.1:${(vite.address() as AddressInfo).port}`;
+		try {
+			for (let i = 0; i < 2; i++) {
+				const r = await fetch(`${url}/api/site/v1/s/dev/booking/erstgespraech`);
+				expect(r.status).toBe(404);
+				expect(((await r.json()) as { code: string }).code).toBe('event_type_not_found');
+			}
+			expect(log.filter((l) => l.includes('list_website_bookings'))).toHaveLength(1);
+			await fetch(`${url}/api/site/v1/s/dev/booking/erstgespraech/slots?from=a&to=b&tz=Europe%2FVienna`);
+			expect(server.requests.find((q) => q.path.includes('/slots'))!.path).toContain('tz=Europe%2FVienna');
+		} finally {
+			await new Promise((r) => vite.close(r));
+		}
 	});
 });

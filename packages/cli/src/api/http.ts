@@ -593,14 +593,30 @@ export class HttpDeployApi implements DeployApi {
 	async devBookingSlots(
 		id: string,
 		key: string,
-		range: { from: string; to: string },
+		range: { from: string; to: string; tz?: string },
 		eventType: string | null,
 	): Promise<RawResponse> {
 		const query = new URLSearchParams({ from: range.from, to: range.to });
+		if (range.tz) query.set('tz', range.tz);
 		if (eventType) query.set('eventType', eventType);
 		const { status, json } = await this.request(
 			'GET',
 			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}/slots?${query.toString()}`,
+		);
+		return { status, body: json };
+	}
+
+	async devBookingQualify(
+		id: string,
+		key: string,
+		body: unknown,
+		eventType: string | null,
+	): Promise<RawResponse> {
+		const query = eventType ? `?eventType=${encodeURIComponent(eventType)}` : '';
+		const { status, json } = await this.request(
+			'POST',
+			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}/qualify${query}`,
+			body,
 		);
 		return { status, body: json };
 	}
