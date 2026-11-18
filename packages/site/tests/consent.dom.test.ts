@@ -1,6 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { resetFirstTouchForTests } from '../src/lib/client/attribution.js';
+import { resetAttributionForTests } from '../src/lib/client/attribution.js';
 import { resetTrackingForTests } from '../src/lib/client/tracking.js';
 import { consent } from '../src/lib/consent/consent.svelte.js';
 import { reloadPage } from '../src/lib/internal/reload.js';
@@ -37,7 +37,7 @@ beforeEach(() => {
 	sessionStorage.clear();
 	consent.resetForTests();
 	resetTrackingForTests();
-	resetFirstTouchForTests();
+	resetAttributionForTests();
 	for (const script of document.head.querySelectorAll('script')) script.remove();
 	const w = window as unknown as Record<string, unknown>;
 	delete w.fbq;
@@ -362,9 +362,11 @@ describe('Zuordnung der Kampagne', () => {
 		const user = userEvent.setup();
 		render(LayoutHarness);
 		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
-		expect(JSON.parse(sessionStorage.getItem('ds-first-touch')!)).toMatchObject({
-			utmSource: 'google',
-			utmCampaign: 'herbst',
+		expect(sessionStorage.length).toBe(0);
+		expect(JSON.parse(localStorage.getItem('ds-attr')!)).toMatchObject({
+			v: 2,
+			first: { source: 'google', campaign: 'herbst', landingPath: '/' },
+			touches: 1,
 		});
 		window.history.replaceState({}, '', '/');
 	});

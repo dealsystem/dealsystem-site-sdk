@@ -68,5 +68,15 @@ Eigene Website → Rechtliches einzutragen. Ein Feld, das dort leer ist, lässt 
   `<SiteFooterLegal />` bleiben trotzdem im Layout. Ein `<ConsentGate category="marketing">` zählt nur mit
   Tracking-Kennung, denn andere Werbe-Dienste erlauben die Sicherheitsregeln nicht.
 - Gefragt wird nur nach den Zwecken, die die Seite braucht. Fest vorgeben: `<CookieBanner categories={['marketing']} />`.
+- **Kampagnen und Seitenaufrufe erfasst das SDK selbst** (`<SiteHead>`, `<LeadForm>`). Bau nichts davon nach:
+  kein eigenes Auslesen von `utm_*`, `gclid` oder `fbclid`, kein eigener Speicher, keine eigenen Pixel-Ereignisse.
+  - Ohne Einwilligung: nur der aktuelle Besuch (UTM, fremder Referrer, Einstiegsseite, eigene URL-Parameter), nur
+    im Arbeitsspeicher. Er geht mit der Anfrage ins CRM. Seitenaufrufe zählt das CRM anonym.
+  - Mit Einwilligung „Marketing“ zusätzlich im Browser (`localStorage` `ds-attr`): erster und letzter Besuch,
+    Klick-IDs (`gclid`, `gbraid`, `wbraid`, `fbclid`, `msclkid`, `_fbp`, 90 Tage) und eine Besuchs-ID (13 Monate).
+    Ein Widerruf löscht das wieder.
+  - Nach einer angenommenen Anfrage meldet das SDK `Lead` an das Meta Pixel und `generate_lead` an Google, mit
+    derselben Ereignis-ID wie die serverseitige Meldung des CRM (`lead-<submissionId>`); so zählt sie einmal.
+  - Eigene URL-Parameter (z. B. `?partner=…`) liest `getCampaignParam('partner')` (`komponenten.md`).
 - Das Formular schützt eine Rechenaufgabe im Hintergrund (ALTCHA) vor Missbrauch. Sie kommt von
   DealSystem selbst, setzt kein Cookie und braucht keine Einwilligung.

@@ -1,7 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { resetFirstTouchForTests } from '../src/lib/client/attribution.js';
+import { resetAttributionForTests } from '../src/lib/client/attribution.js';
 import { setCaptchaAdapterForTests, type CaptchaCallbacks } from '../src/lib/client/captcha.js';
+import { loadTracking, resetTrackingForTests } from '../src/lib/client/tracking.js';
 import LeadForm from '../src/lib/components/LeadForm.svelte';
 import { consent } from '../src/lib/consent/consent.svelte.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
@@ -63,7 +64,7 @@ beforeEach(() => {
 	localStorage.clear();
 	sessionStorage.clear();
 	consent.resetForTests();
-	resetFirstTouchForTests();
+	resetAttributionForTests();
 	fetchSpy.mockReset();
 	fetchSpy.mockResolvedValue(jsonResponse(201, { data: { accepted: true } }));
 	vi.stubGlobal('fetch', fetchSpy);
@@ -191,7 +192,14 @@ describe('Versand', () => {
 		expect(body).toMatchObject({
 			funnelKey: 'kontakt',
 			data: { email: 'anna@beispiel.de', nachricht: 'Bitte um Rückruf' },
-			attribution: { utmSource: 'google', utmMedium: 'cpc' },
+			attribution: {
+				v: 2,
+				first: { source: 'google', medium: 'cpc', landingPath: '/' },
+				touches: 1,
+				clickIds: null,
+				visitorId: null,
+				consent: { statistics: false, marketing: false, at: null },
+			},
 			website: '',
 		});
 		expect(body.submissionId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-/);
@@ -540,5 +548,44 @@ describe('Captcha', () => {
 		await waitFor(() => expect(fake.started).toBe(1));
 		unmount();
 		expect(fake.destroyed).toBe(1);
+	});
+});
+
+describe('Ereignis-ID für Meta Pixel und Google Tag', () => {
+	const w = window as unknown as Record<string, unknown>;
+	afterEach(() => {
+		for (const key of ['fbq', '_fbq', 'gtag', 'dataLayer']) delete w[key];
+		for (const script of document.head.querySelectorAll('script')) script.remove();
+		resetTrackingForTests();
+	});
+
+	function withPixel() {
+		consent.save(['marketing']);
+		loadTracking({ metaPixelId: '1234567890', googleTagId: null });
+		const fbq = vi.fn();
+		w.fbq = fbq;
+		return fbq;
+	}
+
+	it('meldet die angenommene Anfrage mit lead-<submissionId>, derselben ID wie der Lead', async () => {
+		const fbq = withPixel();
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await screen.findByRole('status');
+		const { submissionId, attribution } = sentBody() as {
+			submissionId: string;
+			attribution: { consent: unknown };
+		};
+		expect(fbq).toHaveBeenCalledWith('track', 'Lead', {}, { eventID: `lead-${submissionId}` });
+		expect(attribution.consent).toMatchObject({ marketing: true });
+	});
+
+	it('nicht in der Vorschau und nicht bei einem Fehler', async () => {
+		const fbq = withPixel();
+		fetchSpy.mockResolvedValue(jsonResponse(200, { data: { accepted: true, dryRun: true } }));
+		const { user } = setup();
+		await fillAndSubmit(user);
+		await screen.findByRole('status');
+		expect(fbq).not.toHaveBeenCalled();
 	});
 });

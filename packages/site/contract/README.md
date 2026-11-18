@@ -4,7 +4,7 @@ Gegen diese Dateien ist der Client des Pakets getestet (`tests/contract.test.ts`
 
 | Datei                | Herkunft                                                                                                | Inhalt                                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `site-api.v1.json`   | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern.                    | Leads, Captcha, Sammlungen                                                                                               |
+| `site-api.v1.json`   | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern.                    | Leads, Captcha, Seitenaufrufe, Sammlungen                                                                                |
 | `ds-content.v1.json` | **SDK**, Quelle hier; erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/contentBlockContract.test.ts` | Inhaltsblock `ds-content`, Feld `contentPatch` samt Grenzen, Fälle „Artefakt vorher + Slot-Werte → nachher“ bzw. „bauen“ |
 
 Ändert sich die Site-API im Core, wird `site-api.v1.json` neu kopiert. Schlägt danach der Vertragstest fehl,

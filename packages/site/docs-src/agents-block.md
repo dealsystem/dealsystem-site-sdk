@@ -50,6 +50,7 @@ Jede Regel mit Korrektur: `regeln.md`.
 - Titel, Beschreibung, Vorschaubild und Favicon pflegt der Kunde unter Eigene Website → Einstellungen → Google und Teilen; nicht fest im Code überschreiben (`seo.md`).
 - `svelte.config.js` und `vite.config.ts` nicht ändern (`npx dealsystem sync --fix-config`). Nur freigegebene Pakete (`npx dealsystem check --allowed`).
 - Barrierefrei bauen: `gestaltung.md`.
+- Kampagnen, Klick-IDs und Seitenaufrufe erfasst das SDK; nicht nachbauen (`rechtstexte.md`).
 
 ### Skills
 
