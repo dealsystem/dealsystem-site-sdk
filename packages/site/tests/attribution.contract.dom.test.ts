@@ -106,6 +106,23 @@ describe('Vertrag: POST …/track', () => {
 		});
 	});
 
+	it('sendet per fetch mit JSON und keepalive, nie per sendBeacon (der Core lehnt text/plain mit 415 ab)', () => {
+		const beacon = vi.fn(() => true);
+		Object.defineProperty(navigator, 'sendBeacon', { value: beacon, configurable: true });
+		consent.init();
+		trackPageview('/verkaufen');
+		expect(beacon).not.toHaveBeenCalled();
+		const init = fetchSpy.mock.calls[0]![1]!;
+		expect(init).toMatchObject({ method: 'POST', keepalive: true, credentials: 'omit' });
+		const contentType = Object.entries(init.headers as Record<string, string>).find(
+			([name]) => name.toLowerCase() === 'content-type',
+		)?.[1];
+		expect(contentType).toBe('application/json');
+		expect(() => JSON.parse(String(init.body))).not.toThrow();
+		// Der Vertrag verlangt genau diesen Content-Type.
+		expect(Object.keys(trackOp.requestBody.content)).toEqual(['application/json']);
+	});
+
 	it('die Erfolgsantworten des Vertrags gelten als angenommen, die Vorschau als dryRun', async () => {
 		const example = (code: '200' | '202') =>
 			(trackOp.responses[code] as { content: { 'application/json': { example: unknown } } }).content[

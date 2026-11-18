@@ -142,7 +142,7 @@
       "post": {
         "operationId": "submitLead",
         "summary": "Formular einreichen",
-        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.\n\n**Attribution** (`attribution`, optional): Fassung 2 (`v: 2`) oder die flache Fassung 1. `clickIds` speichert der Core nur mit `consent.marketing: true`, `visitorId` nur mit `consent.statistics: true`; sonst verwirft er sie vor dem Speichern. Query und Fragment in `landingPath` entfernt der Core. Für Pixel und gtag gilt die Ereignis-ID `lead-<submissionId>` (Deduplizierung mit der serverseitigen Conversion).",
+        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.\n\n**Attribution** (`attribution`, optional): Fassung 2 (`v: 2`) oder die flache Fassung 1. `clickIds` speichert der Core nur mit `consent.marketing: true`, `visitorId` nur mit `consent.marketing: true`; sonst verwirft er sie vor dem Speichern. Query und Fragment in `landingPath` entfernt der Core. Für Pixel und gtag gilt die Ereignis-ID `lead-<submissionId>` (Deduplizierung mit der serverseitigen Conversion).",
         "tags": [
           "Site-API"
         ],
@@ -529,7 +529,7 @@
                             ]
                           },
                           "visitorId": {
-                            "description": "Zufalls-UUID des Browsers. Nur mit `consent.statistics: true` gespeichert.",
+                            "description": "Zufalls-UUID des Browsers. Nur mit `consent.marketing: true` gespeichert.",
                             "anyOf": [
                               {
                                 "type": "string",
@@ -587,7 +587,7 @@
                               "marketing"
                             ],
                             "additionalProperties": false,
-                            "description": "Einwilligung des Besuchers aus dem Cookie-Banner. `visitorId` zählt nur mit `statistics: true`, `clickIds` nur mit `marketing: true` — sonst verwirft der Core sie vor dem Speichern."
+                            "description": "Einwilligung des Besuchers aus dem Cookie-Banner. `visitorId` und `clickIds` zählen nur mit `marketing: true` — sonst verwirft der Core sie vor dem Speichern."
                           }
                         },
                         "required": [
@@ -887,7 +887,7 @@
       "post": {
         "operationId": "trackPageview",
         "summary": "Seitenaufruf zählen",
-        "description": "Zählt einen Seitenaufruf für die Statistik der Website (Besuche, Seiten, Kanäle). Das SDK ruft ihn bei jedem Seitenwechsel auf, mit `landing: true` beim ersten Aufruf eines Besuchs; nur dann zählen `utm` und `referrerHost` (Kanal des Besuchs).\n\n**Datenschutz:** Ohne Einwilligung speichert der Core nur Pfad (ohne Query und Fragment), Kanal, Kampagne und einen täglich wechselnden Hash aus IP und User-Agent; die IP selbst nie. `visitorId` nur mit `consent.statistics: true`; damit verknüpft eine spätere Anfrage die Besuche mit dem Kontakt. Aus der Vorschau wird nichts gezählt (`dryRun`). Bots werden still verworfen (dieselbe Antwort).\n\nBody höchstens 4 KB. Fehler hier darf das SDK ignorieren — nie dem Besucher zeigen.",
+        "description": "Zählt einen Seitenaufruf für die Statistik der Website (Besuche, Seiten, Kanäle). Das SDK ruft ihn bei jedem Seitenwechsel auf, mit `landing: true` beim ersten Aufruf eines Besuchs; nur dann zählen `utm` und `referrerHost` (Kanal des Besuchs).\n\n**Datenschutz:** Ohne Einwilligung speichert der Core nur Pfad (ohne Query und Fragment), Kanal, Kampagne und einen täglich wechselnden Hash aus IP und User-Agent; die IP selbst nie. `visitorId` nur mit `consent.marketing: true`; damit verknüpft eine spätere Anfrage die Besuche mit dem Kontakt. Aus der Vorschau wird nichts gezählt (`dryRun`). Bots werden still verworfen (dieselbe Antwort).\n\nBody höchstens 4 KB. Fehler hier darf das SDK ignorieren — nie dem Besucher zeigen.",
         "tags": [
           "Site-API"
         ],
@@ -1013,7 +1013,7 @@
                     ]
                   },
                   "visitorId": {
-                    "description": "Nur mit `consent.statistics: true` gespeichert.",
+                    "description": "Nur mit `consent.marketing: true` gespeichert.",
                     "anyOf": [
                       {
                         "type": "string",
@@ -1071,8 +1071,8 @@
                 },
                 "visitorId": "5b1d7c2e-8f4a-4e3b-9c6d-2a7f1e0b3c4d",
                 "consent": {
-                  "statistics": true,
-                  "marketing": false,
+                  "statistics": false,
+                  "marketing": true,
                   "at": "2026-11-10T08:03:05.000Z"
                 }
               }
