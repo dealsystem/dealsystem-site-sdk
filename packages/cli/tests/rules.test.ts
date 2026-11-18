@@ -465,6 +465,13 @@ const CASES: Record<string, RuleCase[]> = {
 						'<svelte:head><script type="application/ld+json">[]</script></svelte:head>\n<h1>A</h1>',
 					),
 				},
+				// Eigene JSON-Daten mit anderer id führen nichts aus.
+				{
+					...NEW_CSP,
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head><script type="application/json" id="preise">[]</script></svelte:head>\n<h1>A</h1>',
+					),
+				},
 			],
 			fail: [
 				{
@@ -480,6 +487,18 @@ const CASES: Record<string, RuleCase[]> = {
 				{
 					...NEW_CSP,
 					'static/info.html': '<!doctype html><html lang="de"><script>alert(1)</script></html>\n',
+				},
+				// Inhaltsblock des SDK (Patchen statt Bauen) nie im eigenen Code, auch nicht als JSON und nicht mit
+				// der alten CSP: Er würde das Patchen im Core aushebeln.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head><script type="application/json" id="ds-content">[]</script></svelte:head>\n<h1>A</h1>',
+					),
+				},
+				{ 'src/lib/patch.ts': "export const block = () => document.getElementById('ds-content');\n" },
+				{
+					'static/info.html':
+						'<!doctype html><html lang="de"><script type="application/json" id="ds-content">[]</script></html>\n',
 				},
 			],
 		},

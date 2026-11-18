@@ -138,7 +138,7 @@ export const RULES: readonly RuleMeta[] = [
 		severity: 'error',
 		stages: ['source'],
 		title:
-			'kein `eval`, `new Function`, WebAssembly, kein Inline-Event-Handler als Zeichenkette, kein `<script>` ohne `src`',
+			'kein `eval`, `new Function`, WebAssembly, kein Inline-Event-Handler als Zeichenkette, kein `<script>` ohne `src`, kein eigener Inhaltsblock `ds-content`',
 		fix: 'Entferne den Fund; die Seite läuft mit einer strengen Content-Security-Policy. Eigenen Code legst du als Datei in `static/scripts/` ab und lädst ihn mit `<ExternalScript>` (extern.md).',
 	},
 	{

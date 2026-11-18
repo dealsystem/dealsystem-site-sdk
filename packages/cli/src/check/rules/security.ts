@@ -431,9 +431,62 @@ const sec006 = sourceRule('SEC-006', (ctx) => {
 				severity: tightened,
 			});
 		}
+		// Inhaltsblock des SDK auch nicht in eigenen HTML-Dateien (`src/app.html`, `static/`).
+		for (const m of code.matchAll(/<[a-z]+\b[^>]*\bid\s*=\s*["']?ds-content\b[^>]*>/gi)) {
+			out.push(
+				ctx.at(
+					path,
+					m.index,
+					`\`${path}\` enthält den Inhaltsblock \`ds-content\` des SDK.`,
+					CONTENT_BLOCK_FIX,
+				),
+			);
+		}
 	}
+	out.push(...contentBlockOwnership(ctx));
 	return out;
 });
+
+// Inhaltsblock `ds-content` (Patchen statt Bauen): Ihn schreibt nur `<SiteHead>` aus dem SDK. Ein eigener
+// Block oder Code, der ihn liest oder schreibt, würde beim Patchen alte und neue Texte mischen.
+// Regelsatz 3: Fehler (in feature/p2-content-block zunächst Warnung). Es gibt keinen legitimen Grund dafür.
+const CONTENT_BLOCK_ID = /(['"`])ds-content\1/g;
+const CONTENT_BLOCK_FIX =
+	'Lass den Block weg: `<SiteHead>` im Haupt-Layout schreibt ihn. Texte aus dem CRM gehören in `<Text>`, `<RichText>` oder `<MediaImage key>`.';
+
+function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
+	const out: RawFinding[] = [];
+	const fix = CONTENT_BLOCK_FIX;
+	for (const path of ctx.codeFiles()) {
+		const reported = new Set<number>();
+		if (isSvelteFile(path)) {
+			for (const el of ctx.svelte(path)?.elements ?? []) {
+				if (el.kind !== 'element') continue;
+				const id = el.attributes.find((a) => a.kind === 'attribute' && a.name === 'id');
+				if (id?.value !== 'ds-content') continue;
+				const finding = ctx.at(
+					path,
+					id.start,
+					`\`<${el.name} id="ds-content">\` ist der Inhaltsblock des SDK.`,
+					fix,
+				);
+				reported.add(finding.line ?? -1);
+				out.push(finding);
+			}
+		}
+		for (const m of findAll(ctx.code(path), CONTENT_BLOCK_ID, ctx.lines(path))) {
+			if (reported.has(m.line)) continue;
+			out.push({
+				file: path,
+				line: m.line,
+				column: m.column,
+				message: `\`${path}\` nennt den Inhaltsblock \`ds-content\` des SDK.`,
+				fix,
+			});
+		}
+	}
+	return out;
+}
 
 // ------------------------------------------------------------------ SEC-007
 
