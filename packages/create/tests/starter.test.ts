@@ -134,6 +134,21 @@ describe('Starter ohne Inhalte aus dem CRM (erster Tag)', () => {
 		expect(csp).toMatch(/connect-src 'self' https:\/\/app\.dealsystem\.io[ ;]/);
 		expect(csp).toMatch(/frame-src 'self' https:\/\/www\.openstreetmap\.org/);
 		expect(csp).toMatch(/worker-src 'self'/);
+		// Die Captcha-Worker liegen als eigene Dateien vom selben Ursprung vor, nie als blob:- oder data:-Adresse
+		// (die `worker-src 'self'` sperren würde).
+		const workers = await readdir(join(project.dir, 'build/_app/immutable/workers'));
+		expect(workers.some((f) => /^pbkdf2-.*\.js$/.test(f))).toBe(true);
+		expect(workers.some((f) => /^sha-.*\.js$/.test(f))).toBe(true);
+		const jsFiles: string[] = [];
+		const collect = async (dir: string): Promise<void> => {
+			for (const e of await readdir(dir, { withFileTypes: true })) {
+				const p = join(dir, e.name);
+				if (e.isDirectory()) await collect(p);
+				else if (e.name.endsWith('.js')) jsFiles.push(await readFile(p, 'utf8'));
+			}
+		};
+		await collect(join(project.dir, 'build/_app'));
+		expect(jsFiles.filter((code) => /new Worker\(\s*(?:objURL|['"`](?:blob|data):)/.test(code))).toEqual([]);
 
 		const check = (apiUrl: string) =>
 			runCheck({ outputDir: join(project.dir, 'build'), stages: ['output'], apiUrl }).then(problems);

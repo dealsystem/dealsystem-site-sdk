@@ -16,6 +16,7 @@ import type {
 	WebsiteDetails,
 	WebsiteDomain,
 	WebsiteSlot,
+	WhoAmI,
 } from './types.js';
 
 export interface TokenProvider {
@@ -234,6 +235,27 @@ export class HttpDeployApi implements DeployApi {
 				'Live schalten und Rollback brauchen das Recht „Website veröffentlichen“. Bitte einen Admin des Workspaces darum.';
 		}
 		throw new ApiError(status, code, message, fix);
+	}
+
+	async whoami(): Promise<WhoAmI | null> {
+		let raw: unknown;
+		try {
+			raw = await this.call('GET', '/meta/whoami');
+		} catch (e) {
+			// Älterer Core ohne den Endpunkt: fail-open, der Aufrufer zeigt den Rest.
+			if (e instanceof ApiError && [404, 405, 501].includes(e.status)) return null;
+			throw e;
+		}
+		const o = obj(raw);
+		const ws = obj(o.workspace);
+		const wsId = str(ws.id);
+		if (!wsId) return null;
+		const u = obj(o.user);
+		const userId = str(u.id);
+		return {
+			workspace: { id: wsId, name: str(ws.name) ?? '' },
+			user: userId ? { id: userId, name: str(u.name), email: str(u.email) } : null,
+		};
 	}
 
 	async listWebsites(): Promise<Website[]> {

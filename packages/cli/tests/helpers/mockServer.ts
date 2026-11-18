@@ -63,6 +63,13 @@ export interface MockState {
 	slots: { key: string; type: string; label: string; inUse: boolean; value: unknown }[];
 	/** Hochgeladene Fotos je `uploadId` (`POST …/media`, signiertes PUT). */
 	mediaUploads: Record<string, { slotKey: string; bytes: number; body: Buffer | null }>;
+	/** Antwort von `GET /meta/whoami`; `null` = Endpunkt fehlt (älterer Core, 404). */
+	whoami: {
+		workspace: { id: string; name: string };
+		user: { id: string; name: string; email: string } | null;
+	} | null;
+	/** Statt `whoami` mit diesem Status antworten (z. B. 500). */
+	whoamiStatus: number | null;
 }
 
 export interface MockSource {
@@ -155,6 +162,11 @@ export async function startMockServer(): Promise<MockServer> {
 			{ key: 'ueber.foto', type: 'image', label: 'Foto', inUse: true, value: null },
 		],
 		mediaUploads: {},
+		whoami: {
+			workspace: { id: 'ws_a', name: 'Muster GmbH' },
+			user: { id: 'u_1', name: 'Max Muster', email: 'max@muster.example' },
+		},
+		whoamiStatus: null,
 	};
 	let deviceIssued = false;
 
@@ -284,6 +296,11 @@ export async function startMockServer(): Promise<MockServer> {
 			if (!auth.startsWith('Bearer ') || !state.validTokens.has(auth.slice(7)))
 				return error(401, 'invalid_token', 'Token ungültig');
 			const parts = url.pathname.slice('/api/v1/'.length).split('/');
+			if (url.pathname === '/api/v1/meta/whoami' && req.method === 'GET') {
+				if (state.whoamiStatus) return error(state.whoamiStatus, 'server_error', 'Fehler');
+				if (!state.whoami) return error(404, 'not_found', 'Nicht gefunden');
+				return reply(200, { data: state.whoami });
+			}
 			if (parts[0] !== 'websites') return error(404, 'not_found', 'Nicht gefunden');
 			if (parts.length === 1) {
 				if (req.method === 'GET') return reply(200, { data: state.sites });

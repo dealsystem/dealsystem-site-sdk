@@ -92,7 +92,16 @@ export interface ReleaseResult {
 	url: string | null;
 }
 
+/** Workspace und Nutzer hinter dem Token (`GET /api/v1/meta/whoami`). */
+export interface WhoAmI {
+	workspace: { id: string; name: string };
+	/** `null` bei einem API-Schlüssel ohne Nutzer. */
+	user: { id: string; name: string | null; email: string | null } | null;
+}
+
 export interface DeployApi {
+	/** `null`, wenn der Server den Endpunkt noch nicht kennt (älterer Core). */
+	whoami(): Promise<WhoAmI | null>;
 	listWebsites(): Promise<Website[]>;
 	createWebsite(input: { name: string; slug: string }): Promise<Website>;
 	getWebsite(id: string): Promise<WebsiteDetails>;

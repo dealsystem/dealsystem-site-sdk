@@ -88,6 +88,7 @@ describe('login', () => {
 		expect(io.sleeps).toEqual([]);
 		const wait = await runCli(io, 'login', '--wait', '--json');
 		expect(wait.code).toBe(0);
+		expect(wait.json.data.workspace).toEqual({ id: 'ws_a', name: 'Muster GmbH' });
 		expect(new CredentialStore(io.env).get(server.url)?.accessToken).toBe('at_1');
 		expect(new CredentialStore(io.env).readPending()).toBeNull();
 	});
@@ -136,8 +137,108 @@ describe('Token-Erneuerung', () => {
 	});
 });
 
+describe('status: Workspace, Nutzer und Seite', () => {
+	beforeEach(loggedIn);
+
+	it('nennt Workspace, angemeldeten Nutzer und Seite mit ID und Slug', async () => {
+		const r = await runCli(io, 'status');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain('Workspace: Muster GmbH (ID ws_a)');
+		expect(r.stdout).toContain('Angemeldet als: Max Muster <max@muster.example> (ID u_1)');
+		expect(r.stdout).toContain(`Seite: Muster Immobilien (muster), ID ${SITE_ID} aus dealsystem.config.ts`);
+		const j = await runCli(io, 'status', '--json');
+		expect(j.json.data).toMatchObject({
+			workspace: { id: 'ws_a', name: 'Muster GmbH' },
+			user: { id: 'u_1', name: 'Max Muster', email: 'max@muster.example' },
+			workspaceLookup: 'known',
+			siteId: SITE_ID,
+			siteSource: 'config',
+			site: { id: SITE_ID, slug: 'muster' },
+		});
+	});
+
+	it('zeigt den Workspace auch ohne siteId (vor dem Anlegen der Seite)', async () => {
+		rmSync(join(project, 'dealsystem.config.ts'));
+		const r = await runCli(io, 'status');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain('Workspace: Muster GmbH (ID ws_a)');
+		expect(r.stdout).toContain('Seite: noch keine gewählt');
+		expect(r.stdout).toContain('npx dealsystem init');
+		expect(server.requests.some((q) => q.path.startsWith('/api/v1/websites'))).toBe(false);
+		expect((await runCli(io, 'status', '--json')).json.data).toMatchObject({ site: null, siteId: null });
+	});
+
+	it('älterer Server ohne whoami (404): sagt das und zeigt den Rest', async () => {
+		server.state.whoami = null;
+		const r = await runCli(io, 'status');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain(
+			'Workspace: unbekannt, dieser DealSystem-Server nennt den Workspace noch nicht',
+		);
+		expect(r.stdout).not.toContain('Angemeldet als');
+		expect(r.stdout).toContain('Seite: Muster Immobilien (muster)');
+		expect((await runCli(io, 'status', '--json')).json.data).toMatchObject({
+			workspace: null,
+			user: null,
+			workspaceLookup: 'unsupported',
+		});
+	});
+
+	it('Serverfehler bei whoami: zeigt den Rest', async () => {
+		server.state.whoamiStatus = 500;
+		const r = await runCli(io, 'status');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain('Workspace: konnte nicht abgefragt werden');
+		expect(r.stdout).toContain('Seite: Muster Immobilien (muster)');
+	});
+
+	it('Seite aus einem anderen Workspace: klarer Fehler mit Workspace-Namen', async () => {
+		server.state.sites = [];
+		const r = await runCli(io, 'status', '--json');
+		expect(r.code).toBe(2);
+		expect(r.json.error.code).toBe('site_not_in_workspace');
+		expect(r.json.error.message).toContain('im Workspace „Muster GmbH“ nicht');
+		expect(r.json.error.fix).toContain('npx dealsystem login');
+		expect(r.json.data).toMatchObject({ workspace: { id: 'ws_a' }, siteId: SITE_ID });
+	});
+
+	it('API-Schlüssel ohne Nutzer', async () => {
+		server.state.validTokens.add('dm_live_ci');
+		io.env.DEALSYSTEM_TOKEN = 'dm_live_ci';
+		server.state.whoami = { workspace: { id: 'ws_a', name: 'Muster GmbH' }, user: null };
+		const r = await runCli(io, 'status');
+		expect(r.stdout).toContain('Angemeldet: per API-Schlüssel aus DEALSYSTEM_TOKEN, ohne Nutzer');
+	});
+});
+
+describe('status ohne Anmeldung', () => {
+	it('nennt die lokale Seite und den Weg zum Login', async () => {
+		const r = await runCli(io, 'status');
+		expect(r.code).toBe(3);
+		expect(r.stderr).toContain('Du bist nicht angemeldet.');
+		expect(r.stderr).toContain('Workspace und Nutzer sind deshalb unbekannt');
+		expect(r.stderr).toContain(`Seite laut dealsystem.config.ts: ${SITE_ID}`);
+		expect(r.stderr).toContain('npx dealsystem login');
+		const j = await runCli(io, 'status', '--json');
+		expect(j.json.data).toMatchObject({ loggedIn: false, siteId: SITE_ID });
+	});
+});
+
 describe('init', () => {
 	beforeEach(loggedIn);
+
+	it('nennt den Workspace, in dem die Seite liegt', async () => {
+		const r = await runCli(io, 'init', '--create', '--name', 'Neu', '--slug', 'neu');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain('Seite angelegt: Neu (neu). Workspace: „Muster GmbH“.');
+	});
+
+	it('älterer Server ohne whoami: init läuft trotzdem', async () => {
+		server.state.whoami = null;
+		const r = await runCli(io, 'init', '--create', '--name', 'Neu', '--slug', 'neu', '--json');
+		expect(r.code).toBe(0);
+		expect(r.json.data.workspace).toBeNull();
+	});
 
 	it('wählt die einzige Seite und trägt die siteId ein', async () => {
 		writeFileSync(

@@ -60,15 +60,15 @@ const SKILLS = [
 	['website-planen', 'Ziel und Seiten festlegen'],
 	['erster-entwurf', 'erste Fragen, Entwurf lokal zeigen'],
 	['neue-seite', 'neue Seite oder Abschnitt'],
-	['bild-einbauen', 'Foto des Kunden einbauen'],
-	['formular-anbinden', 'Kontakt- oder Anfrageformular, Ratgeber zum Download'],
+	['bild-einbauen', 'Foto des Kunden'],
+	['formular-anbinden', 'Anfrageformular, Ratgeber zum Download'],
 	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
 	['termin-buchung', 'Terminbuchung (`termine.md`)'],
 	['extern-einbinden', 'Video, Karte, Chat, fremdes Skript'],
-	['angebote-einbauen', 'Angebote und andere Sammlungen aus dem CRM'],
+	['angebote-einbauen', 'Angebote und Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check`'],
 	['veroeffentlichen', 'hochladen, Vorschau, veröffentlichen'],
-	['domain-verbinden', 'eigene Domain des Kunden'],
+	['domain-verbinden', 'eigene Domain'],
 ];
 
 /** Reihenfolge und Gruppen der Komponenten in der Übersicht. */

@@ -92,7 +92,7 @@ Foto ins Projekt holen (add) oder als eigenes Bild eines Bild-Platzes in DealSys
 
 ## `dealsystem status`
 
-Seite, Live-Version, Rechtstexte, letzte Versionen, Domains.
+Workspace und Nutzer der Anmeldung, Seite (ID, Slug), Live-Version, Rechtstexte, letzte Versionen, Domains.
 
 ## Exit-Codes
 

@@ -170,7 +170,8 @@ export const COMMANDS: Record<string, CommandDef> = {
 		positionals: true,
 	},
 	status: {
-		summary: 'Seite, Live-Version, Rechtstexte, letzte Versionen, Domains',
+		summary:
+			'Workspace und Nutzer der Anmeldung, Seite (ID, Slug), Live-Version, Rechtstexte, letzte Versionen, Domains',
 		usage: 'dealsystem status',
 		options: {},
 		flags: [],

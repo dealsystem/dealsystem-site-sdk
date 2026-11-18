@@ -9,15 +9,23 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/termine.md` und `komponenten.m
 
 ## 1. Die Terminart gibt es im CRM, du erfindest keine
 
-Dauer, Arbeitszeiten, Fragen und wer den Termin bekommt, legt der Kunde im CRM unter **Termine** fest. Mit dem
-DealSystem-Konnektor kannst du das für ihn tun: `list_event_types` zeigt, was es gibt (mit `slug`),
-`create_event_type`, `upsert_schedule` und `upsert_booking_field` legen an, was er dir genannt hat. Erfinde keine
-Terminart, keine Dauer und keine Arbeitszeiten: Frag in einem Satz, was er anbieten möchte, wenn es noch nichts
-gibt. Die Verbindung zu Google oder Outlook richtet er selbst ein (`get_calendar_connection_link` gibt den Link).
+Dauer, Arbeitszeiten, Fragen und wer den Termin bekommt, legt der Kunde im CRM unter **Termine** fest. Erfinde
+keine Terminart, keine Dauer und keine Arbeitszeiten: Frag in einem Satz, was er anbieten möchte, wenn es noch
+nichts gibt.
+
+**Welche Terminarten es gibt, zeigt nur `list_website_bookings`** im DealSystem-Konnektor, mit der `websiteId`
+aus `npx dealsystem status`. Das Feld `eventTypes` (mit `slug`) sind die aktiven Terminarten im Workspace der
+Seite. Nimm nicht `list_event_types`: Das zeigt den Workspace des Konnektors, und der kann ein anderer sein.
+Kennt der Konnektor die Seite nicht, oder weicht sein `workspace` (aus `get_website_guide`) von
+`npx dealsystem status` ab, bitte den Kunden, den Konnektor neu zu verbinden und den Workspace der Seite zu
+wählen. Bis dahin schlägst du keine Terminart vor.
+
+Passen die Workspaces, legen `create_event_type`, `upsert_schedule` und `upsert_booking_field` an, was er dir
+genannt hat. Ohne Konnektor trägt er die Terminart selbst im CRM unter Termine ein. Die Verbindung zu Google oder Outlook richtet er selbst ein (`get_calendar_connection_link` gibt den Link).
 
 ## 2. Zuordnung in `dealsystem.config.ts`
 
-Unter `booking` je Termin auf der Seite ein Schlüssel. `eventType` ist der `slug` aus `list_event_types`; ohne
+Unter `booking` je Termin auf der Seite ein Schlüssel. `eventType` ist der `slug` aus `list_website_bookings`; ohne
 ihn wählt der Kunde die Terminart nach dem Hochladen im CRM.
 
 ```ts

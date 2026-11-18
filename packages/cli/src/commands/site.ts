@@ -1,10 +1,20 @@
 // `dealsystem init` (Seite wählen oder anlegen, `siteId` eintragen) und `dealsystem status`.
 
 import { writeFileSync } from 'node:fs';
-import { CliError, EXIT } from '../api/errors.js';
+import { ApiError, CliError, EXIT } from '../api/errors.js';
 import { legalStatus, legalStatusLine } from '../api/legal.js';
-import type { Website } from '../api/types.js';
+import type { VersionSummary, Website, WebsiteDetails } from '../api/types.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
+import {
+	lookupWorkspace,
+	lookupWorkspaceQuietly,
+	userLine,
+	workspaceData,
+	workspaceLine,
+	workspaceName,
+	workspaceSentence,
+	type WorkspaceLookup,
+} from '../cli/workspace.js';
 import { defaultSiteConfig, SITE_CONFIG_FILE, writeSiteIdIntoConfig } from '../project/siteConfig.js';
 
 function siteLine(s: Website): string {
@@ -86,21 +96,83 @@ export async function initCommand(ctx: CommandContext): Promise<CommandResult> {
 		);
 	}
 	if (next !== current) writeFileSync(ctx.path(SITE_CONFIG_FILE), next);
+	const lookup = await lookupWorkspaceQuietly(ctx);
+	const { workspace } = workspaceData(lookup);
 	return {
 		exitCode: EXIT.ok,
-		data: { siteId: site.id, name: site.name, slug: site.slug, created, configFile: SITE_CONFIG_FILE },
-		text: `${created ? 'Seite angelegt' : 'Seite gewählt'}: ${site.name} (${site.slug}). \`siteId\` steht in ${SITE_CONFIG_FILE}. Nächster Schritt: \`npx dealsystem sync\`.`,
+		data: {
+			siteId: site.id,
+			name: site.name,
+			slug: site.slug,
+			created,
+			configFile: SITE_CONFIG_FILE,
+			workspace,
+		},
+		text: `${created ? 'Seite angelegt' : 'Seite gewählt'}: ${site.name} (${site.slug}).${workspaceSentence(lookup)} \`siteId\` steht in ${SITE_CONFIG_FILE}. Nächster Schritt: \`npx dealsystem sync\`.`,
 	};
 }
 
 export async function statusCommand(ctx: CommandContext): Promise<CommandResult> {
-	const id = ctx.siteId();
+	const local = ctx.optionalSiteId();
+	const origin = local?.source === 'flag' ? '--site' : SITE_CONFIG_FILE;
+	let lookup: WorkspaceLookup;
+	try {
+		lookup = await lookupWorkspace(ctx);
+	} catch (e) {
+		if (e instanceof CliError && e.exitCode === EXIT.auth) {
+			throw new CliError(
+				e.code,
+				`${e.message} Workspace und Nutzer sind deshalb unbekannt.${local ? ` Seite laut ${origin}: ${local.id}.` : ''}`,
+				`${e.fix} Danach mit \`npx dealsystem status\` den Workspace prüfen.`,
+				EXIT.auth,
+				{ loggedIn: false, workspace: null, user: null, siteId: local?.id ?? null },
+			);
+		}
+		throw e;
+	}
+	const head = [workspaceLine(lookup), userLine(lookup, Boolean(ctx.io.env.DEALSYSTEM_TOKEN?.trim()))].filter(
+		(l): l is string => l !== null,
+	);
+	const base = { ...workspaceData(lookup), siteId: local?.id ?? null, siteSource: local?.source ?? null };
+
+	if (!local) {
+		return {
+			exitCode: EXIT.ok,
+			data: { ...base, site: null, versions: [], legal: null },
+			text: [
+				...head,
+				`Seite: noch keine gewählt (keine \`siteId\` in ${SITE_CONFIG_FILE}).`,
+				'Stimmt der Workspace, wählt oder legt `npx dealsystem init` die Seite darin an.',
+			].join('\n'),
+		};
+	}
+
 	const api = ctx.api();
-	const [site, versions] = await Promise.all([api.getWebsite(id), api.listVersions(id, 5)]);
+	let site: WebsiteDetails;
+	let versions: VersionSummary[];
+	try {
+		[site, versions] = await Promise.all([api.getWebsite(local.id), api.listVersions(local.id, 5)]);
+	} catch (e) {
+		if (e instanceof ApiError && e.status === 404) {
+			const where =
+				lookup.state === 'known'
+					? `im Workspace ${workspaceName(lookup.workspace)}`
+					: 'im Workspace dieser Anmeldung';
+			throw new CliError(
+				'site_not_in_workspace',
+				`Die Seite ${local.id} (laut ${origin}) gibt es ${where} nicht. Vermutlich gehört sie zu einem anderen Workspace.`,
+				'Frage den Nutzer, in welchem Workspace die Seite liegen soll. Ist die Anmeldung im falschen Workspace: `npx dealsystem logout`, dann `npx dealsystem login` und im Browser den richtigen Workspace wählen. Soll die Seite in diesen Workspace: `npx dealsystem init`.',
+				EXIT.usage,
+				base,
+			);
+		}
+		throw e;
+	}
 	const live = site.liveVersion;
 	const legal = legalStatus(site);
 	const lines = [
-		`Seite: ${site.name} (${site.slug}), Zustand ${site.status}`,
+		...head,
+		`Seite: ${site.name} (${site.slug}), ID ${site.id} aus ${origin}, Zustand ${site.status}`,
 		`Adresse: ${site.primaryHost ?? site.defaultHost ?? '–'}`,
 		`Live: ${live ? `Version ${live.number}` : 'noch nichts live'}`,
 		legalStatusLine(legal),
@@ -113,5 +185,5 @@ export async function statusCommand(ctx: CommandContext): Promise<CommandResult>
 			? site.domains.map((d) => `  ${d.host} (${d.kind}${d.active ? ', aktiv' : ', noch nicht aktiv'})`)
 			: ['  keine']),
 	];
-	return { exitCode: EXIT.ok, data: { site, versions, legal }, text: lines.join('\n') };
+	return { exitCode: EXIT.ok, data: { ...base, site, versions, legal }, text: lines.join('\n') };
 }
