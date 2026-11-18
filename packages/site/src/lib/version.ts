@@ -1,2 +1,2 @@
 /** Version dieses Pakets. Steht auch im Manifest, das der Build meldet. */
-export const SDK_VERSION = '0.2.0';
+export const SDK_VERSION = '0.2.1';
