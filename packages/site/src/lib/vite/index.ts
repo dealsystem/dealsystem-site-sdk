@@ -11,6 +11,7 @@ import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateSiteConfig } from '../config/index.js';
 import { resolveExternal } from '../external/resolve.js';
+import { normalizeLeadmagnet } from '../leadmagnet.js';
 import { readSnapshot } from '../content/index.js';
 import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
 import { defaultRichtextToHtml, sanitizeRichtextHtml } from '../richtext/server.js';
@@ -241,7 +242,12 @@ export function buildManifest(
 			key,
 			source: 'cms' as const,
 		})),
-		funnels: Object.entries(config.funnels ?? {}).map(([key, funnel]) => ({ ...funnel, key })),
+		funnels: Object.entries(config.funnels ?? {}).map(([key, funnel]) => ({
+			...funnel,
+			key,
+			// Vertrag mit dem Core (C4): immer gesetzt, `{ label }` getrimmt oder `null`.
+			leadmagnet: normalizeLeadmagnet(funnel.leadmagnet),
+		})),
 		...(extras.contentPatch ? { contentPatch: extras.contentPatch } : {}),
 		schedule: extras.schedule ?? [],
 		external: resolveExternal(config.external),

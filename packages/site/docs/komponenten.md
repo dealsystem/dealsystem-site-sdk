@@ -335,7 +335,10 @@ export interface LeadFormProps {
   funnel: FunnelKey;
   /** Text der Schaltfläche. Standard „Absenden“. */
   submitLabel?: string;
-  /** Text nach erfolgreichem Versand. */
+  /**
+   * Text nach erfolgreichem Versand. Standard „Vielen Dank. Ihre Anfrage ist bei uns angekommen.“; verspricht
+   * das Formular eine Datei (`leadmagnet`), kündigt der Standard sie per E-Mail an.
+   */
   successMessage?: string;
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
@@ -896,7 +899,8 @@ Formular ohne `<LeadForm>`: für eigene Oberflächen wie mehrstufige Funnels. Ni
 `dealsystem.config.ts`. Kein eigenes `fetch` an DealSystem, das ist verboten (`SEC-004`).
 
 Zeig bei jedem Fehler außer `validation` den Ausweichkontakt `res.fallback` (`QUA-008`) und
-setz `<LeadHoneypot client={lead} />` in die Oberfläche (Bot-Falle).
+setz `<LeadHoneypot client={lead} />` in die Oberfläche (Bot-Falle). Nach Erfolg passt `lead.successMessage`;
+verspricht das Formular eine Datei (`leadmagnet`), kündigt dieser Text sie an.
 
 ```ts
 <script lang="ts">

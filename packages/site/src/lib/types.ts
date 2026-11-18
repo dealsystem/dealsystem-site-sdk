@@ -77,12 +77,28 @@ export interface FunnelCrmConfig {
 	confirmation?: { enabled: boolean; subject?: string; body?: string };
 }
 
+/**
+ * Leadmagnet: Das Formular verspricht eine Datei (z. B. einen Ratgeber als PDF). Im Code steht nur, **was**
+ * versprochen wird. Die Datei lädt der Kunde im CRM hoch (Eigene Website → Formulare); das CRM schickt den
+ * Download-Link in der Eingangsbestätigung; die muss dort eingeschaltet sein (oder `crm.confirmation`). Kein Feld
+ * für Datei, Pfad oder Link: so etwas ist ein Fehler.
+ *
+ * @example
+ * ratgeber: { label: 'Ratgeber', fields: [...], leadmagnet: { label: 'Ratgeber Immobilienverkauf' } }
+ */
+export interface FunnelLeadmagnetConfig {
+	/** Name der Datei für Besucher, 1 bis 120 Zeichen, z. B. „Ratgeber Immobilienverkauf“. Kein Link. */
+	label: string;
+}
+
 /** Ein Formular in `dealsystem.config.ts`. */
 export interface FunnelDef {
 	label: string;
 	fields: readonly FunnelFieldDef[];
 	/** Vorschlag, was im CRM mit der Anfrage passiert (Deal, Pipeline, Tags, Bestätigung). */
 	crm?: FunnelCrmConfig;
+	/** Datei, die das Formular verspricht. `<LeadForm>` kündigt sie nach dem Absenden an. */
+	leadmagnet?: FunnelLeadmagnetConfig;
 }
 
 // --------------------------------------------------------------- Sammlungen
@@ -535,7 +551,8 @@ export interface SiteManifest {
 	routes: string[];
 	slots: ContentSlotDef[];
 	collections: (CollectionDef & { key: string; source: 'cms' })[];
-	funnels: (FunnelDef & { key: string })[];
+	/** Formulare; `leadmagnet` ist bei jedem Formular gesetzt: `{ label }` (getrimmt) oder `null`. */
+	funnels: (Omit<FunnelDef, 'leadmagnet'> & { key: string; leadmagnet: FunnelLeadmagnetConfig | null })[];
 	/**
 	 * „Patchen statt Bauen“: Kann der Core neue Slot-Werte in die fertige Seite
 	 * schreiben? `delivery: 'dom'` heißt: Die Texte stehen im Inhaltsblock je

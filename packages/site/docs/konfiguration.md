@@ -126,6 +126,8 @@ interface FunnelDef {
 	fields: readonly FunnelFieldDef[];
 	/** Vorschlag, was im CRM mit der Anfrage passiert (Deal, Pipeline, Tags, Bestätigung). */
 	crm?: FunnelCrmConfig;
+	/** Datei, die das Formular verspricht. `<LeadForm>` kündigt sie nach dem Absenden an. */
+	leadmagnet?: FunnelLeadmagnetConfig;
 }
 ```
 
@@ -205,6 +207,24 @@ interface FunnelCrmConfig {
 	 * Platzhalter `{{firstName}}`, `{{lastName}}`, `{{formName}}`. Ohne Betreff oder Text gilt der Standard.
 	 */
 	confirmation?: { enabled: boolean; subject?: string; body?: string };
+}
+```
+
+### FunnelLeadmagnetConfig
+
+Leadmagnet: Das Formular verspricht eine Datei (z. B. einen Ratgeber als PDF). Im Code steht nur, **was**
+versprochen wird. Die Datei lädt der Kunde im CRM hoch (Eigene Website → Formulare); das CRM schickt den
+Download-Link in der Eingangsbestätigung; die muss dort eingeschaltet sein (oder `crm.confirmation`). Kein Feld
+für Datei, Pfad oder Link: so etwas ist ein Fehler.
+
+```ts
+ratgeber: { label: 'Ratgeber', fields: [...], leadmagnet: { label: 'Ratgeber Immobilienverkauf' } }
+```
+
+```ts
+interface FunnelLeadmagnetConfig {
+	/** Name der Datei für Besucher, 1 bis 120 Zeichen, z. B. „Ratgeber Immobilienverkauf“. Kein Link. */
+	label: string;
 }
 ```
 

@@ -10,7 +10,8 @@ import { labelOf, toLeadData, validateField, type FieldValue } from './validatio
 import { consent } from '../consent/consent.svelte.js';
 import { getSiteData } from '../internal/siteData.js';
 import { usageError } from '../internal/usage.js';
-import type { FunnelFieldDef, FunnelKey, LeadValues } from '../types.js';
+import { leadmagnetSuccessMessage, normalizeLeadmagnet } from '../leadmagnet.js';
+import type { FunnelFieldDef, FunnelKey, FunnelLeadmagnetConfig, LeadValues } from '../types.js';
 
 /** Ausweichkontakt aus den Firmendaten im CRM. Leere Angaben sind `null`. Zeig ihn bei jedem Fehler außer `validation`. */
 export interface LeadFallback {
@@ -82,6 +83,13 @@ export interface LeadClient<K extends string = string> {
 	/** Die sichtbaren Felder in der Reihenfolge der Konfiguration (ohne `hidden`). */
 	readonly fields: readonly FunnelFieldDef[];
 	readonly fallback: LeadFallback;
+	/** Datei, die das Formular verspricht (`leadmagnet` in `dealsystem.config.ts`), sonst `null`. */
+	readonly leadmagnet: FunnelLeadmagnetConfig | null;
+	/**
+	 * Standardtext nach erfolgreichem Versand. Mit Leadmagnet kündigt er die Datei per E-Mail an und nennt den
+	 * Spam-Ordner; ohne: „Vielen Dank. Ihre Anfrage ist bei uns angekommen.“ Eigener Text ist erlaubt.
+	 */
+	readonly successMessage: string;
 	/** Was der Client gerade tut (reaktiv), z. B. für „Die Sicherheitsprüfung läuft“. */
 	readonly status: LeadClientStatus;
 	/** Ein sichtbares Feld nach Namen. */
@@ -104,6 +112,8 @@ export interface LeadClient<K extends string = string> {
 	destroy(): void;
 }
 
+/** Standard-Erfolgstext ohne Leadmagnet (auch in `<LeadForm>`). */
+export const DEFAULT_SUCCESS_MESSAGE = 'Vielen Dank. Ihre Anfrage ist bei uns angekommen.';
 const HIDDEN_MAX = 500;
 
 const MESSAGES = {
@@ -138,7 +148,8 @@ function reasonOf(error: SiteApiError): Exclude<LeadFailureReason, 'validation'>
  * `dealsystem.config.ts`. Kein eigenes `fetch` an DealSystem, das ist verboten (`SEC-004`).
  *
  * Zeig bei jedem Fehler außer `validation` den Ausweichkontakt `res.fallback` (`QUA-008`) und
- * setz `<LeadHoneypot client={lead} />` in die Oberfläche (Bot-Falle).
+ * setz `<LeadHoneypot client={lead} />` in die Oberfläche (Bot-Falle). Nach Erfolg passt `lead.successMessage`;
+ * verspricht das Formular eine Datei (`leadmagnet`), kündigt dieser Text sie an.
  *
  * @example
  * <script lang="ts">
@@ -185,6 +196,7 @@ export function createLeadClient<K extends FunnelKey>(
 	const visible = allFields.filter((f) => f.type !== 'hidden');
 	const hidden = allFields.filter((f) => f.type === 'hidden');
 	const fallback: LeadFallback = { phone: site.legal.phone || null, email: site.legal.email || null };
+	const leadmagnet = normalizeLeadmagnet(definition?.leadmagnet);
 
 	let status = $state<LeadClientStatus>('idle');
 	let honeypot = '';
@@ -325,6 +337,8 @@ export function createLeadClient<K extends FunnelKey>(
 		available: Boolean(definition) && definition?.active !== false,
 		fields: visible,
 		fallback,
+		leadmagnet,
+		successMessage: leadmagnet ? leadmagnetSuccessMessage(leadmagnet.label) : DEFAULT_SUCCESS_MESSAGE,
 		get status() {
 			return status;
 		},

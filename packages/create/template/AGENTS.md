@@ -63,7 +63,7 @@ Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden, bevor du
 
 - `neue-seite` – neue Seite oder Abschnitt, Texte, tauschbare Fotos
 - `bild-einbauen` – Foto des Kunden einbauen (ohne Standort)
-- `formular-anbinden` – Kontakt- oder Anfrageformular
+- `formular-anbinden` – Kontakt- oder Anfrageformular, Ratgeber zum Download
 - `funnel-mehrstufig` – eigenes Formular in Schritten (Funnel)
 - `termin-buchung` – Termine aus dem DealSystem-Kalender buchen (`termine.md`)
 - `extern-einbinden` – Video, Karte, Termin, Chat, fremdes Skript

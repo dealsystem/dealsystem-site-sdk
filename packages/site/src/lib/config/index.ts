@@ -1,5 +1,6 @@
 import { FIELD_NAME_PATTERN, KEBAB_KEY_MAX_LENGTH, KEBAB_KEY_PATTERN } from '../keys.js';
 import { validateExternal } from '../external/resolve.js';
+import { LEADMAGNET_CRM_HINT, LEADMAGNET_LABEL_MAX } from '../leadmagnet.js';
 import type { CollectionFieldType, FieldType, SiteConfig, StandardFieldKey } from '../types.js';
 
 export type {
@@ -16,6 +17,7 @@ export type {
 	FieldType,
 	FunnelDef,
 	FunnelCrmConfig,
+	FunnelLeadmagnetConfig,
 	ResolvedExternal,
 	FunnelFieldDef,
 	HiddenFieldSource,
@@ -196,6 +198,53 @@ function checkCrm(crm: unknown, path: string, problems: ConfigProblem[]): void {
 				}
 			}
 		}
+	}
+}
+
+/** Schlüssel, die nach Datei oder Link aussehen. Die Datei gehört ins CRM, nie in den Code. */
+const LEADMAGNET_FILE_KEY =
+	/url|uri|href|link|src|file|datei|pdf|path|pfad|download|attachment|anhang|asset|media/i;
+/** Ein Link im Namen der Datei: `https://…`, `//…`, `www.…`. */
+const LEADMAGNET_LINK_IN_LABEL = /[a-z][a-z0-9+.-]*:\/\/|^\/\/|\bwww\./i;
+
+/** Prüft `funnels.<schlüssel>.leadmagnet`. Nur die Ankündigung; Datei, Pfad oder Link sind ein Fehler. */
+function checkLeadmagnet(leadmagnet: unknown, path: string, problems: ConfigProblem[]): void {
+	if (leadmagnet === undefined) return;
+	if (!isRecord(leadmagnet)) {
+		problems.push({
+			path,
+			message: `leadmagnet ist ein Objekt, z. B. leadmagnet: { label: "Ratgeber Immobilienverkauf" }. ${LEADMAGNET_CRM_HINT}`,
+		});
+		return;
+	}
+	for (const key of Object.keys(leadmagnet)) {
+		if (key === 'label') continue;
+		problems.push({
+			path: `${path}.${key}`,
+			message: LEADMAGNET_FILE_KEY.test(key)
+				? `Im Code steht keine Datei und kein Link, nur label. ${LEADMAGNET_CRM_HINT}`
+				: `Unbekannte Angabe "${key}". Erlaubt ist nur label.`,
+		});
+	}
+	const label = leadmagnet.label;
+	if (typeof label !== 'string' || label.trim() === '') {
+		problems.push({
+			path: `${path}.label`,
+			message: 'label fehlt: Wie heißt die Datei für Besucher? Z. B. label: "Ratgeber Immobilienverkauf".',
+		});
+		return;
+	}
+	const trimmed = label.trim();
+	if (trimmed.length > LEADMAGNET_LABEL_MAX) {
+		problems.push({
+			path: `${path}.label`,
+			message: `Höchstens ${LEADMAGNET_LABEL_MAX} Zeichen (jetzt ${trimmed.length}).`,
+		});
+	} else if (LEADMAGNET_LINK_IN_LABEL.test(trimmed)) {
+		problems.push({
+			path: `${path}.label`,
+			message: `label ist der Name der Datei, kein Link. ${LEADMAGNET_CRM_HINT}`,
+		});
 	}
 }
 
@@ -442,6 +491,7 @@ export function validateSiteConfig(config: unknown): ConfigProblem[] {
 					});
 			});
 			checkCrm(funnel.crm, `${path}.crm`, problems);
+			checkLeadmagnet(funnel.leadmagnet, `${path}.leadmagnet`, problems);
 			for (const field of fields) {
 				const standard = field.standardField;
 				if (standard !== undefined && !STANDARD_FIELDS.includes(standard as StandardFieldKey)) {
