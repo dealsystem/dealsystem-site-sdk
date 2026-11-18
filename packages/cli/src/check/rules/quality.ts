@@ -473,5 +473,46 @@ const cnt004 = sourceRule('CNT-004', (ctx) => {
 	return out;
 });
 
-export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001, cnt002, cnt003, cnt004];
+// ------------------------------------------------------------------ QUA-008
+
+const LEAD_CLIENT_IMPORT = /import\s*\{[^}]*\bcreateLeadClient\b[^}]*\}\s*from\s*['"]@dealsystem\/site['"]/;
+
+const qua008 = sourceRule('QUA-008', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.codeFiles()) {
+		const code = ctx.code(path);
+		const imported = LEAD_CLIENT_IMPORT.exec(code);
+		if (!imported) continue;
+		if (/\.submit\s*\(/.test(code) && !/\bfallback\b/.test(code)) {
+			out.push(
+				ctx.at(
+					path,
+					imported.index,
+					`\`${path}\` sendet mit \`createLeadClient\`, zeigt aber keinen Ausweichkontakt (\`fallback\`). Scheitert der Versand, kann der Besucher nicht anfragen.`,
+				),
+			);
+		}
+		if (path.endsWith('.svelte') && !/<LeadHoneypot\b/.test(code)) {
+			out.push(
+				ctx.at(
+					path,
+					imported.index,
+					`\`${path}\` nutzt \`createLeadClient\` ohne \`<LeadHoneypot>\`. Ohne Bot-Falle kommen mehr Spam-Anfragen an.`,
+				),
+			);
+		}
+	}
+	return out;
+});
+
+export const qualitySourceRules: SourceRule[] = [
+	qua008,
+	qua005,
+	qua006,
+	qua007,
+	cnt001,
+	cnt002,
+	cnt003,
+	cnt004,
+];
 export const qualityOutputRules: OutputRule[] = [qua001, qua002, qua003, qua004];

@@ -13,11 +13,13 @@ LeadForm).
 2. Jedes Formular braucht ein Feld mit `standardField: 'email'` oder `standardField: 'phone'`, sonst
    entsteht im CRM kein Kontakt. Namen immer getrennt als `firstName` und `lastName`.
 3. Feldtypen: `text`, `email`, `tel`, `textarea`, `select`, `multiselect`, `checkbox`, `date`. `select`
-   und `multiselect` brauchen `options`. Jedes Feld bekommt ein verständliches `label`.
+   und `multiselect` brauchen `options`. Jedes Feld bekommt ein verständliches `label`. Versteckte Felder
+   (`type: 'hidden'`, z. B. `from: { query: 'partner' }` für `?partner=…`) füllt das SDK selbst; mit
+   `crm` am Formular schlägst du vor, was im CRM passiert (`konfiguration.md`).
 4. Auf der Seite genügt eine Zeile:
    `<LeadForm funnel="ankauf-anfrage" submitLabel="Anfrage senden" successMessage="Danke, wir melden uns." />`
 5. Schreibe kein eigenes `<form>` und kein eigenes `fetch`. Beschriftungen, Fehlermeldungen, Spam-Schutz und
-   Versand bringt `<LeadForm>` mit.
+   Versand bringt `<LeadForm>` mit. Mehrere Schritte oder eine eigene Oberfläche: Skill `funnel-mehrstufig`.
 6. Prüfen: `npm run check` (ein Tippfehler im Schlüssel ist ein Fehler), `npm run build`,
    `npx dealsystem check --output build`. Das geht ohne Anmeldung. „Geprüft“ sagst du dem Kunden nur, wenn
    die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.

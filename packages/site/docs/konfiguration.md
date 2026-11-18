@@ -120,6 +120,8 @@ Ein Formular in `dealsystem.config.ts`.
 interface FunnelDef {
 	label: string;
 	fields: readonly FunnelFieldDef[];
+	/** Vorschlag, was im CRM mit der Anfrage passiert (Deal, Pipeline, Tags, Bestätigung). */
+	crm?: FunnelCrmConfig;
 }
 ```
 
@@ -143,16 +145,63 @@ interface FunnelFieldDef {
 	/** Hilfetext unter dem Feld. */
 	help?: string;
 	maxLength?: number;
+	/** Nur bei `type: 'hidden'`: woher der Wert kommt. */
+	from?: HiddenFieldSource;
 }
 ```
 
 ### FieldType
 
-Feldtypen eines Formulars.
+Feldtypen eines Formulars. `hidden` sieht der Besucher nicht; das SDK füllt es beim Absenden (`from`).
 
 ```ts
 type FieldType =
-	'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'date';
+	'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'hidden';
+```
+
+### HiddenFieldSource
+
+Woher ein verstecktes Feld (`type: 'hidden'`) seinen Wert nimmt, genau eine Angabe:
+- `{ query: 'partner' }` – URL-Parameter `?partner=…` (aktueller Besuch, gespeichert nur mit Einwilligung)
+- `{ utm: 'campaign' }` – UTM-Angabe des Besuchs (`utm_campaign`)
+- `{ value: 'Bewertungsrechner' }` – fester Text
+
+Höchstens 500 Zeichen. Im CRM lässt sich das Feld einem eigenen Feld zuordnen, nie einem Standardfeld.
+
+```ts
+type HiddenFieldSource = { query: string } | { utm: UtmKey } | { value: string };
+```
+
+### FunnelCrmConfig
+
+Was mit einer Anfrage im CRM passiert, als Vorschlag aus dem Code. Der Kunde kann jede Angabe im CRM ändern;
+ab dann gilt seine, auch nach dem nächsten Hochladen („Code legt vor, CRM entscheidet“). Namen (Pipeline,
+Phase, Tags, Lead-Quelle) sucht das CRM im Workspace; was es dort nicht gibt, legt es nicht an, sondern meldet
+es als Warnung beim Hochladen.
+
+```ts
+interface FunnelCrmConfig {
+	/** Einen Deal anlegen. */
+	createDeal?: boolean;
+	/** Pipeline des Deals, Name oder ID, höchstens 100 Zeichen. */
+	pipeline?: string;
+	/** Phase in der Pipeline, Name oder ID, höchstens 100 Zeichen. */
+	stage?: string;
+	/**
+	 * Name des Deals, höchstens 200 Zeichen. Platzhalter: `{{firstName}}`, `{{lastName}}`, `{{email}}`,
+	 * `{{phone}}`, `{{adresse}}`.
+	 */
+	dealName?: string;
+	/** Tags am Kontakt, höchstens 20, je höchstens 50 Zeichen. */
+	tags?: readonly string[];
+	/** Lead-Quelle, Name oder ID, höchstens 100 Zeichen. */
+	leadSource?: string;
+	/**
+	 * Eingangsbestätigung an den Absender. Betreff höchstens 200, Text höchstens 5 000 Zeichen, nur Klartext,
+	 * Platzhalter `{{firstName}}`, `{{lastName}}`, `{{formName}}`. Ohne Betreff oder Text gilt der Standard.
+	 */
+	confirmation?: { enabled: boolean; subject?: string; body?: string };
+}
 ```
 
 ### StandardFieldKey

@@ -4,6 +4,8 @@ dist
 package-lock.json
 packages/site/contract/site-api.v1.json
 packages/site/docs
+# Erzeugt von scripts/build-agent-docs.mjs (JSON.stringify), wie docs/
+packages/site/agent-files/manifest.json
 packages/create/template/AGENTS.md
 packages/create/template/svelte.config.js
 packages/create/template/vite.config.ts

@@ -43,7 +43,7 @@ Sag ihm klar, was er tun soll und wo. Umgehe es nie.
 Jede Regel mit Korrektur: `regeln.md`.
 
 - Kein Server-Code (`+server.ts`, `hooks.server.ts`, Form-Actions; Ausnahmen in `regeln.md`). Keine Zugangsdaten, keine `.env`, kein eigenes `fetch`, kein `{@html}`.
-- Formulare nur mit `<LeadForm>`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`.
+- Formulare nur mit `<LeadForm>` oder `createLeadClient`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`.
 - Jeder sichtbare Text als `<Text>`/`<RichText>` mit festem `key` und `default` (Schlüssel-Regeln: `komponenten.md`). Adresse, Telefon, E-Mail kommen als `data.site` aus dem CRM.
 - Nichts von fremden Servern: Schriften lokal, keine CDN-Links. Karte nur mit `<MapEmbed>`; andere Dienste (Google Maps, YouTube, Widgets) verlinken, nicht einbetten.
 - Jede Seite: eine `h1`, Titel und Beschreibung über `<Seo>`, nicht als `<title>` in `<svelte:head>`. `<SiteHead />`, `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.

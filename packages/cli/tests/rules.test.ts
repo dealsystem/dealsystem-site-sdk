@@ -940,6 +940,29 @@ const CASES: Record<string, RuleCase[]> = {
 			],
 		},
 	],
+	'QUA-008': [
+		{
+			stage: S,
+			pass: [
+				{
+					'src/lib/Funnel.svelte':
+						'<script lang="ts">\n\timport { createLeadClient, LeadHoneypot } from \'@dealsystem/site\';\n\tconst lead = createLeadClient(\'kontakt\');\n\tlet r = $state(null);\n\tconst send = async () => (r = await lead.submit({}));\n</script>\n<LeadHoneypot client={lead} />\n<button type="button" onclick={send}>Senden</button>\n{#if r && !r.ok && r.fallback}<p>{r.fallback.phone}</p>{/if}\n',
+				},
+			],
+			fail: [
+				// kein Ausweichkontakt
+				{
+					'src/lib/Funnel.svelte':
+						'<script lang="ts">\n\timport { createLeadClient, LeadHoneypot } from \'@dealsystem/site\';\n\tconst lead = createLeadClient(\'kontakt\');\n\tconst send = () => lead.submit({});\n</script>\n<LeadHoneypot client={lead} />\n<button type="button" onclick={send}>Senden</button>\n',
+				},
+				// keine Bot-Falle
+				{
+					'src/lib/Funnel.svelte':
+						'<script lang="ts">\n\timport { createLeadClient } from \'@dealsystem/site\';\n\tconst lead = createLeadClient(\'kontakt\');\n\tlet r = $state(null);\n\tconst send = async () => (r = await lead.submit({}));\n</script>\n<button type="button" onclick={send}>Senden</button>\n{#if r && !r.ok}<p>{r.fallback?.phone}</p>{/if}\n',
+				},
+			],
+		},
+	],
 	'CNT-004': [
 		{
 			stage: S,

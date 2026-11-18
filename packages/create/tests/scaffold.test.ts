@@ -79,6 +79,7 @@ describe('Dateien für KI-Agenten', () => {
 			'angebote-einbauen',
 			'domain-verbinden',
 			'formular-anbinden',
+			'funnel-mehrstufig',
 			'neue-seite',
 			'prueffehler-beheben',
 			'veroeffentlichen',

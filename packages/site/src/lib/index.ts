@@ -9,6 +9,7 @@ export { default as Datenschutz, type DatenschutzProps } from './components/Date
 export { default as Impressum, type ImpressumProps } from './components/Impressum.svelte';
 export { default as Link, type LinkProps } from './components/Link.svelte';
 export { default as LeadForm, type LeadFormProps } from './components/LeadForm.svelte';
+export { default as LeadHoneypot, type LeadHoneypotProps } from './components/LeadHoneypot.svelte';
 export { default as MapEmbed, type MapEmbedProps } from './components/MapEmbed.svelte';
 export { default as MediaImage, type MediaImageProps } from './components/MediaImage.svelte';
 export { default as MediaVideo, type MediaVideoProps } from './components/MediaVideo.svelte';
@@ -22,6 +23,15 @@ export { default as Tracking } from './components/Tracking.svelte';
 export { consent, type ConsentCategory } from './consent/consent.svelte.js';
 export { loadCollection, loadEntry, type LoadedCollection } from './client/collections.js';
 export { getCampaignParam } from './client/attribution.js';
+export {
+	createLeadClient,
+	type LeadClient,
+	type LeadClientStatus,
+	type LeadFailureReason,
+	type LeadFallback,
+	type LeadResult,
+} from './client/leadClient.svelte.js';
+export { createFunnelState, type FunnelState, type FunnelStep } from './client/funnelState.svelte.js';
 export type { SiteApiError, SiteApiErrorKind, SiteApiResult } from './client/siteApi.js';
 
 export type {
@@ -32,6 +42,7 @@ export type {
 	EntryData,
 	EntryMedia,
 	FunnelKey,
+	LeadValues,
 	MediaRef,
 	MediaVariant,
 	SafeHtml,

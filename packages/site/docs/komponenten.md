@@ -350,6 +350,26 @@ type AutoFill =
   'given-name' | 'family-name' | 'email' | 'tel' | 'address-line1' | 'postal-code' | 'address-level2';
 ```
 
+## LeadHoneypot
+
+Bot-Falle für ein Formular mit `createLeadClient()`: ein Feld, das Menschen nicht
+sehen und nicht erreichen. Füllt ein Programm es aus, nimmt DealSystem die
+Anfrage still nicht an. Gehört einmal in die eigene Oberfläche, am besten in
+das `<form>`. `<LeadForm>` bringt es schon mit.
+
+```svelte
+<LeadHoneypot client={lead} />
+```
+
+Eigenschaften:
+
+```ts
+export interface LeadHoneypotProps {
+  /** Der Client aus `createLeadClient()`. */
+  client: Pick<LeadClient, 'setHoneypot'>;
+}
+```
+
 ## CollectionList
 
 Liste der Einträge einer Sammlung. Das Snippet `item` bestimmt, wie ein
@@ -707,6 +727,140 @@ Zwecke, für die eine Einwilligung nötig ist:
 
 ```ts
 type ConsentCategory = 'statistics' | 'marketing' | 'media';
+```
+
+## Eigene Formular-Oberfläche
+
+Für mehrstufige Funnels, Rechner und Quiz. Vorlage: Skill `funnel-mehrstufig`.
+
+### createLeadClient()
+
+Formular ohne `<LeadForm>`: für eigene Oberflächen wie mehrstufige Funnels. Nimmt den Schlüssel aus
+`dealsystem.config.ts`. Kein eigenes `fetch` an DealSystem, das ist verboten (`SEC-004`).
+
+Zeig bei jedem Fehler außer `validation` den Ausweichkontakt `res.fallback` (`QUA-008`) und
+setz `<LeadHoneypot client={lead} />` in die Oberfläche (Bot-Falle).
+
+```ts
+<script lang="ts">
+	import { createLeadClient, LeadHoneypot } from '@dealsystem/site';
+	import { onMount } from 'svelte';
+
+	const lead = createLeadClient('bewertung');
+	onMount(() => () => lead.destroy());
+	let email = $state('');
+	let result = $state<Awaited<ReturnType<typeof lead.submit>> | null>(null);
+</script>
+
+<input type="email" bind:value={email} onfocus={() => lead.prepare()} />
+<LeadHoneypot client={lead} />
+<button onclick={async () => (result = await lead.submit({ email }))}>Senden</button>
+{#if result && !result.ok}
+	<p role="alert">{result.message}</p>
+	{#if result.fallback?.phone}<a href="tel:{result.fallback.phone}">{result.fallback.phone}</a>{/if}
+{/if}
+```
+
+```ts
+function createLeadClient<K extends FunnelKey>(
+	funnel: K,
+	options: LeadClientOptions = {},
+): LeadClient<K>;
+```
+
+### LeadResult
+
+Ergebnis von `submit()`.
+
+```ts
+type LeadResult =
+	| {
+			ok: true;
+			/** `true` in der Vorschau: geprüft, aber nicht gespeichert. Zeig dann einen Hinweis. */
+			dryRun: boolean;
+			submissionId: string;
+	  }
+	| {
+			ok: false;
+			reason: 'validation';
+			/** Text für Besucher, auf Deutsch. */
+			message: string;
+			/** Je abgelehntem Feld ein Text, z. B. `{ email: 'Bitte geben Sie …' }`. */
+			fields: Record<string, string>;
+			fallback: null;
+			/** @internal Fehler der Site-API, wenn der Server abgelehnt hat. */
+			error: SiteApiError | null;
+	  }
+	| {
+			ok: false;
+			reason: Exclude<LeadFailureReason, 'validation'>;
+			message: string;
+			fields: Record<string, never>;
+			/** Telefon und E-Mail aus dem CRM. Zeig sie, damit der Besucher trotzdem anfragen kann. */
+			fallback: LeadFallback;
+			retryAfterSeconds: number | null;
+			/** @internal */
+			error: SiteApiError;
+	  };
+```
+
+### LeadFailureReason
+
+Warum eine Einsendung nicht angekommen ist.
+
+```ts
+type LeadFailureReason =
+	/** Angaben fehlen oder passen nicht: `fields` nennt je Feld den Text, `message` den für das ganze Formular. */
+	| 'validation'
+	/** Die Sicherheitsprüfung (Captcha) ließ sich nicht durchführen. */
+	| 'captcha'
+	/** Zu viele Anfragen;
+```
+
+### LeadFallback
+
+Ausweichkontakt aus den Firmendaten im CRM. Leere Angaben sind `null`. Zeig ihn bei jedem Fehler außer `validation`.
+
+```ts
+interface LeadFallback {
+	phone: string | null;
+	email: string | null;
+}
+```
+### createFunnelState()
+
+Hilfe für mehrstufige Formulare mit `createLeadClient()`: Schritte, Prüfung je Schritt, Fortschritt. Die
+Oberfläche baust du selbst; setze beim Schrittwechsel den Fokus auf die Überschrift des neuen Schritts.
+
+```ts
+const lead = createLeadClient('bewertung');
+const funnel = createFunnelState(lead, [
+	{ id: 'objekt', title: 'Um welche Immobilie geht es?', fields: ['objektart', 'wohnflaeche'] },
+	{ id: 'kontakt', title: 'Wohin dürfen wir die Einschätzung schicken?', fields: ['firstName', 'email'] },
+]);
+// <input bind:value={funnel.values.wohnflaeche} />, <button onclick={() => funnel.next()}>Weiter</button>
+```
+
+```ts
+function createFunnelState<K extends string>(
+	client: LeadClient<K>,
+	steps: readonly FunnelStep[],
+): FunnelState<K>;
+```
+
+### FunnelStep
+
+Ein Schritt: eine Überschrift und die Felder, die auf ihm stehen.
+
+```ts
+interface FunnelStep {
+	/** Eindeutig, z. B. `objekt`. */
+	id: string;
+	/** Überschrift des Schritts, z. B. „Um welche Immobilie geht es?“. */
+	title: string;
+	/** Namen der Felder aus `dealsystem.config.ts`, die auf diesem Schritt stehen. Leer = ein Schritt ohne Felder. */
+	fields: readonly string[];
+}
 ```
 
 ## Kampagnen-Parameter

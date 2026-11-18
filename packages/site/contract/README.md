@@ -6,6 +6,9 @@ Gegen diese Dateien ist der Client des Pakets getestet (`tests/contract.test.ts`
 | ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------- |
 | `site-api.v1.json` | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern. | Leads, Captcha, Seitenaufrufe, Sammlungen |
 
+`funnel-code-config.md` hält fest, was das SDK für Paket C2 im Manifest meldet (`hidden`, `crm`); der Core
+setzt es noch um.
+
 Ändert sich die Site-API im Core, wird `site-api.v1.json` neu kopiert. Schlägt danach der Vertragstest fehl,
 passt der Client nicht mehr zum Server.
 

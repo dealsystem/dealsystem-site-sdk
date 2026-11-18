@@ -47,7 +47,7 @@ const GENERATED = '<!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand
 const COMPONENT_GROUPS = [
 	['Text', ['Text', 'RichText', 'Link']],
 	['Bild und Video', ['MediaImage', 'MediaVideo']],
-	['Formular und Listen', ['LeadForm', 'CollectionList']],
+	['Formular und Listen', ['LeadForm', 'LeadHoneypot', 'CollectionList']],
 	['Karte', ['MapEmbed']],
 	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
 	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
@@ -58,6 +58,7 @@ const COMPONENT_GROUPS = [
 const SKILLS = [
 	['neue-seite', 'neue Seite oder neuer Abschnitt, Texte und austauschbare Fotos'],
 	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
+	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
 	['angebote-einbauen', 'Angebote, Referenzen und andere Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
 	['veroeffentlichen', 'hochladen, Vorschau zeigen, nach dem Ja veröffentlichen'],
@@ -72,6 +73,7 @@ const COMPONENTS = [
 	'MediaImage',
 	'MediaVideo',
 	'LeadForm',
+	'LeadHoneypot',
 	'CollectionList',
 	'MapEmbed',
 	'CookieBanner',
@@ -279,6 +281,21 @@ async function build() {
 				.join('\n') +
 			'\n## consent\n\n' +
 			(await pick('consent/consent.svelte.ts', ['consent', 'ConsentCategory'])).map(entry).join('\n') +
+			'\n## Eigene Formular-Oberfläche\n\n' +
+			'Für mehrstufige Funnels, Rechner und Quiz. Vorlage: Skill `funnel-mehrstufig`.\n\n' +
+			(
+				await pick('client/leadClient.svelte.ts', [
+					'createLeadClient',
+					'LeadResult',
+					'LeadFailureReason',
+					'LeadFallback',
+				])
+			)
+				.map(entry)
+				.join('\n') +
+			(await pick('client/funnelState.svelte.ts', ['createFunnelState', 'FunnelStep']))
+				.map(entry)
+				.join('\n') +
 			'\n## Kampagnen-Parameter\n\n' +
 			(await pick('client/attribution.ts', ['getCampaignParam'])).map(entry).join('\n') +
 			'\n## Inhalte im Browser nachladen\n\n' +
@@ -338,6 +355,8 @@ async function build() {
 					'FunnelDef',
 					'FunnelFieldDef',
 					'FieldType',
+					'HiddenFieldSource',
+					'FunnelCrmConfig',
 					'StandardFieldKey',
 					'CollectionDef',
 					'CollectionFieldDef',

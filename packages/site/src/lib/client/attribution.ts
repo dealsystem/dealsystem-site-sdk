@@ -354,6 +354,16 @@ export function getCampaignParam(name: string): string | null {
 }
 
 /**
+ * UTM-Angabe für ein verstecktes Feld (`from: { utm: 'campaign' }`): aus dem aktuellen Besuch, sonst (nur mit
+ * Einwilligung) aus dem letzten gespeicherten Besuch.
+ * @internal
+ */
+export function getCampaignUtm(key: (typeof UTM_KEYS)[number]): string | null {
+	if (typeof window === 'undefined') return null;
+	return currentVisit().utm?.[key] ?? stored?.last?.[key] ?? null;
+}
+
+/**
  * `attribution` für den Lead (Fassung 2). Ohne Einwilligung nur der aktuelle Besuch, ohne Klick-IDs und
  * Besuchs-ID.
  * @internal

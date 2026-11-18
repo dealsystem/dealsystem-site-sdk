@@ -309,6 +309,14 @@ export const RULES: readonly RuleMeta[] = [
 		title: 'AGENTS.md-Block passt zur installierten SDK-Version',
 		fix: 'Führe `npx dealsystem sync` aus, damit die Agenten-Anleitung zur SDK-Version passt.',
 	},
+	{
+		id: 'QUA-008',
+		severity: 'warning',
+		stages: ['source'],
+		title:
+			'eigene Oberfläche mit `createLeadClient`: Ausweichkontakt (`fallback`) und Bot-Falle (`<LeadHoneypot>`)',
+		fix: 'Zeig bei jedem Fehler außer `validation` `result.message` und den Ausweichkontakt `result.fallback` (Telefon, E-Mail) und setz `<LeadHoneypot client={lead} />` in die Oberfläche. Vorlage: Skill `funnel-mehrstufig`.',
+	},
 	// ------------------------------------------------------------------ Inhalte
 	{
 		id: 'CNT-001',

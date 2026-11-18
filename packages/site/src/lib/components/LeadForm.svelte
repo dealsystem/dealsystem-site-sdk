@@ -46,14 +46,11 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { buildLeadAttribution } from '../client/attribution.js';
-	import { reportLeadConversion } from '../client/tracking.js';
-	import { captchaAdapter, type CaptchaHandle } from '../client/captcha.js';
-	import { captchaChallengeUrl, siteApi, type SiteApiError } from '../client/siteApi.js';
-	import { labelOf, maxLengthOf, toLeadData, validateField } from '../client/validation.js';
+	import { createLeadClient } from '../client/leadClient.svelte.js';
+	import type { SiteApiError } from '../client/siteApi.js';
+	import { labelOf, maxLengthOf, type FieldValue } from '../client/validation.js';
 	import { consent } from '../consent/consent.svelte.js';
 	import { getSiteData } from '../internal/siteData.js';
-	import { usageError } from '../internal/usage.js';
 
 	let {
 		funnel,
@@ -68,19 +65,15 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	const uid = $props.id();
 	const site = getSiteData();
 
-	const definition = $derived.by(() => {
-		const found = site.funnels[funnel];
-		if (!found) {
-			const known = Object.keys(site.funnels);
-			usageError(
-				`<LeadForm funnel="${funnel}">: Dieses Formular steht nicht in dealsystem.config.ts. ` +
-					(known.length > 0 ? `Vorhanden: ${known.join(', ')}.` : 'Dort ist noch kein Formular eingetragen.'),
-			);
-		}
-		return found ?? null;
+	let captchaElement = $state<HTMLElement | null>(null);
+	// Dieselbe Einsendung wie `createLeadClient()` für eigene Oberflächen: eine Implementierung, nicht zwei.
+	// svelte-ignore state_referenced_locally
+	const client = createLeadClient(funnel, {
+		captchaElement: () => captchaElement,
+		caller: `<LeadForm funnel="${funnel}">`,
 	});
-	const fields = $derived(definition?.fields ?? []);
-	const hasRequired = $derived(fields.some((field) => field.required));
+	const fields = client.fields;
+	const hasRequired = fields.some((field) => field.required);
 
 	let texts = $state<Record<string, string>>({});
 	let checks = $state<Record<string, boolean>>({});
@@ -90,137 +83,54 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	let status = $state<'idle' | 'submitting' | 'success' | 'error'>('idle');
 	let failure = $state<SiteApiError | null>(null);
 	let dryRun = $state(false);
-
-	let captchaState = $state<'idle' | 'loading' | 'ready' | 'failed'>('idle');
-	let captchaSolution = $state<string | null>(null);
-	let waitingForCaptcha = $state(false);
-	let captchaElement = $state<HTMLElement | null>(null);
-	let captchaHandle: CaptchaHandle | null = null;
+	const waitingForCaptcha = $derived(status === 'submitting' && client.status === 'captcha');
 
 	let form = $state<HTMLFormElement | null>(null);
 	let successElement = $state<HTMLElement | null>(null);
 	let errorElement = $state<HTMLElement | null>(null);
-	/** Bleibt über neue Versuche gleich, damit der Server Doppel erkennt. */
-	let submissionId = '';
 
 	const errorCount = $derived(Object.keys(errors).length);
 
 	onMount(() => {
 		consent.init();
-		return () => captchaHandle?.destroy();
+		return () => client.destroy();
 	});
 
-	function valueOf(name: string, type: string): string | boolean | string[] | undefined {
+	function valueOf(name: string, type: string): FieldValue | undefined {
 		if (type === 'checkbox') return checks[name] ?? false;
 		if (type === 'multiselect') return multis[name] ?? [];
 		return texts[name] ?? '';
 	}
 
-	function values(): Record<string, string | boolean | string[] | undefined> {
+	function values(): Record<string, FieldValue | undefined> {
 		return Object.fromEntries(fields.map((field) => [field.name, valueOf(field.name, field.type)]));
 	}
 
 	/** Holt und löst die Captcha-Aufgabe beim ersten Kontakt mit dem Formular, nicht vorher. */
-	async function startCaptcha() {
-		if (captchaState !== 'idle' || !captchaElement) return;
-		captchaState = 'loading';
-		try {
-			captchaHandle = await captchaAdapter()(captchaElement, captchaChallengeUrl(), {
-				onSolved(solution) {
-					captchaSolution = solution;
-					captchaState = 'ready';
-					if (waitingForCaptcha) {
-						waitingForCaptcha = false;
-						void send();
-					}
-				},
-				onCleared() {
-					captchaSolution = null;
-				},
-				onError() {
-					captchaSolution = null;
-					captchaState = 'failed';
-					if (waitingForCaptcha) showCaptchaFailure();
-				},
-			});
-		} catch {
-			captchaState = 'failed';
-			if (waitingForCaptcha) showCaptchaFailure();
-		}
-	}
-
-	function showCaptchaFailure() {
-		waitingForCaptcha = false;
-		status = 'error';
-		failure = {
-			kind: 'captcha_failed',
-			status: null,
-			code: null,
-			message:
-				'Die Sicherheitsprüfung konnte nicht durchgeführt werden. Bitte versuchen Sie es später erneut.',
-			retryAfterSeconds: null,
-			invalidFields: [],
-			formInvalid: false,
-		};
-		void tick().then(() => errorElement?.focus());
-	}
-
-	function retryCaptcha() {
-		captchaHandle?.destroy();
-		captchaHandle = null;
-		captchaSolution = null;
-		captchaState = 'idle';
-		void startCaptcha();
+	function startCaptcha() {
+		client.prepare();
 	}
 
 	async function onsubmit(event: SubmitEvent) {
 		event.preventDefault();
-		if (status === 'submitting' || waitingForCaptcha || !definition) return;
+		if (status === 'submitting' || !client.available) return;
 
-		const found: Record<string, string> = {};
 		const current = values();
-		for (const field of fields) {
-			const message = validateField(field, current[field.name]);
-			if (message) found[field.name] = message;
-		}
-		errors = found;
+		errors = client.validate(current);
 		failure = null;
-		if (Object.keys(found).length > 0) {
+		if (Object.keys(errors).length > 0) {
 			status = 'idle';
 			await tick();
 			form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
 			return;
 		}
 
-		if (!captchaSolution) {
-			if (captchaState === 'failed') retryCaptcha();
-			else if (captchaState === 'idle') void startCaptcha();
-			// Lösung abgelaufen: neue Aufgabe anfordern.
-			else if (captchaState === 'ready') captchaHandle?.reset();
-			waitingForCaptcha = true;
-			status = 'submitting';
-			return;
-		}
-		await send();
-	}
-
-	async function send() {
-		if (!definition || !captchaSolution) return;
 		status = 'submitting';
-		submissionId ||= crypto.randomUUID();
-		const result = await siteApi().submitLead({
-			funnelKey: funnel,
-			submissionId,
-			data: toLeadData(fields, values()),
-			attribution: buildLeadAttribution(consent.granted(), consent.decidedAt),
-			captcha: captchaSolution ?? '',
-			website: honeypot.slice(0, 500),
-		});
+		client.setHoneypot(honeypot);
+		const result = await client.submit(current);
 
 		if (result.ok) {
-			dryRun = result.data.dryRun;
-			// Gleiche Ereignis-ID wie die serverseitige Conversion. Die Vorschau zählt nicht.
-			if (!dryRun && consent.has('marketing')) reportLeadConversion(submissionId);
+			dryRun = result.dryRun;
 			status = 'success';
 			await tick();
 			successElement?.focus();
@@ -228,26 +138,13 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			return;
 		}
 
-		failure = result.error;
 		status = 'error';
-		// Eine Captcha-Lösung gilt nur einmal: gleich die nächste Aufgabe lösen.
-		captchaSolution = null;
-		captchaHandle?.reset();
-		const rejected = fields.filter((field) => result.error.invalidFields.includes(field.name));
-		if (result.error.kind === 'validation' && rejected.length > 0) {
-			// Text vom Server wird nicht angezeigt: eigene Meldung je Feld.
-			errors = Object.fromEntries(
-				rejected.map((field) => [field.name, `Bitte prüfen Sie Ihre Angabe bei „${labelOf(field)}“.`]),
-			);
+		failure = result.error ?? null;
+		if (result.reason === 'validation' && Object.keys(result.fields).length > 0) {
+			errors = result.fields;
 			await tick();
 			form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
 			return;
-		}
-		if (result.error.kind === 'validation' && result.error.formInvalid) {
-			failure = {
-				...result.error,
-				message: 'Bitte geben Sie eine E-Mail-Adresse oder eine Telefonnummer an.',
-			};
 		}
 		await tick();
 		errorElement?.focus();
@@ -277,7 +174,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 {/snippet}
 
 <div class={['ds-form', className]} data-ds-lead-form={funnel}>
-	{#if !definition || definition.active === false}
+	{#if !client.available}
 		<div class="ds-form__notice">
 			<p>Dieses Formular ist zurzeit nicht verfügbar.</p>
 			{@render contactFallback()}
