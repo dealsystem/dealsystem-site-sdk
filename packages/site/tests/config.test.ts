@@ -152,3 +152,42 @@ describe('siteApiOrigin', () => {
 		}
 	});
 });
+
+describe('booking', () => {
+	const base = { siteId: 's1' };
+	it('gültige Buchungen ohne Meldung; label und eventType sind optional', () => {
+		expect(
+			validateSiteConfig({
+				...base,
+				booking: { erstgespraech: { label: 'Erstgespräch', eventType: 'erstgespraech' }, rueckruf: {} },
+			}),
+		).toEqual([]);
+	});
+
+	it('Schlüssel wie beim Core (kebab, höchstens 50), unbekannte Angaben, leeres label, falscher Slug', () => {
+		const problems = validateSiteConfig({
+			...base,
+			booking: {
+				Erstgespraech: {},
+				['a'.repeat(51)]: {},
+				termin: { label: '', eventType: 'Erst Gespräch', dauer: 30 },
+			},
+		});
+		expect(problems.map((p) => p.path)).toEqual([
+			'booking.Erstgespraech',
+			`booking.${'a'.repeat(51)}`,
+			'booking.termin.dauer',
+			'booking.termin.label',
+			'booking.termin.eventType',
+		]);
+		expect(problems.find((p) => p.path === 'booking.termin.dauer')!.message).toContain(
+			'Erlaubt: label, eventType',
+		);
+	});
+
+	it('höchstens 20 Buchungen je Seite (mehr übernimmt der Core nicht)', () => {
+		const booking = Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`termin-${i}`, {}]));
+		expect(validateSiteConfig({ ...base, booking }).map((p) => p.path)).toEqual(['booking']);
+		expect(() => defineSite({ ...base, booking })).toThrow(/Höchstens 20 Terminbuchungen/);
+	});
+});

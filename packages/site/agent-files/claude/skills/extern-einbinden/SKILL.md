@@ -8,6 +8,9 @@ description: Einen fremden Dienst einbinden, z. B. ein YouTube- oder Vimeo-Video
 Nachschlagen: `node_modules/@dealsystem/site/docs/extern.md` (alle Fälle mit Beispielen) und `komponenten.md`
 (Abschnitte Embed und ExternalScript).
 
+Termine aus dem DealSystem-Kalender sind kein fremder Dienst: Skill `termin-buchung` (`<Booker>`). Calendly nur,
+wenn der Kunde ausdrücklich Calendly nutzt.
+
 1. Kläre in einem Satz, was der Kunde will, und lass dir die Adresse schicken (Video-Link, Buchungsseite,
    Code-Schnipsel des Anbieters). Rate keine Adresse und keine Konto-Kennung.
 2. Trage den Dienst in `dealsystem.config.ts` unter `external` ein:

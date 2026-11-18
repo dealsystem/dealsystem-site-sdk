@@ -259,6 +259,78 @@ export const FUNNEL_MANIFEST_MAX_FIELDS = 50;
  */
 export const MAX_FUNNEL_FIELDS = 60;
 
+/** Höchstzahl der Terminbuchungen je Seite (`SELF_SITE_MANIFEST_BOOKINGS_MAX` im Core; mehr übernimmt er nicht). */
+export const MAX_BOOKINGS = 20;
+/** Länge eines Buchungs-Schlüssels (`SELF_SITE_BOOKING_KEY_PATTERN` im Core: höchstens 50 Zeichen). */
+export const BOOKING_KEY_MAX_LENGTH = 50;
+/** Länge von `label` einer Buchung. */
+export const BOOKING_LABEL_MAX_LENGTH = 100;
+
+/** Prüft `booking` in `dealsystem.config.ts`. */
+function validateBooking(booking: unknown): ConfigProblem[] {
+	const problems: ConfigProblem[] = [];
+	if (booking === undefined) return problems;
+	if (!isRecord(booking)) {
+		return [
+			{
+				path: 'booking',
+				message: 'booking ist ein Objekt: booking: { erstgespraech: { label: "Erstgespräch" } }.',
+			},
+		];
+	}
+	const entries = Object.entries(booking);
+	if (entries.length > MAX_BOOKINGS) {
+		problems.push({ path: 'booking', message: `Höchstens ${MAX_BOOKINGS} Terminbuchungen je Seite.` });
+	}
+	for (const [key, def] of entries) {
+		const path = `booking.${key}`;
+		if (!KEBAB_KEY_PATTERN.test(key) || key.length > BOOKING_KEY_MAX_LENGTH) {
+			problems.push({
+				path,
+				message: `Der Buchungs-Schlüssel "${key}" ist ungültig. Erlaubt: Kleinbuchstaben, Ziffern und Bindestriche, höchstens ${BOOKING_KEY_MAX_LENGTH} Zeichen, z. B. "erstgespraech".`,
+			});
+		}
+		if (!isRecord(def)) {
+			problems.push({
+				path,
+				message: 'Eine Buchung ist ein Objekt, z. B. { label: "Erstgespräch", eventType: "erstgespraech" }.',
+			});
+			continue;
+		}
+		for (const name of Object.keys(def)) {
+			if (name !== 'label' && name !== 'eventType') {
+				problems.push({
+					path: `${path}.${name}`,
+					message: `Unbekannte Angabe "${name}". Erlaubt: label, eventType.`,
+				});
+			}
+		}
+		if (
+			def.label !== undefined &&
+			(typeof def.label !== 'string' ||
+				def.label.trim() === '' ||
+				def.label.length > BOOKING_LABEL_MAX_LENGTH)
+		) {
+			problems.push({
+				path: `${path}.label`,
+				message: `label ist ein Text mit 1 bis ${BOOKING_LABEL_MAX_LENGTH} Zeichen, z. B. label: "Erstgespräch".`,
+			});
+		}
+		if (
+			def.eventType !== undefined &&
+			(typeof def.eventType !== 'string' ||
+				!KEBAB_KEY_PATTERN.test(def.eventType) ||
+				def.eventType.length > 100)
+		) {
+			problems.push({
+				path: `${path}.eventType`,
+				message: 'eventType ist der Kurzname (Slug) einer Terminart aus dem CRM, z. B. "erstgespraech".',
+			});
+		}
+	}
+	return problems;
+}
+
 /** Ein Fehler in `dealsystem.config.ts`. */
 export interface ConfigProblem {
 	/** Stelle in der Konfiguration, z. B. `funnels.kontakt.fields[1].type`. */
@@ -439,6 +511,7 @@ export function validateSiteConfig(config: unknown): ConfigProblem[] {
 		}
 	}
 	problems.push(...validateExternal(config.external));
+	problems.push(...validateBooking(config.booking));
 	return problems;
 }
 

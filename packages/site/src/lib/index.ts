@@ -2,6 +2,7 @@
 // Seite im Browser braucht. Lade-Helfer für den Build: `@dealsystem/site/content`.
 // Konfiguration: `@dealsystem/site/config`. Vite-Plugin: `@dealsystem/site/vite`.
 
+export { default as Booker, type BookerProps } from './components/Booker.svelte';
 export { default as CollectionList, type CollectionListProps } from './components/CollectionList.svelte';
 export { default as ConsentGate, type ConsentGateProps } from './components/ConsentGate.svelte';
 export { default as CookieBanner, type CookieBannerProps } from './components/CookieBanner.svelte';
@@ -35,10 +36,39 @@ export {
 	type LeadFallback,
 	type LeadResult,
 } from './client/leadClient.svelte.js';
+export {
+	createBookingClient,
+	type BookingClient,
+	type BookingClientStatus,
+	type BookingFailure,
+	type BookingFailureReason,
+	type BookingInfoResult,
+	type BookingInput,
+	type BookingResult,
+	type BookingSlotsResult,
+} from './client/bookingClient.svelte.js';
+export {
+	formatBookingDate,
+	formatBookingTime,
+	groupSlotsByDay,
+	timeZoneLabel,
+	visitorTimeZone,
+	type BookingDay,
+	type BookingSlotView,
+} from './client/bookingTime.js';
 export { createFunnelState, type FunnelState, type FunnelStep } from './client/funnelState.svelte.js';
-export type { SiteApiError, SiteApiErrorKind, SiteApiResult } from './client/siteApi.js';
+export type {
+	BookingInfo,
+	BookingLocationType,
+	BookingQuestion,
+	BookingSlot,
+	SiteApiError,
+	SiteApiErrorKind,
+	SiteApiResult,
+} from './client/siteApi.js';
 
 export type {
+	BookingKey,
 	CollectionEntry,
 	CollectionKey,
 	ContentSlotLinkValue,

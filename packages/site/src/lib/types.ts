@@ -188,6 +188,20 @@ export interface ResolvedExternal {
 	hosts: ExternalHosts;
 }
 
+/**
+ * Eine Terminbuchung in `dealsystem.config.ts` (`booking`). Die Terminart selbst (Dauer, Arbeitszeiten, Fragen)
+ * richtet der Kunde im CRM unter Termine ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
+ */
+export interface BookingDef {
+	/** Bezeichnung auf der Seite und im CRM, z. B. „Erstgespräch“. Ohne Angabe gilt der Name der Terminart. */
+	label?: string;
+	/**
+	 * Kurzname (Slug) der Terminart im CRM, z. B. `erstgespraech`. Wird beim Hochladen zugeordnet, wenn genau eine
+	 * aktive Terminart so heißt; sonst wählt der Kunde sie im CRM. Nie erfinden: nur einen Slug, den es gibt.
+	 */
+	eventType?: string;
+}
+
 /** Inhalt von `dealsystem.config.ts`. */
 export interface SiteConfig {
 	/** Kennung der Seite im CRM. `npx dealsystem init` trägt sie ein. */
@@ -196,6 +210,8 @@ export interface SiteConfig {
 	funnels?: Readonly<Record<string, FunnelDef>>;
 	/** Fremde Dienste (Videos, Chat, Skripte). Nur was hier steht, lässt die Seite zu. */
 	external?: Readonly<Record<string, ExternalDef>>;
+	/** Terminbuchungen für `<Booker>` und `createBookingClient`, je Schlüssel. */
+	booking?: Readonly<Record<string, BookingDef>>;
 }
 
 // ------------------------------------------------- Typen aus der Konfiguration
@@ -227,6 +243,13 @@ export type FunnelKey = Registered extends null
 	? string
 	: Registered extends { funnels: infer F }
 		? keyof F & string
+		: never;
+
+/** Schlüssel der Terminbuchungen aus `dealsystem.config.ts` (`booking`). Ohne Registrierung `string`. */
+export type BookingKey = Registered extends null
+	? string
+	: Registered extends { booking: infer B }
+		? keyof B & string
 		: never;
 
 /** Schlüssel der fremden Dienste aus `dealsystem.config.ts` (`external`). Ohne Registrierung `string`. */
@@ -534,6 +557,8 @@ export interface SiteManifest {
 	schedule: string[];
 	/** Fremde Dienste mit aufgelöster Vorlage, nach `id` sortiert. Ältere SDKs senden das Feld nicht. */
 	external: ResolvedExternal[];
+	/** Terminbuchungen aus `booking` (Core: `self_site_bookings`). Ältere SDKs senden das Feld nicht. */
+	bookings: (BookingDef & { key: string })[];
 }
 
 // ------------------------------------------------------------------- Intern
@@ -559,4 +584,6 @@ export interface SiteData {
 	builtAt: number;
 	/** Fremde Dienste aus `dealsystem.config.ts`, je Schlüssel. */
 	external: Record<string, ResolvedExternal>;
+	/** Terminbuchungen aus `dealsystem.config.ts`, je Schlüssel. */
+	bookings: Record<string, BookingDef>;
 }

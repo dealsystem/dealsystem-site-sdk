@@ -111,6 +111,8 @@ interface SiteConfig {
 	funnels?: Readonly<Record<string, FunnelDef>>;
 	/** Fremde Dienste (Videos, Chat, Skripte). Nur was hier steht, lässt die Seite zu. */
 	external?: Readonly<Record<string, ExternalDef>>;
+	/** Terminbuchungen für `<Booker>` und `createBookingClient`, je Schlüssel. */
+	booking?: Readonly<Record<string, BookingDef>>;
 }
 ```
 
@@ -214,6 +216,23 @@ Kontakt-Standardfelder im CRM. Namen immer getrennt als `firstName` und
 ```ts
 type StandardFieldKey =
 	'firstName' | 'lastName' | 'email' | 'phone' | 'address1' | 'postalCode' | 'city';
+```
+
+### BookingDef
+
+Eine Terminbuchung in `dealsystem.config.ts` (`booking`). Die Terminart selbst (Dauer, Arbeitszeiten, Fragen)
+richtet der Kunde im CRM unter Termine ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
+
+```ts
+interface BookingDef {
+	/** Bezeichnung auf der Seite und im CRM, z. B. „Erstgespräch“. Ohne Angabe gilt der Name der Terminart. */
+	label?: string;
+	/**
+	 * Kurzname (Slug) der Terminart im CRM, z. B. `erstgespraech`. Wird beim Hochladen zugeordnet, wenn genau eine
+	 * aktive Terminart so heißt; sonst wählt der Kunde sie im CRM. Nie erfinden: nur einen Slug, den es gibt.
+	 */
+	eventType?: string;
+}
 ```
 
 ### CollectionDef

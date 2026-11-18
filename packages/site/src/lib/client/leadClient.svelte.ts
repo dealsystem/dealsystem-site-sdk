@@ -3,8 +3,8 @@
 // ohne sichtbares Widget), versteckte Felder, Attribution, Honeypot, `submissionId`, Ereignis-ID für Pixel und
 // gtag. Fehler kommen als Werte mit deutschem Text für Besucher zurück, nie als Ausnahme.
 import { buildLeadAttribution, getCampaignParam, getCampaignUtm } from './attribution.js';
-import { captchaAdapter, type CaptchaHandle } from './captcha.js';
-import { captchaChallengeUrl, siteApi, type SiteApiError } from './siteApi.js';
+import { createCaptchaSession } from './captchaSession.js';
+import { siteApi, type SiteApiError } from './siteApi.js';
 import { reportLeadConversion } from './tracking.js';
 import { labelOf, toLeadData, validateField, type FieldValue } from './validation.js';
 import { consent } from '../consent/consent.svelte.js';
@@ -104,7 +104,6 @@ export interface LeadClient<K extends string = string> {
 	destroy(): void;
 }
 
-const CAPTCHA_TIMEOUT_MS = 60_000;
 const HIDDEN_MAX = 500;
 
 const MESSAGES = {
@@ -122,6 +121,7 @@ function captchaError(): SiteApiError {
 		message: MESSAGES.captcha,
 		retryAfterSeconds: null,
 		invalidFields: [],
+		invalidPaths: [],
 		formInvalid: false,
 	};
 }
@@ -192,88 +192,7 @@ export function createLeadClient<K extends FunnelKey>(
 	let submissionId = '';
 	let inFlight: Promise<LeadResult> | null = null;
 
-	// --- Captcha ------------------------------------------------------------------------------------------
-	type CaptchaState = 'idle' | 'loading' | 'solving' | 'ready' | 'expired' | 'failed';
-	let captcha: CaptchaState = 'idle';
-	let solution: string | null = null;
-	let handle: CaptchaHandle | null = null;
-	let host: HTMLElement | null = null;
-	let ownHost = false;
-	let destroyed = false;
-	const waiters: ((solution: string | null) => void)[] = [];
-
-	function settle(value: string | null): void {
-		for (const resolve of waiters.splice(0)) resolve(value);
-	}
-
-	function captchaHost(): HTMLElement {
-		const given = options.captchaElement?.();
-		if (given) return given;
-		if (!host) {
-			host = document.createElement('div');
-			host.hidden = true;
-			host.dataset.dsCaptcha = String(funnel);
-			document.body.append(host);
-			ownHost = true;
-		}
-		return host;
-	}
-
-	async function startCaptcha(): Promise<void> {
-		if (captcha !== 'idle' || destroyed || typeof window === 'undefined') return;
-		captcha = 'loading';
-		try {
-			handle = await captchaAdapter()(captchaHost(), captchaChallengeUrl(), {
-				onSolved(payload) {
-					solution = payload;
-					captcha = 'ready';
-					settle(payload);
-				},
-				onCleared() {
-					solution = null;
-					captcha = 'expired';
-				},
-				onError() {
-					solution = null;
-					captcha = 'failed';
-					settle(null);
-				},
-			});
-			if (captcha === 'loading') captcha = 'solving';
-		} catch {
-			captcha = 'failed';
-			settle(null);
-		}
-	}
-
-	/** Wartet auf eine frische Lösung. `null`: die Prüfung ließ sich nicht durchführen. */
-	function awaitSolution(): Promise<string | null> {
-		if (captcha === 'ready' && solution) return Promise.resolve(solution);
-		const waiting = new Promise<string | null>((resolve) => {
-			waiters.push(resolve);
-			setTimeout(() => resolve(null), CAPTCHA_TIMEOUT_MS);
-		});
-		if (captcha === 'failed') {
-			handle?.destroy();
-			handle = null;
-			captcha = 'idle';
-		}
-		if (captcha === 'idle') void startCaptcha();
-		else if (captcha === 'expired' || (captcha === 'ready' && !solution)) {
-			captcha = 'solving';
-			handle?.reset();
-		}
-		return waiting;
-	}
-
-	/** Eine Lösung gilt nur einmal: verbrauchen und gleich die nächste Aufgabe lösen. */
-	function consumeSolution(): void {
-		solution = null;
-		if (handle && captcha !== 'failed') {
-			captcha = 'solving';
-			handle.reset();
-		}
-	}
+	const captcha = createCaptchaSession({ name: String(funnel), element: options.captchaElement });
 
 	// --- Werte --------------------------------------------------------------------------------------------
 	function hiddenValues(): Record<string, string> {
@@ -331,7 +250,7 @@ export function createLeadClient<K extends FunnelKey>(
 		}
 
 		status = 'captcha';
-		const payload = await awaitSolution();
+		const payload = await captcha.solution();
 		if (!payload) {
 			const error = captchaError();
 			return {
@@ -363,13 +282,13 @@ export function createLeadClient<K extends FunnelKey>(
 		if (result.ok) {
 			const id = submissionId;
 			submissionId = '';
-			solution = null;
+			captcha.clear();
 			// Gleiche Ereignis-ID wie die serverseitige Conversion. Die Vorschau zählt nicht.
 			if (!result.data.dryRun && consent.has('marketing')) reportLeadConversion(id);
 			return { ok: true, dryRun: result.data.dryRun, submissionId: id };
 		}
 
-		consumeSolution();
+		captcha.consume();
 		const error = result.error;
 		if (error.kind === 'validation') {
 			const fields: Record<string, string> = {};
@@ -411,7 +330,7 @@ export function createLeadClient<K extends FunnelKey>(
 		},
 		field: (name) => visible.find((f) => f.name === name),
 		prepare() {
-			void startCaptcha();
+			captcha.start();
 		},
 		validate,
 		setHoneypot(value) {
@@ -426,11 +345,7 @@ export function createLeadClient<K extends FunnelKey>(
 			return inFlight;
 		},
 		destroy() {
-			destroyed = true;
-			handle?.destroy();
-			handle = null;
-			if (ownHost) host?.remove();
-			settle(null);
+			captcha.destroy();
 		},
 	};
 }

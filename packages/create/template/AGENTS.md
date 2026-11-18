@@ -65,6 +65,7 @@ Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden, bevor du
 - `bild-einbauen` – Foto des Kunden einbauen (ohne Standort)
 - `formular-anbinden` – Kontakt- oder Anfrageformular
 - `funnel-mehrstufig` – eigenes Formular in Schritten (Funnel)
+- `termin-buchung` – Termine aus dem DealSystem-Kalender buchen (`termine.md`)
 - `extern-einbinden` – Video, Karte, Termin, Chat, fremdes Skript
 - `angebote-einbauen` – Angebote, Referenzen, andere Sammlungen aus dem CRM
 - `prueffehler-beheben` – Meldungen von `check` oder abgelehnte Version
@@ -77,7 +78,7 @@ Aus `@dealsystem/site`; Pflichtangaben und Beispiele in `komponenten.md`.
 
 - Text: `<Text>`, `<RichText>`, `<Link>`
 - Bild und Video: `<MediaImage>`, `<MediaVideo>`
-- Formular und Listen: `<LeadForm>`, `<LeadHoneypot>`, `<CollectionList>`
+- Formular und Listen: `<LeadForm>`, `<LeadHoneypot>`, `<Booker>`, `<CollectionList>`
 - Fremde Dienste: `<MapEmbed>`, `<Embed>`, `<ExternalScript>`
 - Einwilligung: `<CookieBanner>`, `<ConsentGate>`, `<Tracking>`
 - Rechtliches: `<Impressum>`, `<Datenschutz>`, `<SiteFooterLegal>`

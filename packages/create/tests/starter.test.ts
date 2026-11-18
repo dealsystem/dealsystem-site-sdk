@@ -411,6 +411,82 @@ describe('Beispiel-Funnel „Bewertung“ aus dem Skill im Starter', () => {
 	});
 });
 
+describe('Terminbuchung aus dem Skill im Starter (echter Build)', () => {
+	let project: StarterProject;
+	const skill = join(TEMPLATE_SKILLS, 'termin-buchung');
+
+	beforeAll(async () => {
+		project = await createStarter();
+		await simulateInstallAndInit(project.dir);
+		// Genau wie der Skill es sagt: Zuordnung in die Konfiguration, eine Seite mit <Booker>.
+		const text = await readFile(join(skill, 'SKILL.md'), 'utf8');
+		const blocks = [...text.matchAll(/```(ts|svelte)\n([\s\S]*?)```/g)];
+		const config = blocks.find((b) => b[1] === 'ts' && b[2]!.startsWith('erstgespraech: {'))![2]!;
+		const route = blocks.find((b) => b[1] === 'svelte' && b[2]!.includes('<Booker'))![2]!;
+		const configFile = join(project.dir, 'dealsystem.config.ts');
+		const original = await readFile(configFile, 'utf8');
+		const changed = original.replace('\tfunnels: {\n', `\tbooking: {\n${config}\t},\n\tfunnels: {\n`);
+		expect(changed).not.toBe(original);
+		await writeFile(configFile, changed);
+		await mkdir(join(project.dir, 'src/routes/termin'), { recursive: true });
+		await writeFile(join(project.dir, 'src/routes/termin/+page.svelte'), route);
+		await build(project.dir);
+	});
+
+	afterAll(() => project.remove());
+
+	it('besteht alle Regeln an Quelltext und fertiger Seite, ohne Warnung', async () => {
+		const source = await runCheck({ projectDir: project.dir, stages: ['source'] });
+		const output = await runCheck({
+			outputDir: join(project.dir, 'build'),
+			stages: ['output'],
+			siteUrl: 'https://muster-immobilien.de',
+			apiUrl: 'https://app.dealsystem.io',
+		});
+		expect([...problems(source), ...problems(output)]).toEqual([]);
+	});
+
+	it('ist typrein: der Schlüssel kommt aus booking, ein Tippfehler wäre ein Typfehler', async () => {
+		const kit = join(packageDir('@sveltejs/kit', project.dir), 'svelte-kit.js');
+		const check = join(packageDir('svelte-check', project.dir), 'bin/svelte-check');
+		await run(process.execPath, [kit, 'sync'], { cwd: project.dir });
+		const svelteCheck = () =>
+			run(process.execPath, [check, '--tsconfig', './tsconfig.json', '--output', 'machine'], {
+				cwd: project.dir,
+			}).catch((error: { stdout: string }) => ({ stdout: error.stdout }));
+		expect((await svelteCheck()).stdout).toMatch(/COMPLETED \d+ FILES 0 ERRORS 0 WARNINGS/);
+
+		const routeFile = join(project.dir, 'src/routes/termin/+page.svelte');
+		const route = await readFile(routeFile, 'utf8');
+		await writeFile(routeFile, route.replace('booking="erstgespraech"', 'booking="erstgesprach"'));
+		try {
+			expect((await svelteCheck()).stdout).toMatch(/ERROR .*termin\/\+page\.svelte.*erstgesprach/);
+		} finally {
+			await writeFile(routeFile, route);
+		}
+	});
+
+	it('meldet die Buchung im Manifest; die Seite braucht in der CSP nur die Site-API', async () => {
+		const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+			bookings: unknown[];
+		};
+		expect(manifest.bookings).toEqual([
+			{ key: 'erstgespraech', label: 'Erstgespräch', eventType: 'erstgespraech' },
+		]);
+		const html = await page(project.dir, 'termin.html');
+		expect(html).toContain('data-ds-booker="erstgespraech"');
+		// Ohne JavaScript: Hinweis und Ausweichkontakt, kein leerer Kasten.
+		expect(html).toMatch(/<noscript[^>]*>.*Die Terminbuchung braucht JavaScript/s);
+		const csp = /<meta http-equiv="content-security-policy" content="([^"]+)"/.exec(html)?.[1] ?? '';
+		expect(csp).toMatch(/connect-src 'self' https:\/\/app\.dealsystem\.io[ ;]/);
+		expect(csp).not.toMatch(/calendly|frame-src[^;]*https:\/\/(?!www\.openstreetmap\.org)/);
+		const external = [...withoutCsp(html).matchAll(/(?:src|href)="((?:https?:)?\/\/[^"]+)"/g)].map(
+			(m) => m[1],
+		);
+		expect(external).toEqual([]);
+	});
+});
+
 describe('Starter mit Inhalten aus dem CRM', () => {
 	let project: StarterProject;
 

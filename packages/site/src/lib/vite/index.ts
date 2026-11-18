@@ -245,6 +245,7 @@ export function buildManifest(
 		...(extras.contentPatch ? { contentPatch: extras.contentPatch } : {}),
 		schedule: extras.schedule ?? [],
 		external: resolveExternal(config.external),
+		bookings: Object.entries(config.booking ?? {}).map(([key, booking]) => ({ ...booking, key })),
 	};
 }
 
@@ -317,6 +318,9 @@ export function buildSiteData(
 		seo: snapshot.seo,
 		builtAt,
 		external: Object.fromEntries(resolveExternal(config.external).map((entry) => [entry.id, entry])),
+		bookings: Object.fromEntries(
+			Object.entries(config.booking ?? {}).map(([key, booking]) => [key, { ...booking }]),
+		),
 	};
 }
 
@@ -341,6 +345,44 @@ export async function createDevCaptchaChallenge(siteId: string): Promise<unknown
 		hmacSignatureSecret: DEV_CAPTCHA_SECRET,
 		hmacKeySignatureSecret: DEV_CAPTCHA_SECRET,
 	});
+}
+
+/**
+ * Freie Probe-Zeiten für `vite dev`: werktags 9 bis 16 Uhr Berliner Zeit im Abstand von 30 Minuten, ab der
+ * nächsten vollen Stunde. Zeiten in UTC wie bei der Site-API; die Zeitumstellung erledigt `Intl`.
+ */
+export function devBookingSlots(
+	from: Date,
+	to: Date,
+	durationMinutes = 30,
+): { start: string; end: string }[] {
+	const out: { start: string; end: string }[] = [];
+	const format = new Intl.DateTimeFormat('en-GB', {
+		timeZone: 'Europe/Berlin',
+		weekday: 'short',
+		hour: '2-digit',
+		minute: '2-digit',
+		hourCycle: 'h23',
+	});
+	const step = 30 * 60_000;
+	let t = Math.ceil(Math.max(from.getTime(), Date.now() + 3_600_000) / step) * step;
+	while (t + durationMinutes * 60_000 <= to.getTime() && out.length < 2000) {
+		const p = Object.fromEntries(format.formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+		const minutes = Number(p.hour) * 60 + Number(p.minute);
+		if (
+			p.weekday !== 'Sat' &&
+			p.weekday !== 'Sun' &&
+			minutes >= 9 * 60 &&
+			minutes + durationMinutes <= 16 * 60
+		) {
+			out.push({
+				start: new Date(t).toISOString(),
+				end: new Date(t + durationMinutes * 60_000).toISOString(),
+			});
+		}
+		t += step;
+	}
+	return out;
 }
 
 function sendJson(res: import('node:http').ServerResponse, status: number, body: unknown): void {
@@ -383,6 +425,69 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 				// Seitenaufrufe zählen lokal nicht; wie eine Vorschau: geprüft, nichts gespeichert.
 				for await (const _chunk of req) void _chunk;
 				return sendJson(res, 200, { data: { accepted: true, dryRun: true } });
+			}
+			if (resource === 'booking' && key) {
+				const booking = config.booking?.[key];
+				if (!booking) {
+					return sendJson(res, 404, {
+						error: 'Not Found',
+						message: 'Buchung unbekannt',
+						status: 404,
+						code: 'booking_unavailable',
+					});
+				}
+				if (!slug && req.method === 'GET') {
+					// Probe-Terminart: die echte richtet der Kunde im CRM ein.
+					return sendJson(res, 200, {
+						data: {
+							key,
+							label: booking.label ?? 'Probetermin',
+							title: booking.label ?? 'Probetermin',
+							description: 'Lokale Vorschau: Zeiten und Fragen sind Beispiele.',
+							durationMinutes: 30,
+							timezone: 'Europe/Berlin',
+							locations: [{ type: 'phone', label: 'Telefon' }],
+							questions: [
+								{
+									key: 'anliegen',
+									label: 'Worum geht es?',
+									type: 'textarea',
+									required: false,
+									options: null,
+									placeholder: null,
+								},
+							],
+						},
+					});
+				}
+				if (slug === 'slots' && req.method === 'GET') {
+					const from = new Date(url.searchParams.get('from') ?? Date.now());
+					const to = new Date(url.searchParams.get('to') ?? from.getTime() + 7 * 86_400_000);
+					return sendJson(res, 200, {
+						data: {
+							timezone: 'Europe/Berlin',
+							from: from.toISOString(),
+							to: to.toISOString(),
+							slots: devBookingSlots(from, to),
+						},
+					});
+				}
+				if (slug === 'bookings' && req.method === 'POST') {
+					let raw = '';
+					for await (const chunk of req) raw += chunk;
+					const body = JSON.parse(raw || '{}') as { start?: string };
+					server.config.logger.info(`[dealsystem] Probe-Buchung „${key}“ (nicht gebucht)`);
+					// Wie ein Vorschau-Host: geprüft, nichts gebucht, keine Mail.
+					const start = body.start ? new Date(body.start) : new Date();
+					return sendJson(res, 200, {
+						data: {
+							booked: true,
+							dryRun: true,
+							start: start.toISOString(),
+							end: new Date(start.getTime() + 30 * 60_000).toISOString(),
+						},
+					});
+				}
 			}
 			if (resource === 'captcha' && req.method === 'GET') {
 				res.setHeader('Cache-Control', 'no-store');

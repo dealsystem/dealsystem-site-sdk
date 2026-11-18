@@ -6,6 +6,7 @@ import { CAPTCHA_ALGORITHMS } from '../src/lib/client/captcha.js';
 import {
 	captchaChallengeUrl,
 	createSiteApi,
+	type BookingRequest,
 	type LeadRequest,
 	type SiteApiErrorKind,
 } from '../src/lib/client/siteApi.js';
@@ -19,6 +20,22 @@ ajv.addSchema(contract, 'core');
 const coreSchema = (name: string) => ajv.getSchema(`core#/components/schemas/${name}`)!;
 
 const leadOperation = contract.paths['/s/{key}/leads'].post;
+const bookingInfoOperation = contract.paths['/s/{key}/booking/{bookingKey}'].get;
+const bookingSlotsOperation = contract.paths['/s/{key}/booking/{bookingKey}/slots'].get;
+const bookingOperation = contract.paths['/s/{key}/booking/{bookingKey}/bookings'].post;
+const validateBookingBody = ajv.compile(bookingOperation.requestBody.content['application/json'].schema);
+
+/** Fehlercodes der Terminbuchung: Status und Art im Client. Die Termin-Seiten (`appointments/…`) nutzt das SDK nicht. */
+const BOOKING_CODES: Record<string, [status: number, kind: SiteApiErrorKind]> = {
+	booking_unavailable: [404, 'not_found'],
+	slot_taken: [409, 'conflict'],
+	slots_unavailable: [503, 'server'],
+	invalid_range: [400, 'rejected'],
+	invalid_timezone: [400, 'rejected'],
+	not_qualified: [422, 'validation'],
+	appointment_not_found: [404, 'not_found'],
+	appointment_closed: [410, 'gone'],
+};
 const validateLeadBody = ajv.compile(leadOperation.requestBody.content['application/json'].schema);
 const SITE_KEY = 'dsp_abcd1234_abcdefghijklmnopqrstuvwx';
 
@@ -131,7 +148,7 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 	});
 
 	it('jeder Fehlercode des Vertrags hat im Client eine feste Bedeutung', async () => {
-		// Kommt im Core ein Code dazu, wird dieser Test rot, bis er hier eingeordnet ist.
+		// Kommt im Core ein Code dazu, wird dieser Test rot, bis er hier (Leads) oder unter `BOOKING_CODES` steht.
 		const expected: Record<string, [status: number, kind: SiteApiErrorKind]> = {
 			invalid_json: [400, 'rejected'],
 			captcha_failed: [400, 'captcha_failed'],
@@ -148,9 +165,9 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			captcha_unavailable: [503, 'server'],
 		};
 		const codes = contract.components.schemas.Error.properties.code.enum;
-		expect([...codes].sort()).toEqual(Object.keys(expected).sort());
+		expect([...codes].sort()).toEqual([...Object.keys(expected), ...Object.keys(BOOKING_CODES)].sort());
 
-		for (const code of codes) {
+		for (const code of Object.keys(expected)) {
 			const [status, kind] = expected[code]!;
 			expect(Object.keys(leadOperation.responses), code).toContain(String(status));
 			const body = { error: 'x', message: 'Text vom Server', status, code };
@@ -308,5 +325,112 @@ describe('Vertrag Site-API v1: Sammlungen (Kopie aus dem Core)', () => {
 				error: { kind: 'not_found', code: 'not_found', status: 404 },
 			});
 		}
+	});
+});
+
+describe('Vertrag Site-API v1: Terminbuchung (Kopie aus dem Core)', () => {
+	const BOOKING = 'erstgespraech';
+	const booking = (overrides: Partial<BookingRequest> = {}): BookingRequest => ({
+		submissionId: crypto.randomUUID(),
+		start: '2026-12-01T09:00:00.000Z',
+		tz: 'Europe/Berlin',
+		attendee: { firstName: 'Erika', email: 'erika@beispiel.de' },
+		captcha: 'loesung',
+		...overrides,
+	});
+
+	it('der Client ruft genau die Pfade, Methoden und Parameter des Vertrags', async () => {
+		const { api, calls } = recordingApi(() =>
+			jsonResponse(200, exampleOf(bookingInfoOperation.responses['200'])),
+		);
+		await api.getBooking(BOOKING);
+		await api.getBookingSlots(BOOKING, { from: '2026-12-01T00:00:00.000Z', to: '2026-12-08T00:00:00.000Z' });
+		await api.createBooking(BOOKING, booking());
+		const server = contract.servers[0]!.url;
+		const base = `${server}/s/${SITE_KEY}/booking/${BOOKING}`;
+		expect(calls.map((c) => [c.method, c.url.origin + c.url.pathname])).toEqual([
+			['GET', base],
+			['GET', `${base}/slots`],
+			['POST', `${base}/bookings`],
+		]);
+		const allowed = bookingSlotsOperation.parameters.filter((p) => p.in === 'query').map((p) => p.name);
+		expect([...calls[1]!.url.searchParams.keys()].every((k) => allowed.includes(k))).toBe(true);
+		expect(calls[2]!.headers['Content-Type']).toBe('application/json');
+		expect(calls.every((c) => c.credentials === 'omit')).toBe(true);
+		const keyPattern = bookingOperation.parameters.find((p) => p.name === 'bookingKey')!.schema.pattern!;
+		expect(BOOKING).toMatch(new RegExp(keyPattern));
+		expect('a'.repeat(51)).not.toMatch(new RegExp(keyPattern));
+	});
+
+	it('der Buchungs-Body erfüllt das strikte Schema — mit und ohne optionale Teile', () => {
+		expect(validateBookingBody(booking()), JSON.stringify(validateBookingBody.errors)).toBe(true);
+		const full = booking({
+			attendee: { firstName: 'Erika', lastName: 'Muster', email: 'erika@beispiel.de', phone: '0341 123456' },
+			answers: { anliegen: 'Verkauf', flaeche: 85, rueckruf: true, themen: ['Kauf'] },
+			locationType: 'phone',
+			attribution: { utmSource: 'google' },
+			website: '',
+		});
+		expect(validateBookingBody(full), JSON.stringify(validateBookingBody.errors)).toBe(true);
+		expect(validateBookingBody({ ...booking(), extra: 1 })).toBe(false);
+		expect(validateBookingBody({ ...booking(), captcha: '' })).toBe(false);
+		expect(
+			validateBookingBody({ ...booking(), attendee: { firstName: 'E', email: 'x@y.de', anrede: 'Frau' } }),
+		).toBe(false);
+	});
+
+	it('der Client versteht die Beispielantworten, und sie erfüllen ihr Schema', async () => {
+		const infoExample = exampleOf(bookingInfoOperation.responses['200']);
+		expect(coreSchema('BookingInfo')(infoExample)).toBe(true);
+		const info = await recordingApi(() => jsonResponse(200, infoExample)).api.getBooking(BOOKING);
+		expect(info.ok && info.data.key).toBe((infoExample as { data: { key: string } }).data.key);
+
+		const slotsExample = exampleOf(bookingSlotsOperation.responses['200']) as { data: { slots: unknown[] } };
+		expect(coreSchema('BookingSlots')(slotsExample)).toBe(true);
+		const slots = await recordingApi(() => jsonResponse(200, slotsExample)).api.getBookingSlots(BOOKING, {
+			from: '2026-12-01T00:00:00.000Z',
+			to: '2026-12-02T00:00:00.000Z',
+		});
+		expect(slots.ok && slots.data.slots).toHaveLength(slotsExample.data.slots.length);
+
+		for (const [status, dryRun] of [
+			['201', false],
+			['200', true],
+		] as const) {
+			const example = exampleOf(bookingOperation.responses[status]);
+			expect(coreSchema('BookingCreated')(example)).toBe(true);
+			const result = await recordingApi(() => jsonResponse(Number(status), example)).api.createBooking(
+				BOOKING,
+				booking(),
+			);
+			expect(result).toMatchObject({ ok: true, data: { booked: true, dryRun } });
+		}
+	});
+
+	it('jeder Fehlercode der Buchung hat im Client eine feste Bedeutung', async () => {
+		for (const [code, [status, kind]] of Object.entries(BOOKING_CODES)) {
+			const body = { error: 'x', message: 'Text vom Server', status, code };
+			expect(coreSchema('Error')(body), code).toBe(true);
+			const result = await recordingApi(() => jsonResponse(status, body)).api.createBooking(
+				BOOKING,
+				booking(),
+			);
+			expect(result, code).toMatchObject({ ok: false, error: { kind, code, status } });
+			expect(JSON.stringify(result)).not.toContain('Text vom Server');
+		}
+		for (const code of ['booking_unavailable', 'slot_taken', 'not_qualified']) {
+			const status = BOOKING_CODES[code]![0];
+			expect(Object.keys(bookingOperation.responses), code).toContain(String(status));
+		}
+	});
+
+	it('das 422-Beispiel des Vertrags nennt Pfade, die der Client den Feldern zuordnet', async () => {
+		const example = exampleOf(bookingOperation.responses['422']) as { details?: { path: string }[] };
+		expect(coreSchema('Error')(example)).toBe(true);
+		const result = await recordingApi(() => jsonResponse(422, example)).api.createBooking(BOOKING, booking());
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.invalidPaths).toEqual([...new Set((example.details ?? []).map((d) => d.path))]);
+		expect(result.error.invalidPaths.every((p) => /^(attendee|answers|start)\b/.test(p))).toBe(true);
 	});
 });

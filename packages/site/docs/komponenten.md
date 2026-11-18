@@ -370,6 +370,42 @@ export interface LeadHoneypotProps {
 }
 ```
 
+## Booker
+
+Terminbuchung auf der Seite: Tag wählen, Uhrzeit wählen, Angaben, Bestätigung. Die freien Zeiten,
+Buchungsfragen, der Spam-Schutz und die Buchung im CRM sind eingebaut. Kein iframe, kein eigenes `fetch`.
+
+```svelte
+<Booker booking="erstgespraech" />
+```
+
+Den Schlüssel trägst du in `dealsystem.config.ts` unter `booking` ein. Die Terminart (Dauer, Arbeitszeiten,
+Fragen) richtet der Kunde im CRM unter Termine ein; erfinde keine. Zeiten erscheinen in der Zeitzone des
+Besuchers, die des Kalenders steht als Hinweis dabei. Farben und Rundungen wie bei `<LeadForm>` über
+CSS-Variablen, z. B. `--ds-color-primary`.
+
+Eigenschaften:
+
+```ts
+export interface BookerProps {
+  /** Schlüssel aus `booking` in `dealsystem.config.ts`, z. B. `erstgespraech`. */
+  booking: BookingKey;
+  /** So viele Tage zeigt der erste Abruf, Standard 14 (höchstens 31). „Weitere Termine“ lädt nach. */
+  days?: number;
+  /** Ebene der Schritt-Überschriften, Standard 2. */
+  headingLevel?: 2 | 3 | 4;
+  /** Text der Schaltfläche. Standard „Termin buchen“. */
+  submitLabel?: string;
+  /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
+  privacyHref?: string;
+  /** Eigene Anzeige nach der Buchung; bekommt Datum und Uhrzeit als Text. */
+  success?: Snippet<[{ when: string; dryRun: boolean }]>;
+  /** Wird nach der Buchung aufgerufen. */
+  onbooked?: (booked: { start: string; end: string | null; dryRun: boolean }) => void;
+  class?: string;
+}
+```
+
 ## CollectionList
 
 Liste der Einträge einer Sammlung. Das Snippet `item` bestimmt, wie ein
@@ -991,6 +1027,181 @@ interface FunnelStep {
 	/** Namen der Felder aus `dealsystem.config.ts`, die auf diesem Schritt stehen. Leer = ein Schritt ohne Felder. */
 	fields: readonly string[];
 }
+```
+
+## Eigene Terminbuchung
+
+Ohne `<Booker>`, mit eigener Oberfläche. Ablauf und Regeln: `termine.md`.
+
+### createBookingClient()
+
+Terminbuchung ohne `<Booker>`: für eine eigene Oberfläche. Nimmt den Schlüssel aus `booking` in
+`dealsystem.config.ts`. Die Terminart (Dauer, Arbeitszeiten, Fragen) richtet der Kunde im CRM ein; erfinde
+keine. Kein eigenes `fetch` an DealSystem (`SEC-004`).
+
+Zeiten kommen und gehen in UTC. Zeig sie in der Zeitzone des Besuchers (`groupSlotsByDay`, `visitorTimeZone`)
+und nenne die des Kalenders (`timezone`) als Hinweis. Zeig bei jedem Fehler außer `validation` den
+Ausweichkontakt `fallback`; bei `slot_taken` die Zeiten neu laden. Setz `<LeadHoneypot client={termin} />` in
+die Oberfläche.
+
+```ts
+<script lang="ts">
+	import { createBookingClient, groupSlotsByDay, visitorTimeZone, LeadHoneypot } from '@dealsystem/site';
+	import { onMount } from 'svelte';
+
+	const termin = createBookingClient('erstgespraech');
+	const zone = visitorTimeZone();
+	let tage = $state<ReturnType<typeof groupSlotsByDay>>([]);
+	let start = $state('');
+	let vorname = $state('');
+	let email = $state('');
+	let ergebnis = $state<Awaited<ReturnType<typeof termin.book>> | null>(null);
+
+	onMount(() => {
+		termin.slots().then((r) => (tage = r.ok ? groupSlotsByDay(r.slots, zone) : []));
+		return () => termin.destroy();
+	});
+
+	async function buchen(event: SubmitEvent) {
+		event.preventDefault();
+		ergebnis = await termin.book({ start, firstName: vorname, email });
+	}
+</script>
+
+{#each tage as tag (tag.date)}
+	<h3>{tag.long}</h3>
+	{#each tag.slots as zeit (zeit.start)}
+		<button type="button" aria-pressed={start === zeit.start} onclick={() => ((start = zeit.start), termin.prepare())}>
+			{zeit.time}
+		</button>
+	{/each}
+{/each}
+<form onsubmit={buchen}>
+	<label for="vorname">Vorname</label>
+	<input id="vorname" required bind:value={vorname} />
+	<label for="email">E-Mail</label>
+	<input id="email" type="email" required bind:value={email} />
+	<LeadHoneypot client={termin} />
+	<button type="submit" disabled={!start}>Termin buchen</button>
+</form>
+{#if ergebnis && !ergebnis.ok}<p role="alert">{ergebnis.message}</p>{/if}
+```
+
+```ts
+function createBookingClient<K extends BookingKey>(
+	booking: K,
+	options: BookingClientOptions = {},
+): BookingClient<K>;
+```
+
+### BookingInput
+
+Was gebucht werden soll.
+
+```ts
+interface BookingInput {
+	/** Beginn genau wie `start` aus `slots()` (UTC). */
+	start: string;
+	firstName: string;
+	lastName?: string;
+	email: string;
+	phone?: string;
+	/** Antworten auf die Buchungsfragen (`info.questions[].key`). */
+	answers?: Record<string, string | number | boolean | readonly string[] | undefined>;
+	/** Gewählte Ort-Art aus `info.locations`; ohne Angabe die erste. */
+	locationType?: BookingLocationType;
+}
+```
+
+### BookingResult
+
+Ergebnis von `book()`.
+
+```ts
+type BookingResult =
+	| {
+			ok: true;
+			/** `true` in der Vorschau: geprüft, nichts gebucht, keine Mail. Zeig dann einen Hinweis. */
+			dryRun: boolean;
+			/** `true`, wenn derselbe Vorgang schon gebucht war (doppelt abgeschickt). Für Besucher: gebucht. */
+			duplicate: boolean;
+			/** Beginn und Ende in UTC. */
+			start: string;
+			end: string | null;
+			submissionId: string;
+	  }
+	| {
+			ok: false;
+			reason: 'validation';
+			message: string;
+			/** Je abgelehntem Feld ein Text: `firstName`, `lastName`, `email`, `phone` oder `answers.<key>`. */
+			fields: Record<string, string>;
+			fallback: null;
+			/** @internal */
+			error: SiteApiError | null;
+	  }
+	| BookingFailure;
+```
+
+### BookingFailureReason
+
+Warum etwas nicht geklappt hat.
+
+```ts
+type BookingFailureReason =
+	/** Angaben fehlen oder passen nicht: `fields` nennt je Feld den Text. */
+	| 'validation'
+	/** Die Zeit ist inzwischen vergeben: freie Zeiten neu laden und eine andere wählen lassen. */
+	| 'slot_taken'
+	/** Die Angaben passen nicht zu dieser Terminart (Regel im CRM). Ausweichkontakt zeigen. */
+	| 'not_qualified'
+	/** Die Sicherheitsprüfung (Captcha) ließ sich nicht durchführen. */
+	| 'captcha'
+	/** Zu viele Anfragen;
+```
+### groupSlotsByDay()
+
+Freie Termine nach Kalendertag in der Anzeige-Zeitzone, aufsteigend. Ein Termin um 23:30 UTC gehört in Berlin
+zum nächsten Tag; ein Tag der Zeitumstellung hat einfach eine Stunde mehr oder weniger.
+
+```ts
+function groupSlotsByDay(
+	slots: readonly BookingSlot[],
+	timeZone: string,
+	locale = 'de-DE',
+): BookingDay[];
+```
+
+### visitorTimeZone()
+
+IANA-Zeitzone des Besuchers, z. B. `Europe/Berlin`. Ohne Angabe des Browsers `Europe/Berlin`.
+
+```ts
+function visitorTimeZone(): string;
+```
+
+### timeZoneLabel()
+
+Name einer Zeitzone für Besucher, z. B. `Mitteleuropäische Zeit (Berlin)`. Ohne Namen in `Intl` nur die Stadt.
+
+```ts
+function timeZoneLabel(timeZone: string, locale = 'de-DE', at: Date = new Date()): string;
+```
+
+### formatBookingTime()
+
+Uhrzeit eines Zeitpunkts in einer Zeitzone, z. B. `09:30`.
+
+```ts
+function formatBookingTime(instant: Date | string, timeZone: string): string;
+```
+
+### formatBookingDate()
+
+Datum eines Zeitpunkts in einer Zeitzone, z. B. `Dienstag, 1. Dezember 2026`.
+
+```ts
+function formatBookingDate(instant: Date | string, timeZone: string, locale = 'de-DE'): string;
 ```
 
 ## Kampagnen-Parameter
