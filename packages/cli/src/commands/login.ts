@@ -5,6 +5,7 @@ import { CliError, EXIT } from '../api/errors.js';
 import { pollDeviceToken, startDeviceAuthorization, CLI_CLIENT_ID } from '../api/oauth.js';
 import type { PendingLogin } from '../auth/credentials.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
+import { lookupWorkspaceQuietly, workspaceData, workspaceSentence } from '../cli/workspace.js';
 
 async function begin(ctx: CommandContext): Promise<PendingLogin> {
 	const auth = await startDeviceAuthorization(ctx.apiUrl, ctx.io.fetch);
@@ -69,6 +70,9 @@ async function wait(ctx: CommandContext, pending: PendingLogin): Promise<Command
 		const envHint = ctx.io.env.DEALSYSTEM_TOKEN
 			? ' Achtung: DEALSYSTEM_TOKEN ist gesetzt und hat Vorrang.'
 			: '';
+		// Den im Browser gewählten Workspace nennen, damit Nutzer und Agent ihn bestätigen können.
+		const lookup = await lookupWorkspaceQuietly(ctx);
+		const { workspace, user } = workspaceData(lookup);
 		return {
 			exitCode: EXIT.ok,
 			data: {
@@ -76,8 +80,10 @@ async function wait(ctx: CommandContext, pending: PendingLogin): Promise<Command
 				scope: account.scope,
 				expiresAt: new Date(account.expiresAt).toISOString(),
 				credentialsFile: ctx.store.credentialsPath,
+				workspace,
+				user,
 			},
-			text: `Angemeldet bei ${account.apiUrl}.${envHint} Nächster Schritt: \`npx dealsystem init\` im Projektordner.`,
+			text: `Angemeldet bei ${account.apiUrl}.${workspaceSentence(lookup)}${envHint} Nächster Schritt: \`npx dealsystem init\` im Projektordner.`,
 		};
 	}
 }

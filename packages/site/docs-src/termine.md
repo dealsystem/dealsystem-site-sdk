@@ -8,9 +8,16 @@ Formular an die Site-API.
 ## Die Terminart kommt aus dem CRM
 
 Was gebucht werden kann, legt der Kunde im CRM unter Termine fest: Dauer, Arbeitszeiten, Buchungsfragen,
-Gastgeber, Ort (Telefon, Google Meet, vor Ort). Über den DealSystem-Konnektor kann der Agent das für ihn tun
-(`list_event_types`, `create_event_type`, `upsert_schedule`, `upsert_booking_field`). **Erfinde keine
-Terminart, keine Dauer und keine Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
+Gastgeber, Ort (Telefon, Google Meet, vor Ort). **Erfinde keine Terminart, keine Dauer und keine
+Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
+
+Welche Terminarten wählbar sind, zeigt im DealSystem-Konnektor `list_website_bookings` mit der `websiteId` aus
+`npx dealsystem status`: Das Feld `eventTypes` (mit `slug`) enthält die aktiven Terminarten des Workspaces, zu
+dem die Seite gehört. Nimm dafür nicht `list_event_types`; das zeigt den Workspace des Konnektors, und der kann
+ein anderer sein. Kennt der Konnektor die Seite nicht, ist er mit einem anderen Workspace verbunden: Bitte den
+Kunden, ihn neu zu verbinden (`ablauf.md`, Abschnitt 2a). Erst wenn beide Workspaces gleich sind, legt der
+Agent fehlende Terminarten für ihn an (`create_event_type`, `upsert_schedule`, `upsert_booking_field`). Ohne
+Konnektor trägt der Kunde sie im CRM ein.
 
 ## Konfiguration
 
@@ -24,11 +31,11 @@ export default defineSite({
 });
 ```
 
-| Angabe      | Pflicht | Bedeutung                                                                                                        |
-| ----------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
-| Schlüssel   | ja      | Kleinbuchstaben, Ziffern, Bindestriche, höchstens 50 Zeichen. Höchstens 20 Buchungen je Seite.                   |
-| `label`     | nein    | Bezeichnung auf der Seite und im CRM (1 bis 100 Zeichen). Ohne Angabe der Name der Terminart.                    |
-| `eventType` | nein    | `slug` der Terminart (`list_event_types`). Zugeordnet beim Hochladen, wenn genau eine aktive Terminart so heißt. |
+| Angabe      | Pflicht | Bedeutung                                                                                                   |
+| ----------- | ------- | ----------------------------------------------------------------------------------------------------------- |
+| Schlüssel   | ja      | Kleinbuchstaben, Ziffern, Bindestriche, höchstens 50 Zeichen. Höchstens 20 Buchungen je Seite.              |
+| `label`     | nein    | Bezeichnung auf der Seite und im CRM (1 bis 100 Zeichen). Ohne Angabe der Name der Terminart.               |
+| `eventType` | nein    | `slug` der Terminart (`list_website_bookings`). Zugeordnet beim Hochladen, wenn genau eine aktive so heißt. |
 
 Ohne `eventType` oder bei einem unbekannten Slug wählt der Kunde die Terminart im CRM; bis dahin zeigt der
 Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).

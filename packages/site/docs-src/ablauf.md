@@ -3,7 +3,7 @@
 Diese Seite beschreibt den ganzen Ablauf, den ein KI-Agent im Auftrag des Kunden geht. Die Reihenfolge ist
 fest. Was nur der Mensch tun kann, ist ausdrücklich genannt.
 
-**Zu Beginn jeder Sitzung `npx dealsystem sync` ausführen**, auch wenn das Projekt schon fertig ist. Seit der
+**Zu Beginn jeder Sitzung `npx dealsystem status` und `npx dealsystem sync` ausführen**, auch wenn das Projekt schon fertig ist. `status` nennt den Workspace der Anmeldung (siehe Schritt 2a). Seit der
 letzten Sitzung kann der Kunde im CRM Texte, Formulare oder Rechtstexte geändert haben;
 `.dealsystem/content.json` zeigt sonst einen alten Stand. Ob Impressum und Datenschutzerklärung im CRM
 eingetragen sind, sagt `npx dealsystem status` (Zeile „Rechtstexte im CRM“), nicht diese Datei.
@@ -57,6 +57,42 @@ npx dealsystem login --wait
 ```
 
 wartet auf die Bestätigung. Die Anmeldung liegt danach im Benutzerprofil des Rechners, nie im Projekt.
+
+## 2a. Workspace bestätigen
+
+Ein Kunde kann mehrere Workspaces haben (etwa zwei Firmen). Die Seite, ihre Formulare, Termine und Kontakte
+gehören immer zu genau einem davon, und zwar zu dem, den er bei der Anmeldung im Browser gewählt hat.
+
+```bash
+npx dealsystem status
+```
+
+zeigt den Workspace (Name und ID), den angemeldeten Nutzer und, falls schon gewählt, die Seite (Name, Slug,
+ID). **Nenne ihm den Workspace, bevor du eine Seite anlegst oder wählst**, zum Beispiel: „Ich lege die Seite
+im Workspace „Muster GmbH“ an. Passt das?“ Erst nach seinem Okay `init`. Ist es der falsche Workspace:
+`npx dealsystem logout`, `npx dealsystem login --start` und ihn bitten, im Browser den richtigen zu wählen.
+
+Meldet `status` den Fehler `site_not_in_workspace`, steht in `dealsystem.config.ts` eine Seite aus einem
+anderen Workspace. Frag ihn, welcher Workspace der richtige ist, und melde dich dort an oder wähle mit `init`
+eine Seite im jetzigen.
+
+Sagt `status` „dieser DealSystem-Server nennt den Workspace noch nicht“, frag ihn, ob er bei der Anmeldung
+den richtigen Workspace gewählt hat, und mach dann weiter.
+
+### Der DealSystem-Konnektor (MCP)
+
+Der Konnektor in deinem Chat-Programm ist hilfreich (Terminarten anlegen, Formulare prüfen), aber kein Muss.
+Alles für die Seite geht mit der CLI. Ist er verbunden, hat er eine eigene Anmeldung, oft mit einem anderen
+Workspace. Deshalb:
+
+- Vergleiche `workspace` aus `get_website_guide` (oder `list_websites`) mit dem Workspace aus
+  `npx dealsystem status`.
+- Weichen sie ab: Bitte ihn, den Konnektor zu trennen, neu zu verbinden und dabei den Workspace der Seite zu
+  wählen. Bis dahin nutzt du nur die CLI.
+- **Schlage nie Terminarten, Pipelines, Tags oder Formulare aus einem anderen Workspace vor.** Sie
+  funktionieren auf der Seite nicht.
+- Nennt der Konnektor keinen `workspace` (älterer Server), prüf über `list_websites`, ob die Seite aus
+  `status` dort auftaucht. Fehlt sie, gilt dasselbe wie bei einer Abweichung.
 
 ## 3. Seite verbinden und Inhalte holen
 

@@ -101,13 +101,19 @@ export class CommandContext {
 		}
 	}
 
+	/** `--site` oder `siteId` aus dealsystem.config.ts; `null`, wenn keins von beiden da ist. */
+	optionalSiteId(): { id: string; source: 'flag' | 'config' } | null {
+		const fromFlag = this.str('site');
+		if (fromFlag) return { id: fromFlag, source: 'flag' };
+		const id = readSiteConfig(this.readProjectFile(SITE_CONFIG_FILE)).data?.siteId;
+		return id ? { id, source: 'config' } : null;
+	}
+
 	/** `--site` oder `siteId` aus dealsystem.config.ts. */
 	siteId(): string {
-		const fromFlag = this.str('site');
-		if (fromFlag) return fromFlag;
+		const found = this.optionalSiteId();
+		if (found) return found.id;
 		const config = readSiteConfig(this.readProjectFile(SITE_CONFIG_FILE));
-		const id = config.data?.siteId;
-		if (id) return id;
 		throw new CliError(
 			'no_site',
 			config.exists
