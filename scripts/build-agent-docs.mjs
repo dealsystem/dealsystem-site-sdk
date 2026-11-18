@@ -47,7 +47,7 @@ const GENERATED = '<!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand
 const COMPONENT_GROUPS = [
 	['Text', ['Text', 'RichText', 'Link']],
 	['Bild und Video', ['MediaImage', 'MediaVideo']],
-	['Formular und Listen', ['LeadForm', 'LeadHoneypot', 'CollectionList']],
+	['Formular und Listen', ['LeadForm', 'LeadHoneypot', 'Booker', 'CollectionList']],
 	['Fremde Dienste', ['MapEmbed', 'Embed', 'ExternalScript']],
 	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
 	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
@@ -61,6 +61,7 @@ const SKILLS = [
 	['bild-einbauen', 'Foto des Kunden einbauen (ohne Standort)'],
 	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
 	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
+	['termin-buchung', 'Termine aus dem DealSystem-Kalender buchen (`termine.md`)'],
 	['extern-einbinden', 'Video, Karte, Termin, Chat, fremdes Skript'],
 	['angebote-einbauen', 'Angebote, Referenzen, andere Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
@@ -77,6 +78,7 @@ const COMPONENTS = [
 	'MediaVideo',
 	'LeadForm',
 	'LeadHoneypot',
+	'Booker',
 	'CollectionList',
 	'MapEmbed',
 	'Embed',
@@ -302,6 +304,29 @@ async function build() {
 			(await pick('client/funnelState.svelte.ts', ['createFunnelState', 'FunnelStep']))
 				.map(entry)
 				.join('\n') +
+			'\n## Eigene Terminbuchung\n\n' +
+			'Ohne `<Booker>`, mit eigener Oberfläche. Ablauf und Regeln: `termine.md`.\n\n' +
+			(
+				await pick('client/bookingClient.svelte.ts', [
+					'createBookingClient',
+					'BookingInput',
+					'BookingResult',
+					'BookingFailureReason',
+				])
+			)
+				.map(entry)
+				.join('\n') +
+			(
+				await pick('client/bookingTime.ts', [
+					'groupSlotsByDay',
+					'visitorTimeZone',
+					'timeZoneLabel',
+					'formatBookingTime',
+					'formatBookingDate',
+				])
+			)
+				.map(entry)
+				.join('\n') +
 			'\n## Kampagnen-Parameter\n\n' +
 			(await pick('client/attribution.ts', ['getCampaignParam'])).map(entry).join('\n') +
 			'\n## Inhalte im Browser nachladen\n\n' +
@@ -364,6 +389,7 @@ async function build() {
 					'HiddenFieldSource',
 					'FunnelCrmConfig',
 					'StandardFieldKey',
+					'BookingDef',
 					'CollectionDef',
 					'CollectionFieldDef',
 					'CollectionFieldType',

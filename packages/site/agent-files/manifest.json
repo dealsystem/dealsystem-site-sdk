@@ -22,8 +22,10 @@
 		{
 			"target": ".claude/skills/extern-einbinden/SKILL.md",
 			"source": "claude/skills/extern-einbinden/SKILL.md",
-			"sha256": "56f645ed5d8e550c034549e3b6b101b48f145f3373c77fbf209753b4231cd337",
-			"previous": []
+			"sha256": "f8fb8f8e61dd9d9a756e8d6229960f5f919618930627194be1a3a5bb8394b851",
+			"previous": [
+				"56f645ed5d8e550c034549e3b6b101b48f145f3373c77fbf209753b4231cd337"
+			]
 		},
 		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
@@ -65,6 +67,12 @@
 				"02269e1c8bca746ad74f49928ca4711c08ce55040102284406e0c8753cbeca71",
 				"739a83f8e0c587f6f0eabd6f6b09fc9f7659a87a2506207af490deb19d7c6723"
 			]
+		},
+		{
+			"target": ".claude/skills/termin-buchung/SKILL.md",
+			"source": "claude/skills/termin-buchung/SKILL.md",
+			"sha256": "fd7063e796755293f301fa7ce17fa31ba3996cd31db517bba31d78fe19a6cbf4",
+			"previous": []
 		},
 		{
 			"target": ".claude/skills/veroeffentlichen/SKILL.md",
