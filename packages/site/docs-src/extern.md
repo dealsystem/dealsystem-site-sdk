@@ -131,13 +131,13 @@ external: {
 
 ## Wenn `check` meldet
 
-| Regel     | Bedeutung                                                                                  | Korrektur                                                                          |
-| --------- | ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| `SEC-005` | `external` ungültig oder `svelte.config.js` nicht `dealsystemCsp()`                        | Meldung lesen, Host in der Grundform eintragen; `npx dealsystem sync --fix-config` |
-| `SEC-006` | `<script>` ohne `src`, `eval`, WebAssembly                                                 | Code als Datei unter `static/scripts/`, laden mit `<ExternalScript>`               |
-| `SEC-007` | `<form action="…">` oder `formaction`                                                      | `action` weglassen, Formular über `<LeadForm>`                                     |
-| `SEC-008` | Dienst nicht deklariert, Adresse passt nicht zum Host, `<iframe>`/`<script>` ohne Baustein | Eintrag unter `external`, Baustein statt rohem Element                             |
-| `SEC-009` | Passwortfeld                                                                               | entfernen                                                                          |
-| `SEC-011` | eigenes Skript ohne eigene Domain                                                          | Domain verbinden oder Skript herausnehmen                                          |
-| `PRV-003` | Tracking-Code in einer Datei, die nicht über `<ExternalScript>` lädt                       | so laden wie oben, Kategorie `marketing`                                           |
-| `PRV-008` | Anbieter, Zweck oder Datenschutz-Link fehlt                                                | ergänzen, im Zweifel den Kunden fragen                                             |
+| Regel     | Bedeutung                                                                                     | Korrektur                                                                                    |
+| --------- | --------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| `SEC-005` | `external` ungültig oder `svelte.config.js` nicht `dealsystemCsp()`                           | Meldung lesen, Host in der Grundform eintragen; `npx dealsystem sync --fix-config`           |
+| `SEC-006` | `<script>` ohne `src`, `eval`, WebAssembly                                                    | Code als Datei unter `static/scripts/`, laden mit `<ExternalScript>`                         |
+| `SEC-007` | `<form>` mit `action` auf eine andere Adresse, `method="post"`, `target` oder ohne `onsubmit` | `<form onsubmit={senden}>` ohne `action`, senden mit `createLeadClient()`; oder `<LeadForm>` |
+| `SEC-008` | Dienst nicht deklariert, Adresse passt nicht zum Host, `<iframe>`/`<script>` ohne Baustein    | Eintrag unter `external`, Baustein statt rohem Element                                       |
+| `SEC-009` | Passwortfeld                                                                                  | entfernen                                                                                    |
+| `SEC-011` | eigenes Skript ohne eigene Domain                                                             | Domain verbinden oder Skript herausnehmen                                                    |
+| `PRV-003` | Tracking-Code in einer Datei, die nicht über `<ExternalScript>` lädt                          | so laden wie oben, Kategorie `marketing`                                                     |
+| `PRV-008` | Anbieter, Zweck oder Datenschutz-Link fehlt                                                   | ergänzen, im Zweifel den Kunden fragen                                                       |

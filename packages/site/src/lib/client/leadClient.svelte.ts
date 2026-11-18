@@ -149,11 +149,20 @@ function reasonOf(error: SiteApiError): Exclude<LeadFailureReason, 'validation'>
  * 	onMount(() => () => lead.destroy());
  * 	let email = $state('');
  * 	let result = $state<Awaited<ReturnType<typeof lead.submit>> | null>(null);
+ *
+ * 	// Eigenes <form>: Enter sendet, der Browser prüft `required`. Ohne `action`, Absenden nur hier (SEC-007).
+ * 	async function senden(event: SubmitEvent) {
+ * 		event.preventDefault();
+ * 		result = await lead.submit({ email });
+ * 	}
  * </script>
  *
- * <input type="email" bind:value={email} onfocus={() => lead.prepare()} />
- * <LeadHoneypot client={lead} />
- * <button onclick={async () => (result = await lead.submit({ email }))}>Senden</button>
+ * <form onsubmit={senden}>
+ * 	<label for="email">E-Mail</label>
+ * 	<input id="email" type="email" autocomplete="email" required bind:value={email} onfocus={() => lead.prepare()} />
+ * 	<LeadHoneypot client={lead} />
+ * 	<button type="submit">Senden</button>
+ * </form>
  * {#if result && !result.ok}
  * 	<p role="alert">{result.message}</p>
  * 	{#if result.fallback?.phone}<a href="tel:{result.fallback.phone}">{result.fallback.phone}</a>{/if}

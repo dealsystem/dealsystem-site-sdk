@@ -18,8 +18,9 @@ LeadForm).
    `crm` am Formular schlägst du vor, was im CRM passiert (`konfiguration.md`).
 4. Auf der Seite genügt eine Zeile:
    `<LeadForm funnel="ankauf-anfrage" submitLabel="Anfrage senden" successMessage="Danke, wir melden uns." />`
-5. Schreibe kein eigenes `<form>` und kein eigenes `fetch`. Beschriftungen, Fehlermeldungen, Spam-Schutz und
-   Versand bringt `<LeadForm>` mit. Mehrere Schritte oder eine eigene Oberfläche: Skill `funnel-mehrstufig`.
+5. Kein eigenes `fetch`. Beschriftungen, Fehlermeldungen, Spam-Schutz und Versand bringt `<LeadForm>` mit.
+   Eigene Oberfläche oder mehrere Schritte: `<form onsubmit={…}>` mit `createLeadClient()`, Skill
+   `funnel-mehrstufig`.
 6. Prüfen: `npm run check` (ein Tippfehler im Schlüssel ist ein Fehler), `npm run build`,
    `npx dealsystem check --output build`. Das geht ohne Anmeldung. „Geprüft“ sagst du dem Kunden nur, wenn
    die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.

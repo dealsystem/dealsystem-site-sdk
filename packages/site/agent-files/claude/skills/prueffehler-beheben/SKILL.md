@@ -17,7 +17,8 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/regeln.md` (jede Regel mit Kor
 4. Häufige Fälle:
    - nicht freigegebenes Paket → entfernen; die Liste zeigt `npx dealsystem check --allowed`
    - `<img>` → `<MediaImage>` mit `alt`
-   - `<form action="…">` (`SEC-007`) oder eigenes `fetch` → `<LeadForm>`
+   - `<form>` mit `action`, `target` oder ohne `onsubmit` (`SEC-007`), eigenes `fetch` → `<LeadForm>` oder
+     `<form onsubmit={senden}>` mit `createLeadClient()`
    - fremde Schrift → lokal ablegen (`@fontsource/…`)
    - fremder Dienst, Host oder Skript (`SEC-005`, `SEC-006`, `SEC-008`, `PRV-003`, `PRV-008`) → Eintrag unter
      `external` und `<Embed>`/`<ExternalScript>`, Skill `extern-einbinden`; Karte ohne Eintrag: `<MapEmbed>`

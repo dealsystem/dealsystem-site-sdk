@@ -33,7 +33,9 @@ mit `createLeadClient()` und `createFunnelState()`. Nie mit eigenem `fetch`, nie
    - „Zurück“ auf jedem Schritt außer dem ersten. Die Antworten bleiben erhalten (`funnel.values`).
    - Fehler am Feld (`aria-invalid`, `aria-describedby`), Fokus auf das erste fehlerhafte Feld.
    - Status in einem `aria-live="polite"`-Bereich (`lead.status`: `captcha`, `sending`).
-   - Ein eigenes `<form>` ist noch nicht erlaubt (`SEC-007`); Knöpfe mit `type="button"` wie im Beispiel.
+   - Jeder Schritt darf ein eigenes `<form onsubmit={…}>` sein: Enter sendet bzw. geht weiter, der Browser prüft
+     `required`. Ohne `action` (oder `action="#"`), kein `method="post"`, kein `target`; abgeschickt wird nur im
+     Code mit `lead.submit()` (`SEC-007`). Beispiel: Abschnitt „createLeadClient“ in `komponenten.md`.
 5. Danach eine Seite, die die Komponente zeigt, mit `<Seo>`, genau einer `h1` und Texten als `<Text>`.
 6. Prüfen und hochladen wie im Skill `veroeffentlichen`. Nach dem Hochladen steht das Formular im CRM unter
    Eigene Website → Formulare.

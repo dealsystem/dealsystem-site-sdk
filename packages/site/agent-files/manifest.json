@@ -28,9 +28,10 @@
 		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
 			"source": "claude/skills/formular-anbinden/SKILL.md",
-			"sha256": "dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71",
+			"sha256": "e367797a8ccf96fb904ca4fdec8d1fa76f4d7ddf1bf4670fdbfd1e9e6dea203f",
 			"previous": [
-				"0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20"
+				"0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
+				"dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71"
 			]
 		},
 		{
@@ -42,8 +43,10 @@
 		{
 			"target": ".claude/skills/funnel-mehrstufig/SKILL.md",
 			"source": "claude/skills/funnel-mehrstufig/SKILL.md",
-			"sha256": "7e9eb7ff564bd2089065fd891d76f9eb645e0455b31317e94eb3af8d121409b1",
-			"previous": []
+			"sha256": "389ca5baa64d93444a532d82c915b672e485944d528a815caced0bbd491341ae",
+			"previous": [
+				"7e9eb7ff564bd2089065fd891d76f9eb645e0455b31317e94eb3af8d121409b1"
+			]
 		},
 		{
 			"target": ".claude/skills/neue-seite/SKILL.md",
@@ -57,9 +60,10 @@
 		{
 			"target": ".claude/skills/prueffehler-beheben/SKILL.md",
 			"source": "claude/skills/prueffehler-beheben/SKILL.md",
-			"sha256": "739a83f8e0c587f6f0eabd6f6b09fc9f7659a87a2506207af490deb19d7c6723",
+			"sha256": "540361527657de7ec0f21eeb651c2c4be5dfd72a66f4075e1f0c49737dadc52b",
 			"previous": [
-				"02269e1c8bca746ad74f49928ca4711c08ce55040102284406e0c8753cbeca71"
+				"02269e1c8bca746ad74f49928ca4711c08ce55040102284406e0c8753cbeca71",
+				"739a83f8e0c587f6f0eabd6f6b09fc9f7659a87a2506207af490deb19d7c6723"
 			]
 		},
 		{
