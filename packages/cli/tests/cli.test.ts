@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HttpDeployApi } from '../src/api/http.js';
 import { CredentialStore } from '../src/auth/credentials.js';
-import { createDevMiddleware, devProxyPlugin } from '../src/commands/dev.js';
+import { createDevMiddleware, detectDevMode, devProxyPlugin } from '../src/commands/dev.js';
 import { readTarGz } from '../src/project/tar.js';
 import { BASE_SOURCE, cleanupFixtures, materialize } from './helpers/fixtures.js';
 import { runCli, testIO, type TestIO } from './helpers/io.js';
@@ -621,14 +621,22 @@ describe('publish, rollback, status', () => {
 });
 
 describe('dev-Middleware', () => {
-	it('leitet Probe-Einsendungen an dev/leads, reicht /_ds/media durch und lässt den Rest an Vite', async () => {
+	/** Startet die Middleware vor einem Stellvertreter für Vite, der mit `vite` antwortet. */
+	async function startDev(live: { eventTypes: Record<string, string | null> } | null, log: string[] = []) {
 		await loggedIn();
 		const store = new CredentialStore(io.env);
 		const api = new HttpDeployApi(server.url, {
 			getToken: async () => store.get(server.url)!.accessToken,
 			refresh: async () => null,
 		});
-		const middleware = createDevMiddleware({ api, siteId: SITE_ID, mediaOrigin: server.url, fetch });
+		const middleware = createDevMiddleware({
+			api,
+			siteId: SITE_ID,
+			mediaOrigin: server.url,
+			fetch,
+			log: (m) => log.push(m),
+			live,
+		});
 		const vite = createServer((req, res) =>
 			middleware(req, res, () => {
 				res.statusCode = 200;
@@ -637,33 +645,158 @@ describe('dev-Middleware', () => {
 		);
 		await new Promise<void>((r) => vite.listen(0, '127.0.0.1', r));
 		const url = `http://127.0.0.1:${(vite.address() as AddressInfo).port}`;
+		return { url, log, close: () => new Promise((r) => vite.close(r)) };
+	}
+	const post = (url: string, body: unknown) =>
+		fetch(url, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(body),
+		});
+
+	it('echte Daten: Terminart und Zeiten über v1, eventType aus dealsystem.config.ts, Buchung als Testlauf', async () => {
+		const dev = await startDev({ eventTypes: { erstgespraech: 'beratung-45' } });
 		try {
-			const lead = await fetch(`${url}/api/site/v1/s/dev/leads`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ funnelKey: 'kontakt', data: { email: 'a@b.de' } }),
+			const info = await fetch(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech`);
+			expect(info.status).toBe(200);
+			const infoBody = (await info.json()) as { data: Record<string, unknown> };
+			expect(infoBody.data).toMatchObject({
+				title: 'beratung-45',
+				durationMinutes: 45,
+				flow: 'contact_first',
 			});
-			expect(lead.status).toBe(201);
+			expect(
+				server.requests.some(
+					(q) => q.path === `/api/v1/websites/${SITE_ID}/dev/booking/erstgespraech?eventType=beratung-45`,
+				),
+			).toBe(true);
+
+			const slots = await fetch(
+				`${dev.url}/api/site/v1/s/dev/booking/erstgespraech/slots?from=2026-12-01T00:00:00Z&to=2026-12-08T00:00:00Z`,
+			);
+			expect(((await slots.json()) as { data: { slots: unknown[] } }).data.slots).toHaveLength(1);
+			const slotRequest = server.requests.find((q) => q.path.includes('/dev/booking/erstgespraech/slots'));
+			expect(slotRequest!.path).toContain('eventType=beratung-45');
+			expect(slotRequest!.path).toContain('from=2026-12-01T00%3A00%3A00Z');
+
+			const booked = await post(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech/bookings`, {
+				submissionId: 's1',
+				start: '2026-12-01T08:00:00.000Z',
+				attendee: { firstName: 'Erika', email: 'erika@beispiel.de' },
+				captcha: 'loesung',
+				website: '',
+			});
+			expect(booked.status).toBe(200);
+			expect(await booked.json()).toEqual({
+				data: {
+					booked: true,
+					dryRun: true,
+					start: '2026-12-01T08:00:00.000Z',
+					end: '2026-12-01T08:45:00.000Z',
+				},
+			});
+			expect(server.state.testRuns).toEqual([
+				{
+					kind: 'booking',
+					key: 'erstgespraech',
+					eventType: 'beratung-45',
+					payload: {
+						submissionId: 's1',
+						start: '2026-12-01T08:00:00.000Z',
+						attendee: { firstName: 'Erika', email: 'erika@beispiel.de' },
+					},
+				},
+			]);
+			// Das Token bleibt auf dem Server.
+			const run = server.requests.find((q) => q.path.endsWith('/test-runs'));
+			expect(run!.headers.authorization).toBe('Bearer at_1');
+			expect(dev.log.join('\n')).toContain(
+				'Testlauf gespeichert, nichts angelegt, keine Mail: Kontakt Erika Muster (neu)',
+			);
+			expect(dev.log.join('\n')).toContain('  - Pipeline Verkauf → Phase Neu');
+			expect(dev.log.join('\n')).toContain(
+				'So wäre es angekommen: https://app.example/t/ws_a/website/testlaeufe/tr_1',
+			);
+		} finally {
+			await dev.close();
+		}
+	});
+
+	it('echte Daten: Einsendung als Testlauf; abgelehnte Angaben gehen unverändert an die Seite', async () => {
+		const dev = await startDev({ eventTypes: {} });
+		try {
+			const lead = await post(`${dev.url}/api/site/v1/s/dev/leads`, {
+				funnelKey: 'kontakt',
+				data: { email: 'a@b.de' },
+				captcha: 'x',
+			});
+			expect(lead.status).toBe(200);
 			expect(await lead.json()).toEqual({ data: { accepted: true, dryRun: true } });
-			const forwarded = server.requests.find((q) => q.path === `/api/v1/websites/${SITE_ID}/dev/leads`);
-			expect(JSON.parse(forwarded!.body.toString())).toEqual({
+			expect(server.state.testRuns[0]).toEqual({
+				kind: 'lead',
+				key: 'kontakt',
+				payload: { funnelKey: 'kontakt', data: { email: 'a@b.de' } },
+			});
+
+			const rejected = {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'data.email', message: 'x' }],
+			};
+			server.state.testRunError = { status: 422, body: rejected };
+			const bad = await post(`${dev.url}/api/site/v1/s/dev/leads`, { funnelKey: 'kontakt', data: {} });
+			expect(bad.status).toBe(422);
+			expect(await bad.json()).toEqual(rejected);
+
+			const broken = await fetch(`${dev.url}/api/site/v1/s/dev/leads`, { method: 'POST', body: '{kaputt' });
+			expect(broken.status).toBe(400);
+		} finally {
+			await dev.close();
+		}
+	});
+
+	it('älterer Core ohne Testläufe: Einsendung an dev/leads, Terminbuchung mit Beispieldaten und Hinweis', async () => {
+		server.state.testRunsSupported = false;
+		const dev = await startDev({ eventTypes: {} });
+		try {
+			const lead = await post(`${dev.url}/api/site/v1/s/dev/leads`, {
 				funnelKey: 'kontakt',
 				data: { email: 'a@b.de' },
 			});
-			expect(forwarded!.headers.authorization).toBe('Bearer at_1');
+			expect(lead.status).toBe(201);
+			expect(server.requests.some((q) => q.path === `/api/v1/websites/${SITE_ID}/dev/leads`)).toBe(true);
+			expect(await (await fetch(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech`)).text()).toBe('vite');
+			expect(await (await fetch(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech/slots`)).text()).toBe(
+				'vite',
+			);
+			expect(dev.log.filter((l) => l.includes('Beispieldaten'))).toHaveLength(1);
+		} finally {
+			await dev.close();
+		}
+	});
 
-			const media = await fetch(`${url}/_ds/media/s1/a1/800.jpg`);
+	it('ohne echte Daten: alles an das Vite-Plugin (Attrappe), nichts ans CRM; /_ds/media wird durchgereicht', async () => {
+		const dev = await startDev(null);
+		try {
+			expect(await (await post(`${dev.url}/api/site/v1/s/dev/leads`, { funnelKey: 'kontakt' })).text()).toBe(
+				'vite',
+			);
+			expect(await (await fetch(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech`)).text()).toBe('vite');
+			expect(
+				await (
+					await post(`${dev.url}/api/site/v1/s/dev/booking/erstgespraech/bookings`, { start: 'x' })
+				).text(),
+			).toBe('vite');
+			expect(server.requests.some((q) => q.path.startsWith('/api/v1/'))).toBe(false);
+
+			const media = await fetch(`${dev.url}/_ds/media/s1/a1/800.jpg`);
 			expect(media.status).toBe(200);
 			expect(media.headers.get('content-type')).toBe('image/jpeg');
-			expect(Buffer.from(await media.arrayBuffer()).toString()).toBe('JPEG');
-
-			// Sammlungen beantwortet das Vite-Plugin des SDK selbst.
-			expect(await (await fetch(`${url}/api/site/v1/s/dev/collections/angebote`)).text()).toBe('vite');
-			expect(await (await fetch(`${url}/`)).text()).toBe('vite');
-			const bad = await fetch(`${url}/api/site/v1/s/dev/leads`, { method: 'POST', body: '{kaputt' });
-			expect(bad.status).toBe(400);
+			expect(await (await fetch(`${dev.url}/api/site/v1/s/dev/collections/angebote`)).text()).toBe('vite');
 		} finally {
-			await new Promise((r) => vite.close(r));
+			await dev.close();
 		}
 	});
 
@@ -672,6 +805,47 @@ describe('dev-Middleware', () => {
 		const handle = () => {};
 		devProxyPlugin(handle).configureServer({ middlewares: { stack } } as never);
 		expect(stack.map((s) => s.handle)).toEqual([handle, 'sdk']);
+	});
+});
+
+describe('dev: echte Daten oder Beispieldaten', () => {
+	const ctxFor = async (...argv: string[]) => {
+		const { CommandContext } = await import('../src/cli/context.js');
+		return new CommandContext(io, 'dev', Object.fromEntries(argv.map((a) => [a, true])), []);
+	};
+
+	it('angemeldet und Seite im Workspace: echte Daten', async () => {
+		await loggedIn();
+		expect(await detectDevMode(await ctxFor())).toEqual({ live: true, siteId: SITE_ID });
+	});
+
+	it('ohne Anmeldung, ohne Seite, Seite aus anderem Workspace, offline: Beispieldaten mit Grund', async () => {
+		expect(await detectDevMode(await ctxFor())).toMatchObject({
+			live: false,
+			reason: expect.stringContaining('npx dealsystem login'),
+		});
+		await loggedIn();
+		server.state.sites = [];
+		expect(await detectDevMode(await ctxFor())).toMatchObject({
+			live: false,
+			reason: expect.stringContaining('nicht zum Workspace'),
+		});
+		rmSync(join(project, 'dealsystem.config.ts'));
+		expect(await detectDevMode(await ctxFor())).toMatchObject({
+			live: false,
+			siteId: null,
+			reason: expect.stringContaining('npx dealsystem init'),
+		});
+	});
+
+	it('DealSystem nicht erreichbar: Beispieldaten', async () => {
+		await loggedIn();
+		await server.close();
+		expect(await detectDevMode(await ctxFor())).toMatchObject({
+			live: false,
+			reason: expect.stringContaining('nicht erreichbar'),
+		});
+		server = await startMockServer();
 	});
 });
 

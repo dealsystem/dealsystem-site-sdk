@@ -7,6 +7,8 @@ import type {
 	DeployApi,
 	PreparedUpload,
 	PreparedImageUpload,
+	RawResponse,
+	TestRunInput,
 	ReleaseResult,
 	SourceDownload,
 	Version,
@@ -577,6 +579,39 @@ export class HttpDeployApi implements DeployApi {
 			at += c.byteLength;
 		}
 		return out;
+	}
+
+	async devBooking(id: string, key: string, eventType: string | null): Promise<RawResponse> {
+		const query = eventType ? `?eventType=${encodeURIComponent(eventType)}` : '';
+		const { status, json } = await this.request(
+			'GET',
+			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}${query}`,
+		);
+		return { status, body: json };
+	}
+
+	async devBookingSlots(
+		id: string,
+		key: string,
+		range: { from: string; to: string },
+		eventType: string | null,
+	): Promise<RawResponse> {
+		const query = new URLSearchParams({ from: range.from, to: range.to });
+		if (eventType) query.set('eventType', eventType);
+		const { status, json } = await this.request(
+			'GET',
+			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}/slots?${query.toString()}`,
+		);
+		return { status, body: json };
+	}
+
+	async createTestRun(id: string, input: TestRunInput): Promise<RawResponse> {
+		const { status, json } = await this.request(
+			'POST',
+			`/websites/${encodeURIComponent(id)}/test-runs`,
+			input,
+		);
+		return { status, body: json };
 	}
 
 	async devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }> {

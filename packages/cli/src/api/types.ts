@@ -134,6 +134,35 @@ export interface DeployApi {
 	): Promise<WebsiteSlot | null>;
 	/** Probe-Einsendung aus `dealsystem dev` (immer `dryRun` im Core). Antwort wird unverändert durchgereicht. */
 	devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }>;
+	/**
+	 * Terminart für `dealsystem dev` mit echten Daten (`GET /websites/{id}/dev/booking/{key}`), vor dem ersten Build
+	 * über `eventType` (Slug). Antwort unverändert, in der Form der Site-API.
+	 */
+	devBooking(id: string, key: string, eventType: string | null): Promise<RawResponse>;
+	/** Freie Zeiten dazu (`…/dev/booking/{key}/slots?from=&to=`). */
+	devBookingSlots(
+		id: string,
+		key: string,
+		range: { from: string; to: string },
+		eventType: string | null,
+	): Promise<RawResponse>;
+	/** Testlauf: Einsendung oder Buchung, die nichts anlegt, im CRM festhalten (`POST /websites/{id}/test-runs`). */
+	createTestRun(id: string, input: TestRunInput): Promise<RawResponse>;
+}
+
+/** Antwort der API ohne Deutung: Status und JSON-Body. */
+export interface RawResponse {
+	status: number;
+	body: unknown;
+}
+
+/** Was `dealsystem dev` als Testlauf schickt. `payload` ist der Body der Seite ohne Captcha und Bot-Falle. */
+export interface TestRunInput {
+	kind: 'lead' | 'booking';
+	/** Formular- bzw. Buchungsschlüssel. */
+	key: string;
+	eventType?: string;
+	payload: Record<string, unknown>;
 }
 
 /** Endzustände einer Version. */

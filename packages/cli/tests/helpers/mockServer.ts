@@ -70,6 +70,12 @@ export interface MockState {
 	} | null;
 	/** Statt `whoami` mit diesem Status antworten (z. B. 500). */
 	whoamiStatus: number | null;
+	/** `false`: Core ohne Testläufe und ohne `dev/booking` (404 `not_found`). */
+	testRunsSupported: boolean;
+	/** Angenommene Testläufe (Body wie gesendet). */
+	testRuns: Record<string, unknown>[];
+	/** Antwort auf den nächsten Testlauf statt 201, z. B. 422 aus der Prüfung. */
+	testRunError: { status: number; body: unknown } | null;
 }
 
 export interface MockSource {
@@ -167,6 +173,9 @@ export async function startMockServer(): Promise<MockServer> {
 			user: { id: 'u_1', name: 'Max Muster', email: 'max@muster.example' },
 		},
 		whoamiStatus: null,
+		testRunsSupported: true,
+		testRuns: [],
+		testRunError: null,
 	};
 	let deviceIssued = false;
 
@@ -482,6 +491,57 @@ export async function startMockServer(): Promise<MockServer> {
 						release: unchanged
 							? null
 							: { versionId: target.id, kind: rest[0], createdAt: '2026-11-17T10:00:00Z' },
+					},
+				});
+			}
+			if (state.testRunsSupported && rest[0] === 'dev' && rest[1] === 'booking' && req.method === 'GET') {
+				const key = rest[2] ?? '';
+				if (key !== 'erstgespraech') return error(404, 'booking_unavailable', 'Buchung unbekannt');
+				if (rest[3] === 'slots') {
+					return reply(200, {
+						data: {
+							timezone: 'Europe/Berlin',
+							from: url.searchParams.get('from'),
+							to: url.searchParams.get('to'),
+							slots: [{ start: '2026-12-01T08:00:00.000Z', end: '2026-12-01T08:30:00.000Z' }],
+						},
+					});
+				}
+				return reply(200, {
+					data: {
+						key,
+						label: 'Erstgespräch',
+						title: url.searchParams.get('eventType') ?? 'Echte Terminart',
+						description: null,
+						durationMinutes: 45,
+						timezone: 'Europe/Berlin',
+						locations: [{ type: 'phone', label: 'Telefon' }],
+						questions: [],
+						flow: 'contact_first',
+					},
+				});
+			}
+			if (state.testRunsSupported && rest[0] === 'test-runs' && rest.length === 1 && req.method === 'POST') {
+				if (state.testRunError) {
+					const e = state.testRunError;
+					res.writeHead(e.status, { 'Content-Type': 'application/json' });
+					return res.end(JSON.stringify(e.body));
+				}
+				const b = jsonBody();
+				state.testRuns.push(b);
+				return reply(201, {
+					data: {
+						id: `tr_${state.testRuns.length}`,
+						kind: b.kind,
+						createdAt: '2026-11-17T10:00:00Z',
+						url: `https://app.example/t/ws_a/website/testlaeufe/tr_${state.testRuns.length}`,
+						summary: {
+							headline: 'Kontakt Erika Muster (neu)',
+							lines: ['Pipeline Verkauf → Phase Neu', 'Tags: website'],
+						},
+						...(b.kind === 'booking'
+							? { start: '2026-12-01T08:00:00.000Z', end: '2026-12-01T08:45:00.000Z' }
+							: {}),
 					},
 				});
 			}
