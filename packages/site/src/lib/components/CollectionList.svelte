@@ -22,7 +22,8 @@ fertigen HTML und Suchmaschinen sehen sie.
 </CollectionList>
 ```
 
-Ohne `entries` lädt die Liste die Einträge erst im Browser über die Site-API.
+Ohne `entries` lädt die Liste die Einträge erst im Browser über die Site-API:
+ohne `limit` die neuesten 20, mit `limit` bis zu 100.
 -->
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';

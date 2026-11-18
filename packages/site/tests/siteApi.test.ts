@@ -106,6 +106,7 @@ describe('submitLead', () => {
 		[400, 'captcha_failed', 'captcha_failed'],
 		[400, 'invalid_json', 'rejected'],
 		[405, 'method_not_allowed', 'rejected'],
+		[413, 'payload_too_large', 'rejected'],
 		[415, 'unsupported_media_type', 'rejected'],
 		[422, 'validation_error', 'validation'],
 		[404, 'funnel_not_found', 'not_found'],
@@ -308,10 +309,10 @@ describe('getCollection / getEntry', () => {
 	});
 
 	it('meldet einen unbekannten Eintrag als not_found', async () => {
-		reply = () => json(404, { error: 'Not Found', message: 'x', status: 404, code: 'entry_not_found' });
+		reply = () => json(404, { error: 'Not Found', message: 'x', status: 404, code: 'not_found' });
 		expect(await api().getEntry('angebote', 'fehlt')).toMatchObject({
 			ok: false,
-			error: { kind: 'not_found', code: 'entry_not_found' },
+			error: { kind: 'not_found', code: 'not_found' },
 		});
 	});
 });

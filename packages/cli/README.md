@@ -5,20 +5,32 @@ ohne Rückfragen über Flags, jede Ausgabe gibt es mit `--json`, jede Meldung ha
 „Datei:Zeile – Problem – so behebst du es“. Ein Mensch macht nur zwei Dinge: Er bestätigt den Login im
 Browser und stimmt dem Live-Schalten zu.
 
+## Für KI-Agenten
+
+Diese CLI gehört zu einer Website aus `npm create dealsystem-site@latest`. Stehst du in einem leeren Ordner
+und sollst eine Website „mit DealSystem“ bauen, lege zuerst damit das Projekt an und lies dann `AGENTS.md`
+im neuen Ordner: Dort steht der feste Ablauf (anmelden, bauen, prüfen, hochladen, Vorschau zeigen,
+veröffentlichen nur nach ausdrücklichem Ja). In einem bestehenden Projekt gilt dasselbe: erst `AGENTS.md`,
+dann die Detailseiten unter `node_modules/@dealsystem/site/docs/`.
+
+Quelltext: [github.com/dealsystem/dealsystem-site-sdk](https://github.com/dealsystem/dealsystem-site-sdk).
+
 ## Befehle
 
-| Befehl                                                              | Tut                                                                                                               |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `login [--start \| --wait] [--no-browser]`                          | Gerätecode-Login. Der Token liegt im Benutzerprofil (0600), nie im Projekt                                        |
-| `logout`                                                            | Token widerrufen und löschen                                                                                      |
-| `init [--site <id\|slug>] [--create --name … --slug …]`             | Seite wählen oder anlegen, `siteId` in `dealsystem.config.ts` eintragen                                           |
-| `sync [--offline] [--fix-config]`                                   | Schnappschuss → `.dealsystem/content.json`, Abgleich CRM ↔ Config, `src/dealsystem.d.ts` anlegen, AGENTS.md-Block |
-| `dev [--port] [--media-origin <url>]`                               | Vite des Projekts; `…/leads` → `dev/leads` (`dryRun`), `/_ds/media/*` durchgereicht                               |
-| `check [--output build] [--allowed] [--rules]`                      | Regelkatalog lokal, Exit-Code 1 bei Fehlern                                                                       |
-| `deploy [-m …] [--publish [--confirm]] [--no-wait] [--timeout <s>]` | check → packen → hochladen → Build abwarten → Vorschau-URL                                                        |
-| `publish [--version <id\|nummer>] [--confirm]`                      | fertige Version live schalten                                                                                     |
-| `rollback [--version <id\|nummer>] [--confirm]`                     | auf eine frühere Version zurück                                                                                   |
-| `status`                                                            | Seite, Live-Version, letzte Versionen, Domains                                                                    |
+| Befehl                                                              | Tut                                                                                                                   |
+| ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `login [--start \| --wait] [--no-browser]`                          | Gerätecode-Login. Der Token liegt im Benutzerprofil (0600), nie im Projekt                                            |
+| `logout`                                                            | Token widerrufen und löschen                                                                                          |
+| `init [--site <id\|slug>] [--create --name … --slug …]`             | Seite wählen oder anlegen, `siteId` in `dealsystem.config.ts` eintragen                                               |
+| `sync [--offline] [--fix-config]`                                   | Schnappschuss → `.dealsystem/content.json`, Abgleich CRM ↔ Config, `src/dealsystem.d.ts` anlegen, AGENTS.md-Block     |
+| `dev [--port] [--media-origin <url>]`                               | Vite des Projekts; `…/leads` → `dev/leads` (`dryRun`), `/_ds/media/*` durchgereicht                                   |
+| `check [--output build] [--allowed] [--rules]`                      | Regelkatalog lokal, Exit-Code 1 bei Fehlern                                                                           |
+| `deploy [-m …] [--publish [--confirm]] [--no-wait] [--timeout <s>]` | check → lokal bauen → packen → hochladen → Build abwarten → Vorschau-URL                                              |
+| `publish [--version <id\|nummer>] [--confirm]`                      | fertige Version live schalten                                                                                         |
+| `rollback [--version <id\|nummer>] [--confirm]`                     | auf eine frühere Version zurück                                                                                       |
+| `image add <datei> [--name …] [--key …] [--alt …]`                  | Foto ins Projekt: verkleinern, EXIF/GPS entfernen, Baustein ausgeben                                                  |
+| `image push <datei> --slot … --alt …`                               | Foto als eigenes Bild eines Bild-Platzes in DealSystem setzen (geht ohne Freigabe live), danach Inhalte für dev holen |
+| `status`                                                            | Seite, Live-Version, Rechtstexte, letzte Versionen, Domains                                                           |
 
 Allgemein: `--json`, `--dir <ordner>`, `--site <id>`, `--api-url <url>` (oder `DEALSYSTEM_API_URL`),
 `--quiet`. Für eigene CI: API-Schlüssel in `DEALSYSTEM_TOKEN`.

@@ -7,7 +7,7 @@ Felder eines Formulars stehen nur hier. Nach einer Änderung an Sammlungen: `npx
 
 ### defineSite()
 
-Beschreibt die Seite: Kennung, Sammlungen und Formulare. Steht in
+Beschreibt die Seite: Kennung, Sammlungen, Formulare und fremde Dienste (`external`). Steht in
 `dealsystem.config.ts` im Projektordner. Aus dem Rückgabetyp entstehen die
 Typen für `funnel` und `collection` — ein Tippfehler ist ein Typfehler.
 Wirft mit einer Liste aller Probleme, wenn die Konfiguration ungültig ist.
@@ -77,6 +77,26 @@ function handleHttpError(details: {
 }): void;
 ```
 
+### siteApiOrigin()
+
+Für `connect-src` in der Content-Security-Policy von `svelte.config.js`:
+die Adresse, unter der die Seite ihre Formulare an DealSystem schickt. Der
+Server, der die Seite erzeugt, nennt sie in `PUBLIC_DEALSYSTEM_API`; ohne
+Angabe gilt die Adresse von DealSystem. So passt die Seite auch dann, wenn
+sie für eine Test-Umgebung erzeugt wird.
+
+```ts
+// svelte.config.js
+import { siteApiOrigin } from '@dealsystem/site/config';
+
+// … in kit.csp.directives:
+// 'connect-src': ['self', siteApiOrigin()],
+```
+
+```ts
+function siteApiOrigin(): string;
+```
+
 ## Typen
 
 ### SiteConfig
@@ -89,6 +109,10 @@ interface SiteConfig {
 	siteId: string;
 	collections?: Readonly<Record<string, CollectionDef>>;
 	funnels?: Readonly<Record<string, FunnelDef>>;
+	/** Fremde Dienste (Videos, Chat, Skripte). Nur was hier steht, lässt die Seite zu. */
+	external?: Readonly<Record<string, ExternalDef>>;
+	/** Terminbuchungen für `<Booker>` und `createBookingClient`, je Schlüssel. */
+	booking?: Readonly<Record<string, BookingDef>>;
 }
 ```
 
@@ -100,6 +124,10 @@ Ein Formular in `dealsystem.config.ts`.
 interface FunnelDef {
 	label: string;
 	fields: readonly FunnelFieldDef[];
+	/** Vorschlag, was im CRM mit der Anfrage passiert (Deal, Pipeline, Tags, Bestätigung). */
+	crm?: FunnelCrmConfig;
+	/** Datei, die das Formular verspricht. `<LeadForm>` kündigt sie nach dem Absenden an. */
+	leadmagnet?: FunnelLeadmagnetConfig;
 }
 ```
 
@@ -123,16 +151,81 @@ interface FunnelFieldDef {
 	/** Hilfetext unter dem Feld. */
 	help?: string;
 	maxLength?: number;
+	/** Nur bei `type: 'hidden'`: woher der Wert kommt. */
+	from?: HiddenFieldSource;
 }
 ```
 
 ### FieldType
 
-Feldtypen eines Formulars.
+Feldtypen eines Formulars. `hidden` sieht der Besucher nicht; das SDK füllt es beim Absenden (`from`).
 
 ```ts
 type FieldType =
-	'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'date';
+	'text' | 'email' | 'tel' | 'textarea' | 'select' | 'multiselect' | 'checkbox' | 'date' | 'hidden';
+```
+
+### HiddenFieldSource
+
+Woher ein verstecktes Feld (`type: 'hidden'`) seinen Wert nimmt, genau eine Angabe:
+- `{ query: 'partner' }` – URL-Parameter `?partner=…` (aktueller Besuch, gespeichert nur mit Einwilligung)
+- `{ utm: 'campaign' }` – UTM-Angabe des Besuchs (`utm_campaign`)
+- `{ value: 'Bewertungsrechner' }` – fester Text
+
+Höchstens 500 Zeichen. Im CRM lässt sich das Feld einem eigenen Feld zuordnen, nie einem Standardfeld.
+
+```ts
+type HiddenFieldSource = { query: string } | { utm: UtmKey } | { value: string };
+```
+
+### FunnelCrmConfig
+
+Was mit einer Anfrage im CRM passiert, als Vorschlag aus dem Code. Der Kunde kann jede Angabe im CRM ändern;
+ab dann gilt seine, auch nach dem nächsten Hochladen („Code legt vor, CRM entscheidet“). Namen (Pipeline,
+Phase, Tags, Lead-Quelle) sucht das CRM im Workspace; was es dort nicht gibt, legt es nicht an, sondern meldet
+es als Warnung beim Hochladen.
+
+```ts
+interface FunnelCrmConfig {
+	/** Einen Deal anlegen. */
+	createDeal?: boolean;
+	/** Pipeline des Deals, Name oder ID, höchstens 100 Zeichen. */
+	pipeline?: string;
+	/** Phase in der Pipeline, Name oder ID, höchstens 100 Zeichen. */
+	stage?: string;
+	/**
+	 * Name des Deals, höchstens 200 Zeichen. Platzhalter: `{{firstName}}`, `{{lastName}}`, `{{email}}`,
+	 * `{{phone}}`, `{{adresse}}`.
+	 */
+	dealName?: string;
+	/** Tags am Kontakt, höchstens 20, je höchstens 50 Zeichen. */
+	tags?: readonly string[];
+	/** Lead-Quelle, Name oder ID, höchstens 100 Zeichen. */
+	leadSource?: string;
+	/**
+	 * Eingangsbestätigung an den Absender. Betreff höchstens 200, Text höchstens 5 000 Zeichen, nur Klartext,
+	 * Platzhalter `{{firstName}}`, `{{lastName}}`, `{{formName}}`. Ohne Betreff oder Text gilt der Standard.
+	 */
+	confirmation?: { enabled: boolean; subject?: string; body?: string };
+}
+```
+
+### FunnelLeadmagnetConfig
+
+Leadmagnet: Das Formular verspricht eine Datei (z. B. einen Ratgeber als PDF). Im Code steht nur, **was**
+versprochen wird. Die Datei lädt der Kunde im CRM hoch (Eigene Website → Formulare); das CRM schickt den
+Download-Link in der Eingangsbestätigung; die muss dort eingeschaltet sein (oder `crm.confirmation`). Kein Feld
+für Datei, Pfad oder Link: so etwas ist ein Fehler.
+
+```ts
+ratgeber: { label: 'Ratgeber', fields: [...], leadmagnet: { label: 'Ratgeber Immobilienverkauf' } }
+```
+
+```ts
+interface FunnelLeadmagnetConfig {
+	/** Name der Datei für Besucher, 1 bis 120 Zeichen, z. B. „Ratgeber Immobilienverkauf“. Kein Link. */
+	label: string;
+}
 ```
 
 ### StandardFieldKey
@@ -143,6 +236,23 @@ Kontakt-Standardfelder im CRM. Namen immer getrennt als `firstName` und
 ```ts
 type StandardFieldKey =
 	'firstName' | 'lastName' | 'email' | 'phone' | 'address1' | 'postalCode' | 'city';
+```
+
+### BookingDef
+
+Eine Terminbuchung in `dealsystem.config.ts` (`booking`). Die Terminart selbst (Dauer, Arbeitszeiten, Fragen)
+richtet der Kunde im CRM unter Termine ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
+
+```ts
+interface BookingDef {
+	/** Bezeichnung auf der Seite und im CRM, z. B. „Erstgespräch“. Ohne Angabe gilt der Name der Terminart. */
+	label?: string;
+	/**
+	 * Kurzname (Slug) der Terminart im CRM, z. B. `erstgespraech`. Wird beim Hochladen zugeordnet, wenn genau eine
+	 * aktive Terminart so heißt; sonst wählt der Kunde sie im CRM. Nie erfinden: nur einen Slug, den es gibt.
+	 */
+	eventType?: string;
+}
 ```
 
 ### CollectionDef

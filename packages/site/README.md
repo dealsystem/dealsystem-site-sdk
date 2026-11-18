@@ -10,7 +10,7 @@ und spricht das CRM nur über die öffentliche Site-API an.
 | -------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `@dealsystem/site`         | Komponenten, `consent`, `loadCollection`, `loadEntry`                                                         |
 | `@dealsystem/site/content` | `getCollection`, `getEntry`, `collectionEntries`, `getSlots`, `getSite`, `sitemap`, `robots` (nur beim Build) |
-| `@dealsystem/site/config`  | `defineSite`, `validateSiteConfig`, `handleHttpError`                                                         |
+| `@dealsystem/site/config`  | `defineSite`, `validateSiteConfig`, `handleHttpError`, `siteApiOrigin`                                        |
 | `@dealsystem/site/vite`    | `dealsystem(site)`                                                                                            |
 
 ## Einrichtung
@@ -75,11 +75,14 @@ export {};
 | `<RichText key default>` / `<RichText content>` | formatierter Text, geprüft                                                |
 | `<MediaImage src\|media\|key alt>`              | Bild; `alt` ist Pflicht, leer nur mit `decorative`                        |
 | `<MediaVideo media title>`                      | Video mit Bedienelementen                                                 |
+| `<MapEmbed lat lon title>`                      | Karte von OpenStreetMap, lädt erst nach Zustimmung                        |
 | `<CollectionList collection entries>`           | Liste von CMS-Einträgen                                                   |
-| `<CookieBanner />`, `<ConsentGate category>`    | Einwilligung; vorher lädt nichts von Dritten                              |
+| `<CookieBanner />`, `<ConsentGate category>`    | Einwilligung, nur wenn nötig; vorher lädt nichts von Dritten              |
 | `<Tracking />`                                  | Meta Pixel und Google Tag, nur in `<ConsentGate category="marketing">`    |
 | `<Impressum />`, `<Datenschutz />`              | geben den Rechtstext des Kunden aus dem CRM aus; das Paket erzeugt keinen |
 | `<SiteFooterLegal />`                           | Pflicht-Links und „Cookie-Einstellungen“                                  |
+| `<Seo title description image />`               | Titel, Beschreibung, Vorschaubild je Seite; das CRM kann sie ersetzen     |
+| `<SiteHead favicon />`                          | Favicon und `noindex` aus dem CRM, einmal im Layout                       |
 
 Jede Komponente und Funktion trägt ihre Beschreibung mit Beispiel im Quelltext.
 
@@ -115,11 +118,12 @@ bringt die Worker für `PBKDF2/SHA-*` und `SHA-*` mit; andere Algorithmen kann d
 
 Was die CSP der Seite dafür braucht (in einem echten Browser geprüft):
 
-| Direktive     | Wert                                  | Wofür                                                       |
-| ------------- | ------------------------------------- | ----------------------------------------------------------- |
-| `worker-src`  | `'self'`                              | Worker des Captchas, eigene Dateien der Seite, kein `blob:` |
-| `connect-src` | `'self'` und die Adresse der Site-API | Aufgabe holen, Formular senden                              |
-| `style-src`   | `'self' 'unsafe-inline'`              | Stil-Attribute von SvelteKit und vom Captcha-Widget         |
+| Direktive     | Wert                                         | Wofür                                                                                      |
+| ------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `worker-src`  | `'self'`                                     | Worker des Captchas, eigene Dateien der Seite, kein `blob:`                                |
+| `connect-src` | `'self'` und `siteApiOrigin()`               | Aufgabe holen, Formular senden; die Adresse der Site-API kommt aus `PUBLIC_DEALSYSTEM_API` |
+| `frame-src`   | `'self'` und `https://www.openstreetmap.org` | Karte über `<MapEmbed />`, nur nach Zustimmung                                             |
+| `style-src`   | `'self' 'unsafe-inline'`                     | Stil-Attribute von SvelteKit und vom Captcha-Widget                                        |
 
 `<Tracking />` braucht zusätzlich die Adressen von Google Tag und Meta Pixel in `script-src`, `connect-src`
 und `img-src`.

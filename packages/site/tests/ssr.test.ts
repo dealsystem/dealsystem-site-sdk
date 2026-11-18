@@ -4,6 +4,7 @@ import { render as renderLazy } from 'svelte/server';
 import Datenschutz from '../src/lib/components/Datenschutz.svelte';
 import Impressum from '../src/lib/components/Impressum.svelte';
 import LeadForm from '../src/lib/components/LeadForm.svelte';
+import MapEmbed from '../src/lib/components/MapEmbed.svelte';
 import Link from '../src/lib/components/Link.svelte';
 import MediaImage from '../src/lib/components/MediaImage.svelte';
 import MediaVideo from '../src/lib/components/MediaVideo.svelte';
@@ -262,6 +263,31 @@ describe('<MediaVideo>', () => {
 	});
 });
 
+describe('<MapEmbed>', () => {
+	const props = { lat: 53.8676, lon: 10.6866, title: 'Unser Büro in der Lübecker Altstadt' };
+
+	it('lädt beim Build keine Karte, bietet aber den Link zur Karte an', () => {
+		const { body } = render(MapEmbed, { props });
+		expect(body).toContain('data-ds-map');
+		expect(body).not.toContain('<iframe');
+		expect(body).not.toContain('export/embed.html');
+		expect(body).toContain(
+			'href="https://www.openstreetmap.org/?mlat=53.8676&amp;mlon=10.6866#map=16/53.8676/10.6866"',
+		);
+		expect(body).toContain('rel="noopener noreferrer"');
+		expect(body).toContain('Karte in OpenStreetMap öffnen');
+	});
+
+	it('scheitert beim Build mit einer Anleitung, wenn Koordinaten oder Titel fehlen', () => {
+		expect(() => render(MapEmbed, { props: { ...props, lat: Number.NaN } })).toThrow(
+			/lat und lon müssen Koordinaten/,
+		);
+		expect(() => render(MapEmbed, { props: { ...props, lat: 153 } })).toThrow(/Koordinaten/);
+		expect(() => render(MapEmbed, { props: { ...props, lat: '53.8' as never } })).toThrow(/Koordinaten/);
+		expect(() => render(MapEmbed, { props: { ...props, title: ' ' } })).toThrow(/braucht einen title/);
+	});
+});
+
 describe('Einwilligung im fertigen HTML', () => {
 	it('<ConsentGate> erzeugt seinen Inhalt beim Build nicht', () => {
 		for (const withFallback of [false, true]) {
@@ -300,7 +326,8 @@ describe('Rechtstexte', () => {
 		expect(body).not.toMatch(/§|DDG|Angaben gemäß/);
 	});
 
-	it('<Datenschutz> gibt den Text des Kunden aus und bietet den Widerruf der Einwilligung an', () => {
+	it('<Datenschutz> gibt den Text des Kunden aus und bietet mit Tracking den Widerruf der Einwilligung an', () => {
+		setSiteDataForTests(testSiteData({ tracking: { metaPixelId: '1234567890', googleTagId: null } }));
 		setPrivacyForTests('<p>Wir verarbeiten Ihre Daten nur zur Bearbeitung Ihrer Anfrage.</p>');
 		const { body } = render(Datenschutz, { props: {} });
 		expect(body).toContain('data-ds-datenschutz');
@@ -321,7 +348,7 @@ describe('Rechtstexte', () => {
 				setPrivacyForTests(empty);
 				const { body } = render(component, { props: {} });
 				expect(body).toContain(text);
-				expect(body).toContain('im CRM unter Website → Einstellungen');
+				expect(body).toContain('im CRM unter Eigene Website → Rechtliches');
 				expect(body).toContain(`data-ds-legal-missing="${marker}"`);
 			}
 		},
@@ -341,12 +368,21 @@ describe('Rechtstexte', () => {
 		expect(nested).toContain('<h4 class="x">Kontakt</h4>');
 	});
 
-	it('<SiteFooterLegal> verlinkt Impressum und Datenschutz und bietet den Widerruf an', () => {
+	it('<SiteFooterLegal> verlinkt Impressum und Datenschutz und bietet mit Tracking den Widerruf an', () => {
+		setSiteDataForTests(testSiteData({ tracking: { metaPixelId: null, googleTagId: 'G-ABCDEF1234' } }));
 		const { body } = render(SiteFooterLegal, { props: {} });
 		expect(body).toContain('href="/impressum"');
 		expect(body).toContain('href="/datenschutz"');
 		expect(body).toMatch(/<button[^>]*>Cookie-Einstellungen<\/button>/);
 		expect(body).toContain('aria-label="Rechtliches"');
+	});
+
+	it('ohne Tracking gibt es im fertigen HTML nichts einzustellen', () => {
+		const footer = render(SiteFooterLegal, { props: {} }).body;
+		expect(footer).toContain('href="/datenschutz"');
+		expect(footer).not.toContain('Cookie-Einstellungen');
+		setPrivacyForTests('<p>Text</p>');
+		expect(render(Datenschutz, { props: {} }).body).not.toContain('Cookie-Einstellungen');
 	});
 });
 

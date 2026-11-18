@@ -5,15 +5,15 @@ geschrieben, immer `<MediaImage>`.
 `alt` beschreibt, was auf dem Bild zu sehen ist. Nur bei reinem Schmuck:
 `alt="" decorative`.
 
-Lokales Bild (mit `?enhanced` entstehen WebP/AVIF und `srcset` automatisch):
+Lokales Bild (`width` und `height` sind die echten Maße der Datei):
 
 ```svelte
 <script lang="ts">
 	import { MediaImage } from '@dealsystem/site';
-	import heroBild from '$lib/bilder/hero.jpg?enhanced';
+	import heroBild from '$lib/assets/bilder/hero.jpg';
 </script>
 
-<MediaImage src={heroBild} alt="Sanierter Altbau in Leipzig" sizes="100vw" priority />
+<MediaImage src={heroBild} alt="Sanierter Altbau in Leipzig" width={1600} height={1067} sizes="100vw" priority />
 ```
 
 Bild aus dem CMS (der Alternativtext kommt aus dem CMS):
@@ -22,10 +22,31 @@ Bild aus dem CMS (der Alternativtext kommt aus dem CMS):
 <MediaImage media={angebot.media.bilder[0]} sizes="(min-width: 800px) 50vw, 100vw" />
 ```
 
-Bild, das der Kunde später im CRM austauschen kann:
+Bild, das der Kunde selbst austauschen kann (Porträt, Team, Titelbild): mit
+`key` und `default`. Nach dem Hochladen tauscht er es im CRM unter Eigene
+Website → Inhalte. `key`, `label`, `group` und `help` müssen feste
+Zeichenketten in Anführungszeichen sein; mit einer Variablen scheitern Build
+und `dealsystem check` (QUA-006). `default` ist das Bild aus dem Projekt:
+ein Import (wie unten) oder ein Pfad unter `static/` (`default="/bilder/haus.jpg"`).
+Dann zeigt das CRM es als Vorschau; bei `?enhanced` oder einer Variablen nicht.
 
 ```svelte
-<MediaImage key="start.hero.bild" default={heroBild} alt="Sanierter Altbau in Leipzig" />
+<script lang="ts">
+	import { MediaImage } from '@dealsystem/site';
+	import portrait from '$lib/assets/bilder/inhaber.jpg';
+</script>
+
+<MediaImage
+	key="team.inhaber.foto"
+	default={portrait}
+	width={1200}
+	height={1500}
+	alt="Porträt des Inhabers vor dem Büro"
+	label="Foto des Inhabers"
+	group="Über uns"
+	help="Hochformat, am besten mit Gesicht in der Mitte."
+	sizes="(min-width: 60rem) 33vw, 100vw"
+/>
 ```
 -->
 <script lang="ts" module>
@@ -79,6 +100,8 @@ Bild, das der Kunde später im CRM austauschen kann:
 					label?: string;
 					/** Gruppe im CRM. */
 					group?: string;
+					/** Hinweis für den Kunden im CRM. */
+					help?: string;
 					/** Frühere Schlüssel dieses Bildes. */
 					aliases?: readonly string[];
 					src?: undefined;
@@ -100,42 +123,11 @@ Bild, das der Kunde später im CRM austauschen kann:
 	import { getSiteData } from '../internal/siteData.js';
 	import { usageError } from '../internal/usage.js';
 	import { resolveImageSlot } from '../slots.js';
+	import { resolveMediaImage as fromMedia, type ResolvedImage } from '../internal/mediaImage.js';
 
 	let props: MediaImageProps<A> = $props();
 
-	interface Resolved {
-		sources: { type: string; srcset: string }[];
-		src: string;
-		srcset: string | undefined;
-		width: number | undefined;
-		height: number | undefined;
-		alt: string;
-	}
-
-	const FORMAT_ORDER = ['avif', 'webp'] as const;
-
-	function fromMedia(media: MediaRef, alt: string): Resolved | null {
-		if (media.kind !== 'image' || media.variants.length === 0) return null;
-		const byWidth = [...media.variants].sort((a, b) => a.width - b.width);
-		const srcsetOf = (format: string) =>
-			byWidth
-				.filter((v) => v.format === format)
-				.map((v) => `${v.url} ${v.width}w`)
-				.join(', ');
-		const jpeg = byWidth.filter((v) => v.format === 'jpeg');
-		const fallback = (jpeg.length > 0 ? jpeg : byWidth).at(-1)!;
-		const jpegSrcset = srcsetOf('jpeg');
-		return {
-			sources: FORMAT_ORDER.map((format) => ({ type: `image/${format}`, srcset: srcsetOf(format) })).filter(
-				(s) => s.srcset !== '' && (jpeg.length > 0 || s.type !== `image/${fallback.format}`),
-			),
-			src: fallback.url,
-			srcset: jpegSrcset || srcsetOf(fallback.format) || undefined,
-			width: media.width ?? undefined,
-			height: media.height ?? undefined,
-			alt,
-		};
-	}
+	type Resolved = ResolvedImage;
 
 	function fromLocal(
 		image: EnhancedPicture | string,
@@ -203,7 +195,7 @@ Bild, das der Kunde später im CRM austauschen kann:
 			class={props.class}
 			src={image.src}
 			srcset={image.srcset}
-			sizes={image.srcset || image.sources.length > 0 ? sizes : undefined}
+			sizes={image.srcset || image.sources.length > 0 || props.key !== undefined ? sizes : undefined}
 			width={image.width}
 			height={image.height}
 			alt={image.alt}

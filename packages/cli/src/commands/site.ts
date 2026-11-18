@@ -2,6 +2,7 @@
 
 import { writeFileSync } from 'node:fs';
 import { CliError, EXIT } from '../api/errors.js';
+import { legalStatus, legalStatusLine } from '../api/legal.js';
 import type { Website } from '../api/types.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
 import { defaultSiteConfig, SITE_CONFIG_FILE, writeSiteIdIntoConfig } from '../project/siteConfig.js';
@@ -25,7 +26,15 @@ async function chooseSite(ctx: CommandContext): Promise<{ site: Website; created
 		}
 		return { site: await api.createWebsite({ name, slug }), created: true };
 	}
-	const sites = await api.listWebsites();
+	return { site: await selectExistingSite(ctx, 'init'), created: false };
+}
+
+/**
+ * Vorhandene Seite: `--site <id|slug>`, sonst die einzige des Workspaces; bei mehreren ein Fehler mit
+ * Liste (für `init` und `pull`).
+ */
+export async function selectExistingSite(ctx: CommandContext, command: 'init' | 'pull'): Promise<Website> {
+	const sites = await ctx.api().listWebsites();
 	const wanted = ctx.str('site');
 	if (wanted) {
 		const site = sites.find((s) => s.id === wanted || s.slug === wanted);
@@ -33,14 +42,16 @@ async function chooseSite(ctx: CommandContext): Promise<{ site: Website; created
 			throw new CliError(
 				'site_not_found',
 				`Die Seite \`${wanted}\` gibt es in diesem Workspace nicht.`,
-				'Wähle eine der Seiten aus `data.sites` oder lege eine an mit `--create --name … --slug …`.',
+				command === 'init'
+					? 'Wähle eine der Seiten aus `data.sites` oder lege eine an mit `--create --name … --slug …`.'
+					: 'Wähle eine der Seiten aus `data.sites`.',
 				EXIT.usage,
 				{ sites },
 			);
 		}
-		return { site, created: false };
+		return site;
 	}
-	if (sites.length === 1) return { site: sites[0]!, created: false };
+	if (sites.length === 1) return sites[0]!;
 	if (sites.length === 0) {
 		throw new CliError(
 			'no_sites',
@@ -53,7 +64,7 @@ async function chooseSite(ctx: CommandContext): Promise<{ site: Website; created
 	throw new CliError(
 		'site_ambiguous',
 		`Es gibt mehrere Seiten:\n${sites.map(siteLine).join('\n')}`,
-		'Wähle eine mit `npx dealsystem init --site <id oder slug>`.',
+		`Wähle eine mit \`npx dealsystem ${command} --site <id oder slug>\`.`,
 		EXIT.usage,
 		{ sites },
 	);
@@ -87,10 +98,12 @@ export async function statusCommand(ctx: CommandContext): Promise<CommandResult>
 	const api = ctx.api();
 	const [site, versions] = await Promise.all([api.getWebsite(id), api.listVersions(id, 5)]);
 	const live = site.liveVersion;
+	const legal = legalStatus(site);
 	const lines = [
 		`Seite: ${site.name} (${site.slug}), Zustand ${site.status}`,
 		`Adresse: ${site.primaryHost ?? site.defaultHost ?? '–'}`,
 		`Live: ${live ? `Version ${live.number}` : 'noch nichts live'}`,
+		legalStatusLine(legal),
 		'Letzte Versionen:',
 		...(versions.length
 			? versions.map((v) => `  ${v.number}  ${v.status}  ${v.previewUrl ?? ''}  ${v.message ?? ''}`.trimEnd())
@@ -100,5 +113,5 @@ export async function statusCommand(ctx: CommandContext): Promise<CommandResult>
 			? site.domains.map((d) => `  ${d.host} (${d.kind}${d.active ? ', aktiv' : ', noch nicht aktiv'})`)
 			: ['  keine']),
 	];
-	return { exitCode: EXIT.ok, data: { site, versions }, text: lines.join('\n') };
+	return { exitCode: EXIT.ok, data: { site, versions, legal }, text: lines.join('\n') };
 }

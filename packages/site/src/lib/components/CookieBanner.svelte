@@ -1,6 +1,9 @@
 <!--
 @component
 Hinweis zur Einwilligung. Gehört einmal in `src/routes/+layout.svelte`.
+Er erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht:
+Tracking mit Kennung aus dem CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video
+eines anderen Anbieters. Sonst bleibt er unsichtbar, und es wird nichts gespeichert.
 „Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Die Wahl wird im
 Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
 `<SiteFooterLegal />`.
@@ -9,7 +12,7 @@ Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
 <CookieBanner />
 ```
 
-Nutzt die Seite nur manche Zwecke, nenne sie:
+Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lassen sie sich so:
 
 ```svelte
 <CookieBanner categories={['marketing']} />
@@ -19,7 +22,7 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 	import type { ConsentCategory } from '../consent/consent.svelte.js';
 
 	export interface CookieBannerProps {
-		/** Zwecke, die die Seite nutzt. Standard: alle. */
+		/** Zwecke, nach denen gefragt wird. Standard: die, die Bausteine auf der Seite brauchen. */
 		categories?: readonly ConsentCategory[];
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
@@ -44,8 +47,19 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { CONSENT_CATEGORIES, consent } from '../consent/consent.svelte.js';
+	import { declaredProviders, mergeProviders } from '../internal/providers.js';
 
-	let { categories = CONSENT_CATEGORIES, privacyHref = '/datenschutz' }: CookieBannerProps = $props();
+	let { categories: fixed, privacyHref = '/datenschutz' }: CookieBannerProps = $props();
+
+	const categories = $derived(fixed ?? consent.relevant);
+
+	// Anbieter je Zweck: Deklaration und Tracking-Kennungen stehen fest, Bausteine wie die Karte melden sich.
+	const declared = declaredProviders();
+	const providers = $derived(
+		Object.fromEntries(
+			CONSENT_CATEGORIES.map((c) => [c, mergeProviders(declared[c], consent.activeProviders(c))]),
+		) as Record<ConsentCategory, ReturnType<typeof consent.activeProviders>>,
+	);
 
 	const uid = $props.id();
 
@@ -58,7 +72,8 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 	});
 	let returnFocusTo: HTMLElement | null = null;
 
-	const visible = $derived(consent.ready && (!consent.decided || consent.settingsOpen));
+	// Ohne etwas, das eine Einwilligung braucht, ist kein Hinweis nötig.
+	const visible = $derived(consent.ready && consent.needed && (!consent.decided || consent.settingsOpen));
 	const showDetails = $derived(detailsOpen || consent.settingsOpen);
 
 	onMount(() => consent.init());
@@ -134,13 +149,35 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 						</span>
 					</label>
 					{#each categories as category (category)}
-						<label class="ds-cookie__choice">
-							<input type="checkbox" bind:checked={selection[category]} />
+						<div class="ds-cookie__choice">
+							<input
+								type="checkbox"
+								id="{uid}-{category}"
+								aria-describedby="{uid}-{category}-hint"
+								bind:checked={selection[category]}
+							/>
 							<span>
-								<strong>{LABELS[category].title}</strong>
-								<span class="ds-cookie__hint">{LABELS[category].text}</span>
+								<label for="{uid}-{category}"><strong>{LABELS[category].title}</strong></label>
+								<span class="ds-cookie__hint" id="{uid}-{category}-hint">{LABELS[category].text}</span>
+								{#if providers[category].length > 0}
+									<span class="ds-cookie__providers">
+										Anbieter:
+										{#each providers[category] as provider, i (provider.name)}
+											{#if i > 0}<span aria-hidden="true">, </span>{/if}
+											{#if provider.privacyUrl}
+												<a href={provider.privacyUrl} target="_blank" rel="noopener noreferrer"
+													>{provider.name}<span class="ds-cookie__sr">
+														(Datenschutzerklärung, neues Fenster)</span
+													></a
+												>
+											{:else}
+												<span>{provider.name}</span>
+											{/if}
+										{/each}
+									</span>
+								{/if}
 							</span>
-						</label>
+						</div>
 					{/each}
 				</fieldset>
 			{/if}
@@ -217,8 +254,24 @@ Nutzt die Seite nur manche Zwecke, nenne sie:
 		margin: 0.125rem 0 0;
 		flex-shrink: 0;
 	}
-	.ds-cookie__hint {
+	.ds-cookie__hint,
+	.ds-cookie__providers {
 		display: block;
+	}
+	.ds-cookie__providers {
+		font-size: 0.875rem;
+	}
+	.ds-cookie__providers a {
+		color: inherit;
+		text-decoration: underline;
+	}
+	.ds-cookie__sr {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 	.ds-cookie__actions {
 		display: flex;

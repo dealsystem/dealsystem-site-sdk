@@ -1,4 +1,4 @@
-import { defineSite, handleHttpError, validateSiteConfig } from '../src/lib/config/index.js';
+import { defineSite, handleHttpError, siteApiOrigin, validateSiteConfig } from '../src/lib/config/index.js';
 
 const valid = {
 	siteId: 's1',
@@ -129,5 +129,65 @@ describe('Grenzen der Site-API', () => {
 			},
 		});
 		expect(problems[0]!.path).toBe('funnels.kontakt.fields[0].name');
+	});
+});
+
+describe('siteApiOrigin', () => {
+	afterEach(() => {
+		delete process.env.PUBLIC_DEALSYSTEM_API;
+	});
+
+	it('nimmt die Adresse der Site-API aus PUBLIC_DEALSYSTEM_API, nur Schema und Host', () => {
+		process.env.PUBLIC_DEALSYSTEM_API = 'https://staging.dealsystem.io/irgendwas';
+		expect(siteApiOrigin()).toBe('https://staging.dealsystem.io');
+		process.env.PUBLIC_DEALSYSTEM_API = 'http://localhost:5173';
+		expect(siteApiOrigin()).toBe('http://localhost:5173');
+	});
+
+	it('fällt ohne Angabe oder bei Unsinn auf die Adresse von DealSystem zurück', () => {
+		expect(siteApiOrigin()).toBe('https://app.dealsystem.io');
+		for (const value of ['', '  ', 'kein-url', 'javascript:alert(1)', "'unsafe-inline'"]) {
+			process.env.PUBLIC_DEALSYSTEM_API = value;
+			expect(siteApiOrigin(), value).toBe('https://app.dealsystem.io');
+		}
+	});
+});
+
+describe('booking', () => {
+	const base = { siteId: 's1' };
+	it('gültige Buchungen ohne Meldung; label und eventType sind optional', () => {
+		expect(
+			validateSiteConfig({
+				...base,
+				booking: { erstgespraech: { label: 'Erstgespräch', eventType: 'erstgespraech' }, rueckruf: {} },
+			}),
+		).toEqual([]);
+	});
+
+	it('Schlüssel wie beim Core (kebab, höchstens 50), unbekannte Angaben, leeres label, falscher Slug', () => {
+		const problems = validateSiteConfig({
+			...base,
+			booking: {
+				Erstgespraech: {},
+				['a'.repeat(51)]: {},
+				termin: { label: '', eventType: 'Erst Gespräch', dauer: 30 },
+			},
+		});
+		expect(problems.map((p) => p.path)).toEqual([
+			'booking.Erstgespraech',
+			`booking.${'a'.repeat(51)}`,
+			'booking.termin.dauer',
+			'booking.termin.label',
+			'booking.termin.eventType',
+		]);
+		expect(problems.find((p) => p.path === 'booking.termin.dauer')!.message).toContain(
+			'Erlaubt: label, eventType',
+		);
+	});
+
+	it('höchstens 20 Buchungen je Seite (mehr übernimmt der Core nicht)', () => {
+		const booking = Object.fromEntries(Array.from({ length: 21 }, (_, i) => [`termin-${i}`, {}]));
+		expect(validateSiteConfig({ ...base, booking }).map((p) => p.path)).toEqual(['booking']);
+		expect(() => defineSite({ ...base, booking })).toThrow(/Höchstens 20 Terminbuchungen/);
 	});
 });

@@ -17,10 +17,21 @@ export function formatFinding(f: Finding): string {
 export function formatCheckText(result: CheckResult): string {
 	const lines: string[] = [];
 	for (const f of [...result.errors, ...result.warnings]) lines.push(formatFinding(f));
-	const summary = result.passed
-		? `Prüfung bestanden (${result.warnings.length} Warnung${result.warnings.length === 1 ? '' : 'en'}).`
-		: `Prüfung fehlgeschlagen: ${result.errors.length} Fehler, ${result.warnings.length} Warnung${result.warnings.length === 1 ? '' : 'en'}.`;
-	lines.push(summary);
+	const warnings = `${result.warnings.length} Warnung${result.warnings.length === 1 ? '' : 'en'}`;
+	const both = result.stages.includes('source') && result.stages.includes('output');
+	if (!result.passed) {
+		lines.push(`Prüfung fehlgeschlagen: ${result.errors.length} Fehler, ${warnings}.`);
+	} else if (both) {
+		// Die eine Zeile, die ein Agent zitieren darf, wenn er „geprüft“ sagt.
+		lines.push(`Prüfung bestanden: Quelltext und fertige Seite geprüft, 0 Fehler, ${warnings}.`);
+	} else if (result.stages.includes('source')) {
+		lines.push(
+			`Quelltext geprüft: 0 Fehler, ${warnings}. Die fertige Seite ist noch NICHT geprüft. ` +
+				'Vollständig geprüft ist erst nach `npm run build` und `npx dealsystem check --output build`.',
+		);
+	} else {
+		lines.push(`Fertige Seite geprüft: 0 Fehler, ${warnings}. Der Quelltext ist nicht geprüft.`);
+	}
 	return lines.join('\n');
 }
 

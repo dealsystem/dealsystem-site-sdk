@@ -1,12 +1,14 @@
 import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { resetFirstTouchForTests } from '../src/lib/client/attribution.js';
+import { resetAttributionForTests } from '../src/lib/client/attribution.js';
 import { resetTrackingForTests } from '../src/lib/client/tracking.js';
 import { consent } from '../src/lib/consent/consent.svelte.js';
 import { reloadPage } from '../src/lib/internal/reload.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
+import MapEmbed from '../src/lib/components/MapEmbed.svelte';
 import GateHarness from './fixtures/GateHarness.svelte';
 import LayoutHarness from './fixtures/LayoutHarness.svelte';
+import StarterLayoutHarness from './fixtures/StarterLayoutHarness.svelte';
 import { testSiteData } from './helpers.js';
 
 vi.mock('../src/lib/internal/reload.js', () => ({ reloadPage: vi.fn() }));
@@ -35,7 +37,7 @@ beforeEach(() => {
 	sessionStorage.clear();
 	consent.resetForTests();
 	resetTrackingForTests();
-	resetFirstTouchForTests();
+	resetAttributionForTests();
 	for (const script of document.head.querySelectorAll('script')) script.remove();
 	const w = window as unknown as Record<string, unknown>;
 	delete w.fbq;
@@ -90,6 +92,57 @@ describe('vor der Entscheidung', () => {
 	});
 });
 
+describe('nur bei Bedarf', () => {
+	it('ohne Tracking-Kennung und ohne gesperrte Inhalte: kein Hinweis, nichts einzustellen, nichts gespeichert', async () => {
+		setSiteDataForTests(testSiteData());
+		render(StarterLayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cookie-Einstellungen' })).toBeNull();
+		expect(document.querySelector('[data-ds-cookie-banner]')).not.toBeNull();
+		expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
+		expect(localStorage.length).toBe(0);
+	});
+
+	it('mit Tracking-Kennung fragt er nur nach „Marketing“', async () => {
+		const user = userEvent.setup();
+		render(StarterLayoutHarness);
+		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+		expect(screen.getByRole('checkbox', { name: /Marketing/ })).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: /Statistik/ })).toBeNull();
+		expect(screen.queryByRole('checkbox', { name: /Externe Inhalte/ })).toBeNull();
+		expect(screen.getByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
+	});
+
+	it('eine Karte auf der Seite braucht ihn auch ohne Tracking', async () => {
+		setSiteDataForTests(testSiteData());
+		const user = userEvent.setup();
+		render(StarterLayoutHarness, { props: { map: true } });
+		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
+		expect(screen.getByRole('checkbox', { name: /Externe Inhalte/ })).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: /Marketing/ })).toBeNull();
+	});
+
+	it('verschwindet mit dem letzten Baustein, der ihn braucht', async () => {
+		setSiteDataForTests(testSiteData());
+		const view = render(StarterLayoutHarness, { props: { map: true } });
+		expect(await screen.findByRole('dialog')).toBeInTheDocument();
+		await view.rerender({ map: false });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+	});
+
+	it('wer schon zugestimmt hat, kann auf jeder Seite widerrufen', async () => {
+		setSiteDataForTests(testSiteData());
+		localStorage.setItem(
+			'ds-consent',
+			JSON.stringify({ v: 1, at: Date.now(), granted: { statistics: false, marketing: false, media: true } }),
+		);
+		render(StarterLayoutHarness);
+		expect(await screen.findByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
+		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+});
+
 describe('Ablehnen', () => {
 	it('speichert die Wahl, schließt den Hinweis und lädt weiterhin nichts', async () => {
 		const user = userEvent.setup();
@@ -126,7 +179,8 @@ describe('Akzeptieren', () => {
 		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
 
 		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(stored()?.granted).toEqual({ statistics: true, marketing: true, media: true });
+		// Nur die Zwecke, die die Seite nutzt: Tracking und den gesperrten Inhalt, keine Statistik.
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: true, media: true });
 		await waitFor(() =>
 			expect(externalRequests().sort()).toEqual([
 				'https://connect.facebook.net/en_US/fbevents.js',
@@ -249,6 +303,46 @@ describe('<ConsentGate>', () => {
 	});
 });
 
+describe('<MapEmbed>', () => {
+	const props = { lat: 53.8676, lon: 10.6866, title: 'Unser Büro in der Lübecker Altstadt', zoom: 15 };
+
+	it('zeigt vor der Zustimmung nur den Hinweis und lädt die Karte erst nach „Karte anzeigen“', async () => {
+		const user = userEvent.setup();
+		const { container } = render(MapEmbed, { props });
+
+		const button = await screen.findByRole('button', { name: 'Karte anzeigen' });
+		expect(container.querySelector('iframe')).toBeNull();
+		expect(externalRequests()).toEqual([]);
+		expect(
+			screen.getByText(/Daten, zum Beispiel Ihre IP-Adresse, an\s+OpenStreetMap übertragen/),
+		).toBeInTheDocument();
+
+		await user.click(button);
+		const frame = container.querySelector('iframe')!;
+		expect(frame).toHaveAttribute('title', props.title);
+		const src = new URL(frame.getAttribute('src')!);
+		// Genau die Herkunft, die die Sicherheitsregeln des Starters erlauben.
+		expect(src.origin).toBe('https://www.openstreetmap.org');
+		expect(src.pathname).toBe('/export/embed.html');
+		expect(src.searchParams.get('marker')).toBe('53.8676,10.6866');
+		const [west, south, east, north] = src.searchParams.get('bbox')!.split(',').map(Number);
+		expect(west!).toBeLessThan(props.lon);
+		expect(east!).toBeGreaterThan(props.lon);
+		expect(south!).toBeLessThan(props.lat);
+		expect(north!).toBeGreaterThan(props.lat);
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: true });
+		expect(screen.queryByRole('button', { name: 'Karte anzeigen' })).toBeNull();
+	});
+
+	it('bietet den Link zur Karte auch ohne Zustimmung an', async () => {
+		render(MapEmbed, { props });
+		const link = await screen.findByRole('link', { name: /Karte in OpenStreetMap öffnen/ });
+		expect(link).toHaveAttribute('href', expect.stringContaining('mlat=53.8676'));
+		expect(link).toHaveAttribute('target', '_blank');
+		expect(link).toHaveAccessibleName(/neues Fenster.*Unser Büro/);
+	});
+});
+
 describe('Zuordnung der Kampagne', () => {
 	it('legt ohne Einwilligung nichts in den Browser-Speicher', async () => {
 		window.history.replaceState({}, '', '/?utm_source=google&utm_campaign=herbst');
@@ -268,9 +362,11 @@ describe('Zuordnung der Kampagne', () => {
 		const user = userEvent.setup();
 		render(LayoutHarness);
 		await user.click(await screen.findByRole('button', { name: 'Alle akzeptieren' }));
-		expect(JSON.parse(sessionStorage.getItem('ds-first-touch')!)).toMatchObject({
-			utmSource: 'google',
-			utmCampaign: 'herbst',
+		expect(sessionStorage.length).toBe(0);
+		expect(JSON.parse(localStorage.getItem('ds-attr')!)).toMatchObject({
+			v: 2,
+			first: { source: 'google', campaign: 'herbst', landingPath: '/' },
+			touches: 1,
 		});
 		window.history.replaceState({}, '', '/');
 	});

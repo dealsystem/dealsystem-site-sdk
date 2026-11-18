@@ -1,14 +1,28 @@
 <!--
 @component
-Ein kurzer Text (Überschrift, Satz, Beschriftung), den der Kunde später im CRM
-selbst ändern kann.
+Ein kurzer Text (Überschrift, Satz, Beschriftung), den der Kunde im CRM ändern
+kann.
 Angezeigt wird der Text aus dem CRM, sonst `default`.
 
 `key` und `default` müssen feste Zeichenketten sein (keine Variablen): der
 Build liest sie aus dem Quelltext und meldet sie ans CRM.
 
+`key` hat zwei bis fünf Teile mit Punkten. Der erste Teil, meist die Seite,
+besteht nur aus Kleinbuchstaben und Ziffern, ohne Bindestrich: für die Seite
+`/ueber-uns` also `ueberuns.team.titel`, nicht `ueber-uns.team.titel`. Die
+weiteren Teile dürfen Bindestriche haben (`start.ueber-uns`). Das gilt für alle
+Schlüssel von `<Text>`, `<RichText>`, `<Link>` und `<MediaImage>`.
+
 ```svelte
 <Text key="start.hero.titel" default="Wir kaufen Ihr Haus" as="h1" label="Überschrift" group="Startseite" />
+```
+
+Mehrere Zeilen: `multiline` und den Text in geschweiften Klammern, dann ist
+`\n` ein Zeilenumbruch. In `default="…"` wäre `\n` kein Umbruch, sondern
+stünde wörtlich auf der Seite (`dealsystem check` warnt, CNT-003).
+
+```svelte
+<Text key="kontakt.zeiten" multiline default={'Mo bis Fr 9 bis 18 Uhr\nSa nach Vereinbarung'} />
 ```
 -->
 <script lang="ts" module>
@@ -33,7 +47,7 @@ Build liest sie aus dem Quelltext und meldet sie ans CRM.
 		| 'dd';
 
 	export interface TextProps {
-		/** Eindeutiger Schlüssel, z. B. `start.hero.titel`: Kleinbuchstaben, Ziffern, Punkte. */
+		/** Eindeutiger Schlüssel, z. B. `start.hero.titel`: Teile mit Punkten, der erste ohne Bindestrich (`ueberuns.team.titel`). */
 		key: string;
 		/** Text, solange im CRM nichts anderes eingetragen ist. */
 		default: string;

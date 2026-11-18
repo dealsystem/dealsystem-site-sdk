@@ -2,12 +2,15 @@
 // Erzeugt die Anleitungen für KI-Agenten aus dem Code:
 //   packages/site/docs/*.md, packages/site/docs/llms.txt  → im Paket @dealsystem/site
 //   packages/create/template/AGENTS.md                    → im Starter
+//   packages/site/agent-files/**                          → Kopie der Skills und der Cursor-Regel des Starters,
+//                                                           für `dealsystem sync` (z. B. nach `pull`)
 // Quellen: Komponenten (`@component`-Kommentar und Props-Typen), JSDoc der
 // Funktionen, Regelkatalog und Befehle der CLI, dazu die von Hand geschriebenen
 // Seiten unter packages/site/docs-src/.
 //
 //   node scripts/build-agent-docs.mjs          schreibt die Dateien
 //   node scripts/build-agent-docs.mjs --check  prüft nur; Exit-Code 1, wenn etwas veraltet ist
+import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,11 +21,53 @@ const LIB = join(SITE, 'src/lib');
 const DOCS_SRC = join(SITE, 'docs-src');
 const DOCS_OUT = join(SITE, 'docs');
 const TEMPLATE = join(ROOT, 'packages/create/template');
+/** Agenten-Dateien im Paket: Kopie der Ordner `AGENT_FILE_DIRS` des Starters, Punkt am Anfang weggelassen. */
+const AGENT_FILES = join(SITE, 'agent-files');
+const AGENT_FILES_MANIFEST = join(AGENT_FILES, 'manifest.json');
+/** Diese Ordner des Starters liefert das SDK mit aus; `sync` legt fehlende Dateien daraus wieder an. */
+export const AGENT_FILE_DIRS = ['.claude', '.cursor'];
 
-/** Obergrenze des Blocks in AGENTS.md, in Bytes. */
+/** Obergrenze der ganzen AGENTS.md des Starters (Kopf, Marker und Block), in Bytes. Der Block allein bleibt darunter. */
 export const AGENTS_BLOCK_MAX_BYTES = 8192;
+/** Ab hier warnt der Generator: Der Platz für künftige Regeln wird knapp. Details gehören in Skills und docs/. */
+export const AGENTS_MD_WARN_BYTES = 7500;
+
+/** Warnung, wenn AGENTS.md über `AGENTS_MD_WARN_BYTES` wächst, sonst `null`. */
+export function agentsMdSizeWarning(bytes) {
+	if (bytes <= AGENTS_MD_WARN_BYTES) return null;
+	return (
+		`Warnung: AGENTS.md des Starters hat ${bytes} Bytes (Warnschwelle ${AGENTS_MD_WARN_BYTES}, Grenze ${AGENTS_BLOCK_MAX_BYTES}). ` +
+		'Verschiebe Einzelheiten in einen Skill oder nach docs/ und lass in AGENTS.md nur einen Verweis.'
+	);
+}
 const DOCS_PATH = 'node_modules/@dealsystem/site/docs';
 const GENERATED = '<!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand ändern. -->';
+
+/** Gruppen der Bausteine im kompakten Index von AGENTS.md. Jede Komponente steht in genau einer Gruppe. */
+const COMPONENT_GROUPS = [
+	['Text', ['Text', 'RichText', 'Link']],
+	['Bild und Video', ['MediaImage', 'MediaVideo']],
+	['Formular und Listen', ['LeadForm', 'LeadHoneypot', 'Booker', 'CollectionList']],
+	['Fremde Dienste', ['MapEmbed', 'Embed', 'ExternalScript']],
+	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
+	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
+	['Google und Teilen', ['Seo', 'SiteHead']],
+	['Zeitgesteuert', ['Zeitfenster']],
+];
+
+/** Skills des Starters in der Reihenfolge, in der sie meist gebraucht werden. */
+const SKILLS = [
+	['neue-seite', 'neue Seite oder Abschnitt, Texte, tauschbare Fotos'],
+	['bild-einbauen', 'Foto des Kunden einbauen (ohne Standort)'],
+	['formular-anbinden', 'Kontakt- oder Anfrageformular, Ratgeber zum Download'],
+	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
+	['termin-buchung', 'Termine aus dem DealSystem-Kalender buchen (`termine.md`)'],
+	['extern-einbinden', 'Video, Karte, Termin, Chat, fremdes Skript'],
+	['angebote-einbauen', 'Angebote, Referenzen, andere Sammlungen aus dem CRM'],
+	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
+	['veroeffentlichen', 'hochladen, Vorschau, nach dem Ja veröffentlichen'],
+	['domain-verbinden', 'eigene Domain des Kunden'],
+];
 
 /** Reihenfolge und Gruppen der Komponenten in der Übersicht. */
 const COMPONENTS = [
@@ -32,16 +77,78 @@ const COMPONENTS = [
 	'MediaImage',
 	'MediaVideo',
 	'LeadForm',
+	'LeadHoneypot',
+	'Booker',
 	'CollectionList',
+	'MapEmbed',
+	'Embed',
+	'ExternalScript',
 	'CookieBanner',
 	'ConsentGate',
 	'Tracking',
 	'Impressum',
 	'Datenschutz',
 	'SiteFooterLegal',
+	'Seo',
+	'SiteHead',
+	'Zeitfenster',
 ];
 
 const read = (file) => readFile(file, 'utf8');
+const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+/** Alle Dateien unter `dir` (relativ, mit `/`), sortiert. Links brechen ab: das Paket liefert nur echte Dateien. */
+async function walkFiles(dir, base = dir) {
+	const entries = await readdir(dir, { withFileTypes: true }).catch((e) => {
+		if (e.code === 'ENOENT') return [];
+		throw e;
+	});
+	const out = [];
+	for (const e of entries) {
+		const full = join(dir, e.name);
+		if (e.isSymbolicLink())
+			throw new Error(`${relative(ROOT, full)} ist ein Link; erlaubt sind nur Dateien.`);
+		if (e.isDirectory()) out.push(...(await walkFiles(full, base)));
+		else if (e.isFile()) out.push(relative(base, full).split('\\').join('/'));
+	}
+	return out.sort();
+}
+
+/**
+ * Skills und Cursor-Regel des Starters als Agenten-Dateien des Pakets, dazu `manifest.json`: Zielpfad im Projekt,
+ * Datei im Paket, SHA-256 und die Prüfsummen früher ausgelieferter Fassungen (`previous`). Eine Projektdatei, die
+ * byte-genau einer früheren Fassung gleicht, darf `sync` erneuern; alles andere hat der Kunde geändert.
+ * `previous` wächst aus der Fassung auf der Platte: ändert sich eine Datei, wandert ihre alte Prüfsumme hinein.
+ */
+async function buildAgentFiles(files) {
+	let before = { files: [] };
+	try {
+		before = JSON.parse(await read(AGENT_FILES_MANIFEST));
+	} catch {
+		// Noch keine Fassung ausgeliefert.
+	}
+	const old = new Map((before.files ?? []).map((f) => [f.target, f]));
+	const entries = [];
+	for (const dir of AGENT_FILE_DIRS) {
+		for (const rel of await walkFiles(join(TEMPLATE, dir))) {
+			const target = `${dir}/${rel}`;
+			const source = `${dir.slice(1)}/${rel}`;
+			const content = await read(join(TEMPLATE, target));
+			const hash = sha256(content);
+			const prev = old.get(target);
+			const previous = [
+				...new Set([...(prev?.previous ?? []), ...(prev && prev.sha256 !== hash ? [prev.sha256] : [])]),
+			]
+				.filter((h) => h !== hash)
+				.sort();
+			files.set(join(AGENT_FILES, source), content);
+			entries.push({ target, source, sha256: hash, previous });
+		}
+	}
+	if (entries.length === 0)
+		throw new Error('Der Starter hat keine Agenten-Dateien unter .claude/ oder .cursor/.');
+	files.set(AGENT_FILES_MANIFEST, `${JSON.stringify({ manifestVersion: 1, files: entries }, null, '\t')}\n`);
+}
 
 // ------------------------------------------------------------ Quellen lesen
 
@@ -182,6 +289,46 @@ async function build() {
 				.join('\n') +
 			'\n## consent\n\n' +
 			(await pick('consent/consent.svelte.ts', ['consent', 'ConsentCategory'])).map(entry).join('\n') +
+			'\n## Eigene Formular-Oberfläche\n\n' +
+			'Für mehrstufige Funnels, Rechner und Quiz. Vorlage: Skill `funnel-mehrstufig`.\n\n' +
+			(
+				await pick('client/leadClient.svelte.ts', [
+					'createLeadClient',
+					'LeadResult',
+					'LeadFailureReason',
+					'LeadFallback',
+				])
+			)
+				.map(entry)
+				.join('\n') +
+			(await pick('client/funnelState.svelte.ts', ['createFunnelState', 'FunnelStep']))
+				.map(entry)
+				.join('\n') +
+			'\n## Eigene Terminbuchung\n\n' +
+			'Ohne `<Booker>`, mit eigener Oberfläche. Ablauf und Regeln: `termine.md`.\n\n' +
+			(
+				await pick('client/bookingClient.svelte.ts', [
+					'createBookingClient',
+					'BookingInput',
+					'BookingResult',
+					'BookingFailureReason',
+				])
+			)
+				.map(entry)
+				.join('\n') +
+			(
+				await pick('client/bookingTime.ts', [
+					'groupSlotsByDay',
+					'visitorTimeZone',
+					'timeZoneLabel',
+					'formatBookingTime',
+					'formatBookingDate',
+				])
+			)
+				.map(entry)
+				.join('\n') +
+			'\n## Kampagnen-Parameter\n\n' +
+			(await pick('client/attribution.ts', ['getCampaignParam'])).map(entry).join('\n') +
 			'\n## Inhalte im Browser nachladen\n\n' +
 			(await pick('client/collections.ts', ['loadCollection', 'loadEntry'])).map(entry).join('\n'),
 	);
@@ -222,7 +369,14 @@ async function build() {
 		`${GENERATED}\n\n# dealsystem.config.ts (@dealsystem/site/config)\n\n` +
 			'Eine Datei beschreibt die Seite: ihre Kennung, die Sammlungen (Inhalte aus dem CMS) und die Formulare.\n' +
 			'Felder eines Formulars stehen nur hier. Nach einer Änderung an Sammlungen: `npx dealsystem sync`.\n\n' +
-			(await pick('config/index.ts', ['defineSite', 'validateSiteConfig', 'handleHttpError']))
+			(
+				await pick('config/index.ts', [
+					'defineSite',
+					'validateSiteConfig',
+					'handleHttpError',
+					'siteApiOrigin',
+				])
+			)
 				.map(entry)
 				.join('\n') +
 			'\n## Typen\n\n' +
@@ -232,7 +386,11 @@ async function build() {
 					'FunnelDef',
 					'FunnelFieldDef',
 					'FieldType',
+					'HiddenFieldSource',
+					'FunnelCrmConfig',
+					'FunnelLeadmagnetConfig',
 					'StandardFieldKey',
+					'BookingDef',
 					'CollectionDef',
 					'CollectionFieldDef',
 					'CollectionFieldType',
@@ -290,15 +448,25 @@ async function build() {
 	);
 
 	// --- agents-block.md
+	const grouped = COMPONENT_GROUPS.flatMap(([, names]) => names);
+	if (grouped.length !== COMPONENTS.length || COMPONENTS.some((name) => !grouped.includes(name))) {
+		throw new Error('COMPONENT_GROUPS muss jede Komponente aus COMPONENTS genau einmal enthalten.');
+	}
+	const skillDirs = (await readdir(join(TEMPLATE, '.claude/skills'))).sort();
+	if (JSON.stringify(SKILLS.map(([name]) => name).sort()) !== JSON.stringify(skillDirs)) {
+		throw new Error(`SKILLS passt nicht zu den Skills des Starters: ${skillDirs.join(', ')}.`);
+	}
 	const docsIndex = [
-		['ablauf.md', 'der ganze Weg von der Anmeldung bis zur veröffentlichten Seite'],
-		['komponenten.md', 'alle Bausteine mit Pflichtangaben und Beispielen'],
-		['inhalte.md', 'Angebote und andere Inhalte aus dem CRM laden'],
+		['ablauf.md', 'Weg bis zur veröffentlichten Seite'],
+		['komponenten.md', 'Bausteine mit Pflichtangaben und Beispielen'],
+		['inhalte.md', 'Angebote und andere Sammlungen laden'],
 		['konfiguration.md', 'Formulare und Sammlungen in dealsystem.config.ts'],
 		['gestaltung.md', 'Farben, Schrift, Bilder, Barrierefreiheit'],
 		['rechtstexte.md', 'Impressum, Datenschutz, Cookie-Hinweis'],
-		['regeln.md', 'alle Prüfregeln mit Korrektur'],
-		['befehle.md', 'alle Befehle mit Optionen'],
+		['extern.md', 'fremde Dienste: Videos, Widgets, Skripte'],
+		['seo.md', 'Titel, Beschreibung, Vorschaubild, Favicon, noindex'],
+		['regeln.md', 'Prüfregeln mit Korrektur'],
+		['befehle.md', 'Befehle mit Optionen'],
 	];
 	for (const [file] of docsIndex) {
 		if (!files.has(join(DOCS_OUT, file)))
@@ -309,12 +477,16 @@ async function build() {
 		.replaceAll('{{DOCS}}', DOCS_PATH)
 		.replace(
 			'{{BAUSTEINE}}',
-			components.map((c) => `- \`<${c.name}>\` – ${firstSentence(c.summary)}`).join('\n'),
+			COMPONENT_GROUPS.map(
+				([title, names]) => `- ${title}: ${names.map((name) => `\`<${name}>\``).join(', ')}`,
+			).join('\n'),
 		)
 		.replace(
 			'{{BEFEHLE}}',
-			commands.map(([name, c]) => `- \`npx dealsystem ${name}\` – ${c.summary.replace(/`/g, '')}`).join('\n'),
+			`\`npx dealsystem <befehl>\`: ${commands.map(([name]) => `\`${name}\``).join(', ')}. ` +
+				'Was sie tun, Optionen und Exit-Codes: `befehle.md`.',
 		)
+		.replace('{{SKILLS}}', SKILLS.map(([name, text]) => `- \`${name}\` – ${text}`).join('\n'))
 		.replace('{{NACHSCHLAGEN}}', docsIndex.map(([file, text]) => `- \`${file}\` – ${text}`).join('\n'))
 		.trim();
 	if (/\{\{[A-Z]+\}\}/.test(block)) throw new Error('In agents-block.md steht ein unbekannter Platzhalter.');
@@ -340,27 +512,29 @@ async function build() {
 	);
 
 	// --- Starter: AGENTS.md mit dem Block
-	files.set(
-		join(TEMPLATE, 'AGENTS.md'),
+	const agentsMd =
 		'# Anleitung für KI-Agenten\n\n' +
-			'Diese Datei sagt deinem KI-Agenten, wie er an dieser Website arbeitet. Eigene Hinweise kannst du\n' +
-			'über oder unter dem markierten Block ergänzen. Den Block selbst erneuert `npx dealsystem sync`.\n\n' +
-			`<!-- dealsystem:begin ${version} -->\n${block}\n<!-- dealsystem:end -->\n`,
-	);
-	return { files, bytes, version };
-}
-
-function firstSentence(text) {
-	// Satzende: Punkt nach einem Wort mit mindestens zwei Zeichen (nicht „z. B.“), danach Großbuchstabe oder Ende.
-	const match = /^(.*?[^\s.]{2,}[.!?])(?=\s+[A-ZÄÖÜ„`<]|$)/.exec(text);
-	return (match ? match[1] : text).replace(/\.$/, '');
+		'Eigene Hinweise gehören über oder unter den Block; ihn erneuert `npx dealsystem sync`.\n\n' +
+		`<!-- dealsystem:begin ${version} -->\n${block}\n<!-- dealsystem:end -->\n`;
+	// Agenten lesen AGENTS.md ganz; manche kürzen lange Dateien. Deshalb gilt die Grenze für die ganze Datei.
+	const agentsMdBytes = Buffer.byteLength(agentsMd, 'utf8');
+	if (agentsMdBytes > AGENTS_BLOCK_MAX_BYTES) {
+		throw new Error(
+			`AGENTS.md des Starters hat ${agentsMdBytes} Bytes, erlaubt sind ${AGENTS_BLOCK_MAX_BYTES}. Kürze docs-src/agents-block.md.`,
+		);
+	}
+	files.set(join(TEMPLATE, 'AGENTS.md'), agentsMd);
+	await buildAgentFiles(files);
+	const warning = agentsMdSizeWarning(agentsMdBytes);
+	if (warning) console.warn(warning);
+	return { files, bytes, agentsMdBytes, version };
 }
 
 // ---------------------------------------------------------------- Ausführen
 
 /** Baut alle Dateien und meldet, welche auf der Platte fehlen, veraltet oder überzählig sind. */
 export async function diffAgentDocs() {
-	const { files, bytes, version } = await build();
+	const { files, bytes, agentsMdBytes, version } = await build();
 	const stale = [];
 	for (const [file, content] of files) {
 		const current = await read(file).catch(() => null);
@@ -370,7 +544,20 @@ export async function diffAgentDocs() {
 		[...files.keys()].filter((f) => f.startsWith(DOCS_OUT)).map((f) => relative(DOCS_OUT, f)),
 	);
 	const extra = (await readdir(DOCS_OUT).catch(() => [])).filter((f) => !expected.has(f));
-	return { files, stale, extra: extra.map((f) => join('packages/site/docs', f)), bytes, version };
+	const extraAgentFiles = (await walkFiles(AGENT_FILES))
+		.map((f) => join(AGENT_FILES, f))
+		.filter((f) => !files.has(f));
+	return {
+		files,
+		stale,
+		extra: [
+			...extra.map((f) => join('packages/site/docs', f)),
+			...extraAgentFiles.map((f) => relative(ROOT, f)),
+		],
+		bytes,
+		agentsMdBytes,
+		version,
+	};
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

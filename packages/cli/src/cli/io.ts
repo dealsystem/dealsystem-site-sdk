@@ -4,6 +4,15 @@ import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline/promises';
 import type { FetchLike } from '../api/http.js';
 
+/** Ergebnis eines Prozesses: Exit-Code (`null` bei Abbruch durch ein Signal) und die Ausgabe von stdout und stderr. */
+export interface ProcessResult {
+	exitCode: number | null;
+	output: string;
+}
+
+/** So viel Ausgabe eines Prozesses bleibt höchstens im Speicher (das Ende zählt). */
+const MAX_PROCESS_OUTPUT = 256 * 1024;
+
 export interface CliIO {
 	cwd: string;
 	env: NodeJS.ProcessEnv;
@@ -17,6 +26,12 @@ export interface CliIO {
 	fetch: FetchLike;
 	now(): Date;
 	sleep(ms: number): Promise<void>;
+	/** Startet einen Prozess ohne Shell (z. B. den lokalen Build vor dem Hochladen) und sammelt seine Ausgabe. */
+	run(
+		command: string,
+		args: string[],
+		options: { cwd: string; env: NodeJS.ProcessEnv },
+	): Promise<ProcessResult>;
 }
 
 function browserCommand(url: string): [string, string[]] {
@@ -58,5 +73,23 @@ export function nodeIO(): CliIO {
 		fetch: (input, init) => fetch(input, init),
 		now: () => new Date(),
 		sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+		run(command, args, options) {
+			return new Promise((resolve) => {
+				let output = '';
+				const append = (chunk: Buffer): void => {
+					output += chunk.toString('utf8');
+					if (output.length > MAX_PROCESS_OUTPUT) output = output.slice(-MAX_PROCESS_OUTPUT);
+				};
+				const child = spawn(command, args, {
+					cwd: options.cwd,
+					env: options.env,
+					stdio: ['ignore', 'pipe', 'pipe'],
+				});
+				child.stdout.on('data', append);
+				child.stderr.on('data', append);
+				child.on('error', (error) => resolve({ exitCode: null, output: `${output}\n${error.message}` }));
+				child.on('close', (code) => resolve({ exitCode: code, output }));
+			});
+		},
 	};
 }

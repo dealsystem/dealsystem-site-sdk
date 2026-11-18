@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { compile } from 'svelte/compiler';
+import { defaultRichtextToHtml } from '../src/lib/richtext/server.js';
 import { mergeSlots, routeOfFile, scanSlots, SlotScanError } from '../src/lib/vite/scan.js';
 
 const page = (markup: string, imports = 'Text, RichText, MediaImage, Link') => `<script lang="ts">
@@ -165,5 +168,171 @@ describe('routeOfFile', () => {
 		['src/lib/Hero.svelte', undefined],
 	])('%s → %s', (file, route) => {
 		expect(routeOfFile(file)).toBe(route);
+	});
+});
+
+describe('mehrzeilige Standardtexte (Beispiele aus komponenten.md)', () => {
+	/** Das Beispiel mit `default={'…'}` aus dem `@component`-Kommentar, genau wie es in der Anleitung steht. */
+	function example(component: string): string {
+		const source = readFileSync(
+			new URL(`../src/lib/components/${component}.svelte`, import.meta.url),
+			'utf8',
+		);
+		const block = [...source.matchAll(/```svelte\n([\s\S]*?)```/g)]
+			.map((m) => m[1]!)
+			.find((code) => code.includes("default={'"));
+		if (!block) throw new Error(`${component}.svelte hat kein Beispiel für mehrzeilige Standardtexte.`);
+		return block;
+	}
+
+	it('<RichText>: das Beispiel kompiliert und wird zu Liste und Absatz', () => {
+		const code = page(example('RichText'));
+		expect(() => compile(code, { generate: 'server' })).not.toThrow();
+		const [slot] = scanSlots(code, 'src/routes/ankauf/+page.svelte');
+		expect(slot?.default).toContain('\n2. Wir prüfen');
+		const html = defaultRichtextToHtml(slot!.default as string);
+		expect(html).toMatch(/^<ol>\s*<li>Sie schicken uns die Eckdaten\.<\/li>/);
+		expect(html.match(/<li>/g)).toHaveLength(3);
+		expect(html).toContain('<p>Der Ablauf ist für Sie kostenlos.</p>');
+		expect(html).not.toContain('\\n');
+	});
+
+	it('<Text multiline>: das Beispiel kompiliert und behält die Zeilen', () => {
+		const code = page(example('Text'));
+		expect(() => compile(code, { generate: 'server' })).not.toThrow();
+		const [slot] = scanSlots(code, 'src/routes/kontakt/+page.svelte');
+		expect(slot).toMatchObject({ type: 'textarea', default: 'Mo bis Fr 9 bis 18 Uhr\nSa nach Vereinbarung' });
+	});
+
+	it('in Anführungszeichen bleibt \\n ein Backslash mit n (deshalb warnt CNT-003)', () => {
+		const [slot] = scanSlots(
+			page('<RichText key="ankauf.ablauf" default="1. Eins\\n2. Zwei" />'),
+			'src/routes/+page.svelte',
+		);
+		expect(slot?.default).toBe('1. Eins\\n2. Zwei');
+	});
+});
+
+describe('austauschbares Bild (Beispiel aus komponenten.md)', () => {
+	it('<MediaImage key>: das Beispiel kompiliert und meldet label, group und help ans CRM', () => {
+		const source = readFileSync(new URL('../src/lib/components/MediaImage.svelte', import.meta.url), 'utf8');
+		const example = [...source.matchAll(/```svelte\n([\s\S]*?)```/g)]
+			.map((m) => m[1]!)
+			.find((code) => code.includes('key="team.inhaber.foto"'));
+		expect(example).toBeDefined();
+		expect(() => compile(example!, { generate: 'server' })).not.toThrow();
+		const slots = scanSlots(example!, 'src/routes/ueber-uns/+page.svelte');
+		expect(slots).toEqual([
+			{
+				key: 'team.inhaber.foto',
+				type: 'image',
+				default: null,
+				label: 'Foto des Inhabers',
+				group: 'Über uns',
+				help: 'Hochformat, am besten mit Gesicht in der Mitte.',
+				route: '/ueber-uns',
+				file: 'src/routes/ueber-uns/+page.svelte',
+				line: expect.any(Number),
+				imageSource: { kind: 'module', path: 'src/lib/assets/bilder/inhaber.jpg', width: 1200, height: 1500 },
+			},
+		]);
+	});
+
+	it.each(['label', 'group', 'help'])(
+		'%s als Variable bricht den Scan mit verständlicher Meldung ab',
+		(name) => {
+			const code = page(`<MediaImage key="team.inhaber.foto" default={hero} alt="Haus" ${name}={name} />`);
+			expect(() => scanSlots(code, 'src/routes/+page.svelte')).toThrow(
+				new RegExp(`${name} muss eine feste Zeichenkette sein`),
+			);
+		},
+	);
+});
+
+describe('ungültige Slot-Schlüssel: Grund und Vorschlag', () => {
+	it.each([
+		[
+			'ueber-uns.team.titel',
+			/Bindestrich oder Unterstrich im ersten Teil ist nicht erlaubt\. Nimm "ueberuns\.team\.titel"/,
+		],
+		['Über-Uns.Team.Titel', /Großbuchstaben sind nicht erlaubt.*Nimm "ueberuns\.team\.titel"/],
+		['start.hero titel', /nicht erlaubt: Leerzeichen\. Nimm "start\.hero-titel"/],
+		['start..titel', /leerer Teil.*Nimm "start\.titel"/],
+		['titel', /mindestens zwei Teile/],
+	])('%s', (key, message) => {
+		const code = page(`<Text key="${key}" default="x" />`);
+		expect(() => scanSlots(code, 'src/routes/ueber-uns/+page.svelte')).toThrow(message);
+	});
+
+	it('der vorgeschlagene Schlüssel ist gültig und nennt die Regel für den ersten Teil', () => {
+		let error: unknown;
+		try {
+			scanSlots(
+				page('<MediaImage key="ueber-uns.inhaber.foto" default={hero} alt="Haus" />'),
+				'src/routes/+page.svelte',
+			);
+		} catch (e) {
+			error = e;
+		}
+		expect(error).toBeInstanceOf(SlotScanError);
+		const suggested = /Nimm "([^"]+)"/.exec((error as Error).message)?.[1];
+		expect(suggested).toBe('ueberuns.inhaber.foto');
+		expect(
+			scanSlots(
+				page(`<MediaImage key="${suggested}" default={hero} alt="Haus" />`),
+				'src/routes/+page.svelte',
+			),
+		).toHaveLength(1);
+		expect((error as Error).message).toContain('Erster Teil nur Kleinbuchstaben und Ziffern');
+	});
+
+	it('ohne gültigen Vorschlag nennt die Meldung nur den Grund', () => {
+		expect(() => scanSlots(page('<Text key="titel" default="x" />'), 'src/routes/+page.svelte')).toThrow(
+			/^(?!.*Nimm).*mindestens zwei Teile/s,
+		);
+	});
+});
+
+describe('Herkunft des Standardbilds (für defaultImage im Manifest)', () => {
+	const file = 'src/routes/team/+page.svelte';
+	const scan = (markup: string, imports = '') =>
+		scanSlots(
+			`<script lang="ts">\n\timport { MediaImage } from '@dealsystem/site';\n${imports}\tconst pfad = '/a.jpg';\n</script>\n\n${markup}\n`,
+			file,
+		)[0]?.imageSource;
+
+	it('Pfad unter static/ und Importe aus $lib oder relativ', () => {
+		expect(scan('<MediaImage key="a.b" default="/bilder/haus.jpg" width={800} alt="Haus" />')).toEqual({
+			kind: 'static',
+			path: '/bilder/haus.jpg',
+			width: 800,
+		});
+		expect(
+			scan('<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '$lib/b/x.png';\n"),
+		).toEqual({ kind: 'module', path: 'src/lib/b/x.png' });
+		expect(
+			scan('<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '../bilder/y.webp';\n"),
+		).toEqual({ kind: 'module', path: 'src/routes/bilder/y.webp' });
+	});
+
+	it('nichts, wenn es sich nicht sicher sagen lässt', () => {
+		const cases: [string, string][] = [
+			['<MediaImage key="a.b" default={pfad} alt="x" />', ''],
+			['<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '$lib/x.jpg?enhanced';\n"],
+			['<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from 'paket/bild.jpg';\n"],
+			['<MediaImage key="a.b" default={bild} alt="x" />', "\timport bild from '../../../../x.jpg';\n"],
+			['<MediaImage key="a.b" default="https://fremd.example/x.jpg" alt="x" />', ''],
+			['<MediaImage key="a.b" default="//fremd.example/x.jpg" alt="x" />', ''],
+			['<MediaImage key="a.b" default="/../geheim.jpg" alt="x" />', ''],
+		];
+		for (const [markup, imports] of cases) expect(scan(markup, imports), markup + imports).toBeUndefined();
+	});
+
+	it('gehört nicht ins Manifest: mergeSlots entfernt es', () => {
+		const slots = scanSlots(
+			`<script lang="ts">\n\timport { MediaImage } from '@dealsystem/site';\n</script>\n<MediaImage key="a.b" default="/x.jpg" alt="x" />\n`,
+			file,
+		);
+		expect(mergeSlots(slots)[0]).not.toHaveProperty('imageSource');
 	});
 });

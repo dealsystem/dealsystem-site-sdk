@@ -1,8 +1,21 @@
 {
 	"name": "@dealsystem/site",
-	"version": "0.1.0",
+	"version": "0.2.0",
+	"publishConfig": {
+		"access": "public"
+	},
 	"description": "Komponenten, Lade-Helfer und Vite-Plugin für Self-Service-Websites auf DealSystem",
 	"license": "MIT",
+	"author": "DealSystem (https://dealsystem.io)",
+	"homepage": "https://github.com/dealsystem/dealsystem-site-sdk/tree/main/packages/site#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dealsystem/dealsystem-site-sdk.git",
+		"directory": "packages/site"
+	},
+	"bugs": {
+		"url": "https://github.com/dealsystem/dealsystem-site-sdk/issues"
+	},
 	"keywords": [
 		"dealsystem",
 		"svelte",
@@ -17,6 +30,7 @@
 		"dist",
 		"contract",
 		"docs",
+		"agent-files",
 		"!dist/**/*.test.*"
 	],
 	"svelte": "./dist/index.js",
@@ -35,12 +49,21 @@
 			"types": "./dist/config/index.d.ts",
 			"default": "./dist/config/index.js"
 		},
+		"./config/static": {
+			"types": "./dist/config/static/index.d.ts",
+			"default": "./dist/config/static/index.js"
+		},
+		"./csp": {
+			"types": "./dist/csp/index.d.ts",
+			"default": "./dist/csp/index.js"
+		},
 		"./vite": {
 			"types": "./dist/vite/index.d.ts",
 			"default": "./dist/vite/index.js"
 		},
 		"./docs/*": "./docs/*",
 		"./contract/site-api.v1.json": "./contract/site-api.v1.json",
+		"./contract/ds-content.v1.json": "./contract/ds-content.v1.json",
 		"./package.json": "./package.json"
 	},
 	"engines": {
@@ -58,15 +81,21 @@
 		"sanitize-html": "^2.18.2"
 	},
 	"peerDependencies": {
+		"@sveltejs/kit": "^2.27.0",
 		"svelte": "^5.46.0",
-		"vite": "^7.0.0 || ^8.0.0"
+		"vite": "^7.0.0 || ^8.0.0",
+		"typescript": ">=5.0.0"
 	},
 	"peerDependenciesMeta": {
 		"vite": {
 			"optional": true
+		},
+		"typescript": {
+			"optional": true
 		}
 	},
 	"devDependencies": {
+		"@sveltejs/kit": "^2.70.4",
 		"@sveltejs/package": "^3.0.2",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
 		"@testing-library/jest-dom": "^7.0.1",
@@ -75,6 +104,7 @@
 		"@types/node": "^22.20.5",
 		"@types/sanitize-html": "^2.16.2",
 		"ajv": "^8.20.0",
+		"htmlparser2": "^12.0.0",
 		"jsdom": "^31.0.1",
 		"publint": "^0.3.25",
 		"svelte": "^5.57.0",

@@ -26,7 +26,7 @@ Seite wählen oder anlegen, `siteId` in dealsystem.config.ts eintragen.
 
 ## `dealsystem sync [--offline] [--fix-config]`
 
-Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern.
+Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern, fehlende Skills wiederherstellen.
 
 - `--offline` – nicht ins Netz; Abgleich mit der vorhandenen .dealsystem/content.json
 - `--fix-config` – svelte.config.js und vite.config.ts aus dem Starter wiederherstellen
@@ -48,7 +48,7 @@ Regeln lokal prüfen (Exit-Code 1 bei Fehlern).
 
 ## `dealsystem deploy [-m <Notiz>] [--publish [--confirm]] [--no-wait] [--timeout <s>]`
 
-Prüfen, hochladen, bauen lassen, Vorschau-URL ausgeben.
+Prüfen, lokal bauen, hochladen, Vorschau-URL ausgeben.
 
 - `-m, --message <Notiz>` – Notiz zur Version
 - `--publish` – danach live schalten (nur mit Bestätigung)
@@ -70,9 +70,29 @@ Auf eine frühere Version zurückschalten (mit Bestätigung).
 - `--version <id|nummer>` – Standard: die vorige Freigabe
 - `--confirm` – der Nutzer hat zugestimmt
 
+## `dealsystem pull [ordner] [--site <id|slug>] [--version <nummer|id>]`
+
+Quellcode einer Version in einen neuen Ordner holen (z. B. auf einem neuen Rechner); Standard: die Live-Version.
+
+- `[ordner]` – neuer oder leerer Ordner (Standard: ./<slug der Seite>); vorhandene Dateien werden nie überschrieben
+- `--site <id|slug>` – Seite wählen, wenn der Workspace mehrere hat
+- `--version <nummer|id>` – diese Version statt der Live-Version
+
+## `dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"] [--force]
+       dealsystem image push <datei> --slot <schlüssel> --alt "…"`
+
+Foto ins Projekt holen (add) oder als eigenes Bild eines Bild-Platzes in DealSystem setzen (push); beide verkleinern und entfernen Standort und Metadaten.
+
+- `<datei>` – JPEG, PNG, WebP oder AVIF, höchstens 15 MB; wird auf 2560 px verkleinert, EXIF und GPS werden entfernt
+- `--name <name>` – Dateiname im Projekt (Standard: aus dem Dateinamen), landet in src/lib/assets/bilder/
+- `--key <schlüssel>` – Schlüssel des Bild-Slots im ausgegebenen Baustein (Standard: bilder.<name>)
+- `--alt "…"` – Beschreibung des Bildes für den ausgegebenen Baustein
+- `--force` – ein Bild gleichen Namens überschreiben
+- `push: --slot <schlüssel>` – Bild-Platz aus <MediaImage key="…">; --alt "…" ist Pflicht; geht ohne Freigabe live, danach holt der Befehl die Inhalte für dev
+
 ## `dealsystem status`
 
-Seite, Live-Version, letzte Versionen, Domains.
+Seite, Live-Version, Rechtstexte, letzte Versionen, Domains.
 
 ## Exit-Codes
 

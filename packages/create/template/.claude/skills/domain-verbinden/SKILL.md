@@ -10,7 +10,7 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/ablauf.md`, Abschnitt „Eigen
 Das Verbinden macht der Kunde selbst im CRM und bei seinem Domain-Anbieter. Du begleitest ihn.
 
 1. Voraussetzung: Die Seite ist veröffentlicht oder es gibt zumindest eine Vorschau.
-2. Sag dem Kunden: „Öffnen Sie im CRM Website → Domains und tragen Sie dort Ihre Domain ein.“
+2. Sag dem Kunden: „Öffnen Sie im CRM Eigene Website → Domains und tragen Sie dort Ihre Domain ein.“
 3. Das CRM zeigt die Einträge, die er bei seinem Domain-Anbieter (dort, wo er die Domain gekauft hat) setzen
    muss, zum Kopieren. Erkläre bei Bedarf in einfachen Worten, wo man das beim Anbieter findet: meist unter
    „DNS“ oder „Nameserver-Einstellungen“.

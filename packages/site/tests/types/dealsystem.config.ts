@@ -2,6 +2,7 @@ import { defineSite } from '../../src/lib/config/index.js';
 
 export default defineSite({
 	siteId: 's1',
+	external: { video: { preset: 'youtube' } },
 	collections: {
 		angebote: {
 			source: 'cms',

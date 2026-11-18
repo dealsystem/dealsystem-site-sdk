@@ -35,4 +35,15 @@ export default ts.config(
 			},
 		},
 	},
+	{
+		// Die Bausteine des SDK sind eine Bibliothek: Ziele kommen als Eigenschaft oder aus dem CRM, `resolve()`
+		// gehört in die Seite, die sie benutzt. Seit SvelteKit im Paket liegt (für `$app/state`), greift die Regel.
+		files: ['packages/site/src/lib/**/*.svelte', 'packages/site/tests/**/*.svelte'],
+		rules: { 'svelte/no-navigation-without-resolve': 'off' },
+	},
+	{
+		// Attrappe für `$app/state`: Die Adresse wird nur als Ganzes ersetzt, wie in SvelteKit.
+		files: ['packages/site/tests/fixtures/appState.svelte.ts'],
+		rules: { 'svelte/prefer-svelte-reactivity': 'off' },
+	},
 );

@@ -9,6 +9,8 @@ import { checkCommand } from '../commands/check.js';
 import { deployCommand, publishCommand, rollbackCommand } from '../commands/deploy.js';
 import { devCommand } from '../commands/dev.js';
 import { loginCommand, logoutCommand } from '../commands/login.js';
+import { imageCommand } from '../commands/image.js';
+import { pullCommand } from '../commands/pull.js';
 import { initCommand, statusCommand } from '../commands/site.js';
 import { syncCommand } from '../commands/sync.js';
 import { CommandContext, type CommandResult, type OptionValues } from './context.js';
@@ -64,7 +66,8 @@ export const COMMANDS: Record<string, CommandDef> = {
 		run: initCommand,
 	},
 	sync: {
-		summary: 'Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern',
+		summary:
+			'Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern, fehlende Skills wiederherstellen',
 		usage: 'dealsystem sync [--offline] [--fix-config]',
 		options: { offline: { type: 'boolean' }, 'fix-config': { type: 'boolean' } },
 		flags: [
@@ -95,7 +98,7 @@ export const COMMANDS: Record<string, CommandDef> = {
 		run: checkCommand,
 	},
 	deploy: {
-		summary: 'Prüfen, hochladen, bauen lassen, Vorschau-URL ausgeben',
+		summary: 'Prüfen, lokal bauen, hochladen, Vorschau-URL ausgeben',
 		usage: 'dealsystem deploy [-m <Notiz>] [--publish [--confirm]] [--no-wait] [--timeout <s>]',
 		options: {
 			message: { type: 'string', short: 'm' },
@@ -130,8 +133,44 @@ export const COMMANDS: Record<string, CommandDef> = {
 		flags: ['--version <id|nummer>  Standard: die vorige Freigabe', '--confirm  der Nutzer hat zugestimmt'],
 		run: rollbackCommand,
 	},
+	pull: {
+		summary:
+			'Quellcode einer Version in einen neuen Ordner holen (z. B. auf einem neuen Rechner); Standard: die Live-Version',
+		usage: 'dealsystem pull [ordner] [--site <id|slug>] [--version <nummer|id>]',
+		options: { version: { type: 'string' } },
+		flags: [
+			'[ordner]  neuer oder leerer Ordner (Standard: ./<slug der Seite>); vorhandene Dateien werden nie überschrieben',
+			'--site <id|slug>  Seite wählen, wenn der Workspace mehrere hat',
+			'--version <nummer|id>  diese Version statt der Live-Version',
+		],
+		run: pullCommand,
+		positionals: true,
+	},
+	image: {
+		summary:
+			'Foto ins Projekt holen (add) oder als eigenes Bild eines Bild-Platzes in DealSystem setzen (push); beide verkleinern und entfernen Standort und Metadaten',
+		usage:
+			'dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"] [--force]\n       dealsystem image push <datei> --slot <schlüssel> --alt "…"',
+		options: {
+			name: { type: 'string' },
+			key: { type: 'string' },
+			alt: { type: 'string' },
+			force: { type: 'boolean' },
+			slot: { type: 'string' },
+		},
+		flags: [
+			'<datei>  JPEG, PNG, WebP oder AVIF, höchstens 15 MB; wird auf 2560 px verkleinert, EXIF und GPS werden entfernt',
+			'--name <name>  Dateiname im Projekt (Standard: aus dem Dateinamen), landet in src/lib/assets/bilder/',
+			'--key <schlüssel>  Schlüssel des Bild-Slots im ausgegebenen Baustein (Standard: bilder.<name>)',
+			'--alt "…"  Beschreibung des Bildes für den ausgegebenen Baustein',
+			'--force  ein Bild gleichen Namens überschreiben',
+			'push: --slot <schlüssel>  Bild-Platz aus <MediaImage key="…">; --alt "…" ist Pflicht; geht ohne Freigabe live, danach holt der Befehl die Inhalte für dev',
+		],
+		run: imageCommand,
+		positionals: true,
+	},
 	status: {
-		summary: 'Seite, Live-Version, letzte Versionen, Domains',
+		summary: 'Seite, Live-Version, Rechtstexte, letzte Versionen, Domains',
 		usage: 'dealsystem status',
 		options: {},
 		flags: [],

@@ -2,11 +2,13 @@
 
 import { getRule, RULE_SET_VERSION, RULES } from './catalog.js';
 import { OutputContext, SourceContext } from './context.js';
+import { cspForm } from './util/csp.js';
 import { createDirFileSet, IGNORED_DIRS } from './fileset.js';
 import type { RuleImpl } from './rule.js';
 import { a11yOutputRules, a11ySourceRules } from './rules/a11y.js';
 import { privacyOutputRules, privacySourceRules } from './rules/privacy.js';
 import { qualityOutputRules, qualitySourceRules } from './rules/quality.js';
+import { scheduleSourceRules } from './rules/schedule.js';
 import { securityOutputRules, securitySourceRules } from './rules/security.js';
 import { structureRules } from './rules/structure.js';
 import type {
@@ -26,6 +28,7 @@ export const RULE_IMPLEMENTATIONS: readonly RuleImpl[] = [
 	...privacySourceRules,
 	...a11ySourceRules,
 	...qualitySourceRules,
+	...scheduleSourceRules,
 	...securityOutputRules,
 	...privacyOutputRules,
 	...a11yOutputRules,
@@ -107,6 +110,17 @@ export async function runCheck(options: CheckOptions): Promise<CheckResult> {
 
 	const sourceCtx = source && stages.includes('source') ? new SourceContext(source, options) : null;
 	const outputCtx = output && stages.includes('output') ? new OutputContext(output, options) : null;
+	if (outputCtx) {
+		if (options.external) outputCtx.declared = { external: options.external, strict: true };
+		else if (source) {
+			// Lokal (`check --output build`): Die Deklaration steht in der Quelle, auch wenn nur die Ausgabe läuft.
+			const src = sourceCtx ?? new SourceContext(source, options);
+			outputCtx.declared = {
+				external: src.siteConfig().data?.external ?? [],
+				strict: cspForm(src)?.kind === 'dealsystem',
+			};
+		}
+	}
 	for (const impl of RULE_IMPLEMENTATIONS) {
 		if (disabled.has(impl.id)) continue;
 		const meta = getRule(impl.id);

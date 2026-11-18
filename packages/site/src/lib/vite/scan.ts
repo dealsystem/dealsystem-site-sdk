@@ -2,7 +2,7 @@
 // <Link key=…> und <MediaImage key=…> aus '@dealsystem/site'. Gelesen wird der Quelltext,
 // nichts wird ausgeführt.
 import { parse } from 'svelte/compiler';
-import { SLOT_KEY_MAX_LENGTH, SLOT_KEY_PATTERN } from '../keys.js';
+import { explainSlotKey, SLOT_KEY_RULE } from '../keys.js';
 import type { ContentSlotDef, ContentSlotLinkValue, ContentSlotType } from '../types.js';
 
 const PACKAGE = '@dealsystem/site';
@@ -25,12 +25,57 @@ export class SlotScanError extends Error {
 export interface FoundSlot extends ContentSlotDef {
 	file: string;
 	line: number;
+	/**
+	 * Bild-Slots: woher das Standardbild kommt, wenn der Quelltext es sicher sagt. `static`: Pfad unter
+	 * `static/` (`default="/bilder/haus.jpg"`); `module`: Datei im Projekt, relativ zur Wurzel
+	 * (`import bild from '$lib/bilder/haus.jpg'`). Den Pfad im Artefakt löst das Vite-Plugin beim Build auf.
+	 */
+	imageSource?: { kind: 'static' | 'module'; path: string; width?: number; height?: number };
 }
 
-type Node = Record<string, unknown> & { type: string; start?: number };
+export type Node = Record<string, unknown> & { type: string; start?: number };
 
 function isNode(value: unknown): value is Node {
 	return typeof value === 'object' && value !== null && typeof (value as Node).type === 'string';
+}
+
+/** Standard-Importe von Dateien (`import bild from '$lib/bilder/haus.jpg'`): lokaler Name → Quelle. */
+function defaultImports(ast: Record<string, unknown>): Map<string, string> {
+	const imports = new Map<string, string>();
+	for (const scriptKey of ['instance', 'module']) {
+		const script = ast[scriptKey] as { content?: { body?: Node[] } } | null | undefined;
+		for (const statement of script?.content?.body ?? []) {
+			if (statement.type !== 'ImportDeclaration') continue;
+			const source = (statement.source as { value?: unknown } | undefined)?.value;
+			if (typeof source !== 'string') continue;
+			for (const specifier of (statement.specifiers as Node[] | undefined) ?? []) {
+				const local = (specifier.local as { name?: string } | undefined)?.name;
+				if (specifier.type === 'ImportDefaultSpecifier' && local) imports.set(local, source);
+			}
+		}
+	}
+	return imports;
+}
+
+const IMAGE_FILE = /\.(?:jpe?g|png|webp|avif|gif|svg)$/i;
+
+/** Datei im Projekt zu einem Import, relativ zur Wurzel. `null` bei Paketen, Abfragen (`?enhanced`) und Unklarem. */
+function projectFileOf(source: string, file: string): string | null {
+	if (!IMAGE_FILE.test(source)) return null;
+	let path: string;
+	if (source.startsWith('$lib/')) path = `src/lib/${source.slice(5)}`;
+	else if (source.startsWith('./') || source.startsWith('../')) {
+		path = `${file.split('/').slice(0, -1).join('/')}/${source}`;
+	} else return null;
+	const parts: string[] = [];
+	for (const part of path.split('/')) {
+		if (part === '' || part === '.') continue;
+		if (part === '..') {
+			if (parts.length === 0) return null;
+			parts.pop();
+		} else parts.push(part);
+	}
+	return parts.join('/');
 }
 
 /** Lokale Namen der Slot-Komponenten, wie die Datei sie importiert. */
@@ -88,7 +133,8 @@ function staticExpression(expression: Node): Static {
 }
 
 /** Wert eines Attributs, wenn er fest im Quelltext steht. */
-function staticAttribute(attribute: Node): Static {
+/** @internal */
+export function staticAttribute(attribute: Node): Static {
 	const value = attribute.value;
 	if (value === true) return true;
 	if (Array.isArray(value)) {
@@ -132,6 +178,7 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 	}
 	const names = importedNames(ast);
 	if (names.size === 0) return [];
+	const imports = defaultImports(ast);
 
 	const route = routeOfFile(file);
 	const found: FoundSlot[] = [];
@@ -177,11 +224,13 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 				`<${String(node.name)}>: key muss eine feste Zeichenkette sein, z. B. key="start.hero.titel". Variablen und zusammengesetzte Werte gehen nicht.`,
 			);
 		}
-		if (!SLOT_KEY_PATTERN.test(key) || key.length > SLOT_KEY_MAX_LENGTH) {
+		const invalid = explainSlotKey(key);
+		if (invalid) {
+			const proposal = invalid.suggestion ? ` Nimm "${invalid.suggestion}".` : '';
 			throw new SlotScanError(
 				file,
 				line,
-				`Der Schlüssel "${key}" ist ungültig. Erlaubt: Kleinbuchstaben, Ziffern und Punkte in zwei bis fünf Teilen, z. B. "start.hero.titel".`,
+				`Der Schlüssel "${key}" ist ungültig: ${invalid.reasons.join('; ')}.${proposal} ${SLOT_KEY_RULE}`,
 			);
 		}
 
@@ -248,6 +297,10 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 		if (group !== undefined) slot.group = group;
 		if (help !== undefined) slot.help = help;
 		if (route !== undefined) slot.route = route;
+		if (component === 'MediaImage') {
+			const source = imageSourceOf(attributes, imports);
+			if (source) slot.imageSource = source;
+		}
 
 		const maxLength = attributes.get('maxLength');
 		if (maxLength) {
@@ -273,6 +326,37 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 
 	visit(ast.fragment);
 	return found;
+
+	/** Woher das Standardbild eines Bild-Slots kommt, wenn der Quelltext es sicher sagt. */
+	function imageSourceOf(
+		attributes: Map<string, Node>,
+		imported: Map<string, string>,
+	): FoundSlot['imageSource'] | undefined {
+		const attribute = attributes.get('default');
+		if (!attribute) return undefined;
+		let source: FoundSlot['imageSource'] | undefined;
+		const value = staticAttribute(attribute);
+		if (typeof value === 'string') {
+			// Pfad unter `static/`; fremde Adressen und `//host` zählen nicht.
+			if (/^\/(?!\/)[^?#]*$/.test(value) && IMAGE_FILE.test(value) && !value.includes('..'))
+				source = { kind: 'static', path: value };
+		} else {
+			const raw = attribute.value;
+			const tag = Array.isArray(raw) ? (raw.length === 1 ? raw[0] : undefined) : raw;
+			const expression = isNode(tag) && tag.type === 'ExpressionTag' ? (tag.expression as Node) : undefined;
+			const name = expression?.type === 'Identifier' ? (expression.name as string) : undefined;
+			const from = name ? imported.get(name) : undefined;
+			const path = from ? projectFileOf(from, file) : null;
+			if (path) source = { kind: 'module', path };
+		}
+		if (!source) return undefined;
+		for (const dimension of ['width', 'height'] as const) {
+			const dim = attributes.get(dimension);
+			const size = dim ? staticAttribute(dim) : undefined;
+			if (typeof size === 'number' && Number.isInteger(size) && size > 0) source[dimension] = size;
+		}
+		return source;
+	}
 }
 
 /**
@@ -305,5 +389,5 @@ export function mergeSlots(found: readonly FoundSlot[]): ContentSlotDef[] {
 	}
 	return [...byKey.values()]
 		.sort((a, b) => a.key.localeCompare(b.key))
-		.map(({ file: _file, line: _line, ...slot }) => slot);
+		.map(({ file: _file, line: _line, imageSource: _source, ...slot }) => slot);
 }

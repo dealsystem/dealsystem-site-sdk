@@ -6,6 +6,7 @@ Falsche Verwendung im Markup. `tests/typeErrors.test.ts` lässt svelte-check
 	import {
 		CollectionList,
 		ConsentGate,
+		Embed,
 		LeadForm,
 		MediaImage,
 		MediaVideo,
@@ -22,4 +23,6 @@ Falsche Verwendung im Markup. `tests/typeErrors.test.ts` lässt svelte-check
 <ConsentGate category="werbung">Inhalt</ConsentGate>
 <MediaVideo media={null} />
 <Text key="start.titel" />
+<Embed id="vidoe" src="https://youtu.be/aqz-KE-bpKQ" title="Rundgang" />
+<Embed id="video" src="https://youtu.be/aqz-KE-bpKQ" />
 <MediaImage src="/haus.jpg" alt="Sanierter Altbau in Leipzig" />

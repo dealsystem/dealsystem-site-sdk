@@ -97,7 +97,7 @@ export function compareSnapshot(
 				key,
 				issue: 'inactive',
 				message: `Das Formular \`${key}\` ist im CRM abgeschaltet; Einsendungen werden abgelehnt.`,
-				fix: 'Bitte den Inhaber, das Formular im CRM unter „Website → Formulare“ einzuschalten, oder entferne `<LeadForm>` von der Seite.',
+				fix: 'Bitte den Inhaber, das Formular im CRM unter „Eigene Website → Formulare“ einzuschalten, oder entferne `<LeadForm>` von der Seite.',
 			});
 		}
 	}

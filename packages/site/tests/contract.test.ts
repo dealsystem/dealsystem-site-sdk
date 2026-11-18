@@ -1,13 +1,12 @@
-// Prüft den Client gegen die Beschreibung der Site-API: Leads gegen die Kopie
-// aus dem Core, Sammlungen gegen die vorläufige, von Hand abgeleitete Datei.
+// Prüft den Client gegen die Beschreibung der Site-API, eine Kopie aus dem Core.
 import Ajv2020 from 'ajv/dist/2020.js';
-import collectionsContract from '../contract/site-api.collections.vorlaeufig.json' with { type: 'json' };
 import contract from '../contract/site-api.v1.json' with { type: 'json' };
 import { pbkdf2, solveChallenge } from 'altcha/lib';
 import { CAPTCHA_ALGORITHMS } from '../src/lib/client/captcha.js';
 import {
 	captchaChallengeUrl,
 	createSiteApi,
+	type BookingRequest,
 	type LeadRequest,
 	type SiteApiErrorKind,
 } from '../src/lib/client/siteApi.js';
@@ -18,11 +17,25 @@ import { jsonResponse } from './helpers.js';
 
 const ajv = new Ajv2020({ strict: false, formats: { uuid: true } });
 ajv.addSchema(contract, 'core');
-ajv.addSchema(collectionsContract, 'collections');
 const coreSchema = (name: string) => ajv.getSchema(`core#/components/schemas/${name}`)!;
-const collectionsSchema = (name: string) => ajv.getSchema(`collections#/components/schemas/${name}`)!;
 
 const leadOperation = contract.paths['/s/{key}/leads'].post;
+const bookingInfoOperation = contract.paths['/s/{key}/booking/{bookingKey}'].get;
+const bookingSlotsOperation = contract.paths['/s/{key}/booking/{bookingKey}/slots'].get;
+const bookingOperation = contract.paths['/s/{key}/booking/{bookingKey}/bookings'].post;
+const validateBookingBody = ajv.compile(bookingOperation.requestBody.content['application/json'].schema);
+
+/** Fehlercodes der Terminbuchung: Status und Art im Client. Die Termin-Seiten (`appointments/…`) nutzt das SDK nicht. */
+const BOOKING_CODES: Record<string, [status: number, kind: SiteApiErrorKind]> = {
+	booking_unavailable: [404, 'not_found'],
+	slot_taken: [409, 'conflict'],
+	slots_unavailable: [503, 'server'],
+	invalid_range: [400, 'rejected'],
+	invalid_timezone: [400, 'rejected'],
+	not_qualified: [422, 'validation'],
+	appointment_not_found: [404, 'not_found'],
+	appointment_closed: [410, 'gone'],
+};
 const validateLeadBody = ajv.compile(leadOperation.requestBody.content['application/json'].schema);
 const SITE_KEY = 'dsp_abcd1234_abcdefghijklmnopqrstuvwx';
 
@@ -135,7 +148,7 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 	});
 
 	it('jeder Fehlercode des Vertrags hat im Client eine feste Bedeutung', async () => {
-		// Kommt im Core ein Code dazu, wird dieser Test rot, bis er hier eingeordnet ist.
+		// Kommt im Core ein Code dazu, wird dieser Test rot, bis er hier (Leads) oder unter `BOOKING_CODES` steht.
 		const expected: Record<string, [status: number, kind: SiteApiErrorKind]> = {
 			invalid_json: [400, 'rejected'],
 			captcha_failed: [400, 'captcha_failed'],
@@ -144,6 +157,7 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			site_not_found: [404, 'not_found'],
 			funnel_not_found: [404, 'not_found'],
 			method_not_allowed: [405, 'rejected'],
+			payload_too_large: [413, 'rejected'],
 			unsupported_media_type: [415, 'rejected'],
 			validation_error: [422, 'validation'],
 			rate_limited: [429, 'rate_limited'],
@@ -151,9 +165,9 @@ describe('Vertrag Site-API v1: Leads (Kopie aus dem Core)', () => {
 			captcha_unavailable: [503, 'server'],
 		};
 		const codes = contract.components.schemas.Error.properties.code.enum;
-		expect([...codes].sort()).toEqual(Object.keys(expected).sort());
+		expect([...codes].sort()).toEqual([...Object.keys(expected), ...Object.keys(BOOKING_CODES)].sort());
 
-		for (const code of codes) {
+		for (const code of Object.keys(expected)) {
 			const [status, kind] = expected[code]!;
 			expect(Object.keys(leadOperation.responses), code).toContain(String(status));
 			const body = { error: 'x', message: 'Text vom Server', status, code };
@@ -224,39 +238,199 @@ describe('Vertrag Site-API v1: Captcha (Kopie aus dem Core)', () => {
 	});
 });
 
-describe('Sammlungen (vorläufiger Vertrag)', () => {
-	const paths = collectionsContract.paths;
-	const list = paths['/api/site/v1/s/{publishableKey}/collections/{key}'].get.responses;
-	const one = paths['/api/site/v1/s/{publishableKey}/collections/{key}/{slug}'].get.responses;
+describe('Vertrag Site-API v1: Sammlungen (Kopie aus dem Core)', () => {
+	const listPath = '/s/{key}/collections/{collection}';
+	const entryPath = '/s/{key}/collections/{collection}/{slug}';
+	const list = contract.paths[listPath].get;
+	const one = contract.paths[entryPath].get;
+	const server = contract.servers[0]!.url;
+	const fill = (template: string, values: Record<string, string>) =>
+		template.replace(/\{(\w+)\}/g, (_all, name: string) => values[name]!);
 
-	it('jede Anfrage des Clients trifft einen Pfad des Vertrags', async () => {
+	it('der Client ruft genau die Pfade des Vertrags, nur mit erlaubten Parametern', async () => {
 		const { api, calls } = recordingApi(() => jsonResponse(200, { data: [] }));
-		await api.getCollection('angebote', { limit: 3, offset: 3, sort: 'newest' });
-		await api.getEntry('angebote', 'altbau');
+		await api.getCollection('angebote', { limit: 500, offset: 99_999, sort: 'oldest' });
+		await api.getCollection('angebote');
+		await api.getEntry('angebote', 'altbau-leipzig');
 
-		for (const call of calls) {
-			const hit = Object.keys(paths).some((template) =>
-				new RegExp(`^${template.replace(/\{[^}]+\}/g, '[^/]+')}$`).test(call.url.pathname),
-			);
-			expect(hit, call.url.pathname).toBe(true);
-			expect(call.method).toBe('GET');
+		expect(calls.map((c) => c.method)).toEqual(['GET', 'GET', 'GET']);
+		expect(calls[0]!.url.origin + calls[0]!.url.pathname).toBe(
+			server + fill(listPath, { key: SITE_KEY, collection: 'angebote' }),
+		);
+		expect(calls[2]!.url.href).toBe(
+			server + fill(entryPath, { key: SITE_KEY, collection: 'angebote', slug: 'altbau-leipzig' }),
+		);
+
+		// Jeder Query-Parameter steht im Vertrag, und sein Wert liegt im erlaubten Bereich.
+		const params = Object.fromEntries(
+			list.parameters.filter((p) => p.in === 'query').map((p) => [p.name, p.schema]),
+		);
+		for (const [name, value] of calls[0]!.url.searchParams) {
+			const schema = params[name] as { minimum?: number; maximum?: number; enum?: string[] } | undefined;
+			expect(schema, name).toBeDefined();
+			if (schema!.enum) expect(schema!.enum).toContain(value);
+			if (schema!.maximum !== undefined) expect(Number(value)).toBeLessThanOrEqual(schema!.maximum);
+			if (schema!.minimum !== undefined) expect(Number(value)).toBeGreaterThanOrEqual(schema!.minimum);
 		}
+		expect(Object.fromEntries(calls[0]!.url.searchParams)).toEqual({
+			limit: '100',
+			offset: '10000',
+			sort: 'publishedAt',
+		});
+		// Ohne Angaben schickt der Client keine Parameter: Es gelten die Standardwerte des Servers.
+		expect(calls[1]!.url.search).toBe('');
+		const collectionPattern = (
+			list.parameters.find((p) => p.name === 'collection')!.schema as { pattern: string }
+		).pattern;
+		expect('angebote').toMatch(new RegExp(collectionPattern));
 	});
 
 	it('der Client versteht die Beispielantworten, und sie erfüllen ihr Schema', async () => {
-		expect(collectionsSchema('CollectionListResponse')(exampleOf(list['200']))).toBe(true);
-		expect(collectionsSchema('CollectionEntryResponse')(exampleOf(one['200']))).toBe(true);
+		const listExample = exampleOf(list.responses['200']);
+		const entryExample = exampleOf(one.responses['200']);
+		expect(coreSchema('CollectionList')(listExample)).toBe(true);
+		expect(coreSchema('CollectionEntry')(entryExample)).toBe(true);
 
-		const listed = await recordingApi(() => jsonResponse(200, exampleOf(list['200']))).api.getCollection(
-			'angebote',
-		);
-		expect(listed.ok && listed.data.entries[0]!.media.bilder![0]!.variants).toHaveLength(2);
-		expect(listed.ok && listed.data.total).toBe(1);
+		const listed = await recordingApi(() => jsonResponse(200, listExample)).api.getCollection('angebote');
+		expect(listed.ok).toBe(true);
+		if (!listed.ok) return;
+		expect(listed.data.total).toBe(1);
+		const [entry] = listed.data.entries;
+		expect(entry).toMatchObject({ slug: 'altbau-leipzig', publishedAt: '2026-11-01T09:00:00.000Z' });
+		// Richtext kommt als bereinigtes HTML und bleibt, wie er ist.
+		expect(entry!.data.beschreibung).toBe('<p><strong>Drei</strong> Zimmer</p>');
+		// Medien stehen nur unter `media`; die drei Größen bleiben vollständig erhalten.
+		expect(entry!.data).not.toHaveProperty('bilder');
+		const variants = entry!.media.bilder![0]!.variants;
+		expect(variants.map((v) => v.url.split('/').pop())).toEqual(['thumb.jpg', 'medium.jpg', 'large.jpg']);
+		expect(variants.map((v) => v.width)).toEqual([400, 800, 1600]);
 
-		const entry = await recordingApi(() => jsonResponse(200, exampleOf(one['200']))).api.getEntry(
+		const single = await recordingApi(() => jsonResponse(200, entryExample)).api.getEntry('angebote', 'x');
+		expect(single).toMatchObject({ ok: true, data: { slug: 'altbau-leipzig', media: { bilder: [] } } });
+	});
+
+	it('eine unbekannte Sammlung oder ein unbekannter Eintrag ist not_found', async () => {
+		expect(Object.keys(list.responses)).toContain('404');
+		expect(Object.keys(one.responses)).toContain('404');
+		const body = { error: 'Not Found', message: 'x', status: 404, code: 'not_found' };
+		expect(coreSchema('Error')(body)).toBe(true);
+		const listed = await recordingApi(() => jsonResponse(404, body)).api.getCollection('gibt-es-nicht');
+		const single = await recordingApi(() => jsonResponse(404, body)).api.getEntry(
 			'angebote',
-			'x',
+			'gibt-es-nicht',
 		);
-		expect(entry).toMatchObject({ ok: true, data: { slug: 'altbau-leipzig' } });
+		for (const result of [listed, single]) {
+			expect(result).toMatchObject({
+				ok: false,
+				error: { kind: 'not_found', code: 'not_found', status: 404 },
+			});
+		}
+	});
+});
+
+describe('Vertrag Site-API v1: Terminbuchung (Kopie aus dem Core)', () => {
+	const BOOKING = 'erstgespraech';
+	const booking = (overrides: Partial<BookingRequest> = {}): BookingRequest => ({
+		submissionId: crypto.randomUUID(),
+		start: '2026-12-01T09:00:00.000Z',
+		tz: 'Europe/Berlin',
+		attendee: { firstName: 'Erika', email: 'erika@beispiel.de' },
+		captcha: 'loesung',
+		...overrides,
+	});
+
+	it('der Client ruft genau die Pfade, Methoden und Parameter des Vertrags', async () => {
+		const { api, calls } = recordingApi(() =>
+			jsonResponse(200, exampleOf(bookingInfoOperation.responses['200'])),
+		);
+		await api.getBooking(BOOKING);
+		await api.getBookingSlots(BOOKING, { from: '2026-12-01T00:00:00.000Z', to: '2026-12-08T00:00:00.000Z' });
+		await api.createBooking(BOOKING, booking());
+		const server = contract.servers[0]!.url;
+		const base = `${server}/s/${SITE_KEY}/booking/${BOOKING}`;
+		expect(calls.map((c) => [c.method, c.url.origin + c.url.pathname])).toEqual([
+			['GET', base],
+			['GET', `${base}/slots`],
+			['POST', `${base}/bookings`],
+		]);
+		const allowed = bookingSlotsOperation.parameters.filter((p) => p.in === 'query').map((p) => p.name);
+		expect([...calls[1]!.url.searchParams.keys()].every((k) => allowed.includes(k))).toBe(true);
+		expect(calls[2]!.headers['Content-Type']).toBe('application/json');
+		expect(calls.every((c) => c.credentials === 'omit')).toBe(true);
+		const keyPattern = bookingOperation.parameters.find((p) => p.name === 'bookingKey')!.schema.pattern!;
+		expect(BOOKING).toMatch(new RegExp(keyPattern));
+		expect('a'.repeat(51)).not.toMatch(new RegExp(keyPattern));
+	});
+
+	it('der Buchungs-Body erfüllt das strikte Schema — mit und ohne optionale Teile', () => {
+		expect(validateBookingBody(booking()), JSON.stringify(validateBookingBody.errors)).toBe(true);
+		const full = booking({
+			attendee: { firstName: 'Erika', lastName: 'Muster', email: 'erika@beispiel.de', phone: '0341 123456' },
+			answers: { anliegen: 'Verkauf', flaeche: 85, rueckruf: true, themen: ['Kauf'] },
+			locationType: 'phone',
+			attribution: { utmSource: 'google' },
+			website: '',
+		});
+		expect(validateBookingBody(full), JSON.stringify(validateBookingBody.errors)).toBe(true);
+		expect(validateBookingBody({ ...booking(), extra: 1 })).toBe(false);
+		expect(validateBookingBody({ ...booking(), captcha: '' })).toBe(false);
+		expect(
+			validateBookingBody({ ...booking(), attendee: { firstName: 'E', email: 'x@y.de', anrede: 'Frau' } }),
+		).toBe(false);
+	});
+
+	it('der Client versteht die Beispielantworten, und sie erfüllen ihr Schema', async () => {
+		const infoExample = exampleOf(bookingInfoOperation.responses['200']);
+		expect(coreSchema('BookingInfo')(infoExample)).toBe(true);
+		const info = await recordingApi(() => jsonResponse(200, infoExample)).api.getBooking(BOOKING);
+		expect(info.ok && info.data.key).toBe((infoExample as { data: { key: string } }).data.key);
+
+		const slotsExample = exampleOf(bookingSlotsOperation.responses['200']) as { data: { slots: unknown[] } };
+		expect(coreSchema('BookingSlots')(slotsExample)).toBe(true);
+		const slots = await recordingApi(() => jsonResponse(200, slotsExample)).api.getBookingSlots(BOOKING, {
+			from: '2026-12-01T00:00:00.000Z',
+			to: '2026-12-02T00:00:00.000Z',
+		});
+		expect(slots.ok && slots.data.slots).toHaveLength(slotsExample.data.slots.length);
+
+		for (const [status, dryRun] of [
+			['201', false],
+			['200', true],
+		] as const) {
+			const example = exampleOf(bookingOperation.responses[status]);
+			expect(coreSchema('BookingCreated')(example)).toBe(true);
+			const result = await recordingApi(() => jsonResponse(Number(status), example)).api.createBooking(
+				BOOKING,
+				booking(),
+			);
+			expect(result).toMatchObject({ ok: true, data: { booked: true, dryRun } });
+		}
+	});
+
+	it('jeder Fehlercode der Buchung hat im Client eine feste Bedeutung', async () => {
+		for (const [code, [status, kind]] of Object.entries(BOOKING_CODES)) {
+			const body = { error: 'x', message: 'Text vom Server', status, code };
+			expect(coreSchema('Error')(body), code).toBe(true);
+			const result = await recordingApi(() => jsonResponse(status, body)).api.createBooking(
+				BOOKING,
+				booking(),
+			);
+			expect(result, code).toMatchObject({ ok: false, error: { kind, code, status } });
+			expect(JSON.stringify(result)).not.toContain('Text vom Server');
+		}
+		for (const code of ['booking_unavailable', 'slot_taken', 'not_qualified']) {
+			const status = BOOKING_CODES[code]![0];
+			expect(Object.keys(bookingOperation.responses), code).toContain(String(status));
+		}
+	});
+
+	it('das 422-Beispiel des Vertrags nennt Pfade, die der Client den Feldern zuordnet', async () => {
+		const example = exampleOf(bookingOperation.responses['422']) as { details?: { path: string }[] };
+		expect(coreSchema('Error')(example)).toBe(true);
+		const result = await recordingApi(() => jsonResponse(422, example)).api.createBooking(BOOKING, booking());
+		expect(result.ok).toBe(false);
+		if (result.ok) return;
+		expect(result.error.invalidPaths).toEqual([...new Set((example.details ?? []).map((d) => d.path))]);
+		expect(result.error.invalidPaths.every((p) => /^(attendee|answers|start)\b/.test(p))).toBe(true);
 	});
 });

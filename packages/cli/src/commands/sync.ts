@@ -1,5 +1,6 @@
 // `dealsystem sync` — Schnappschuss holen (`.dealsystem/content.json` für dev und Build), Stand im CRM mit
-// dealsystem.config.ts abgleichen, `src/dealsystem.d.ts` anlegen, falls sie fehlt, AGENTS.md-Block erneuern.
+// dealsystem.config.ts abgleichen, `src/dealsystem.d.ts` anlegen, falls sie fehlt, AGENTS.md-Block erneuern,
+// fehlende Agenten-Dateien (Skills, Cursor-Regel) aus dem installierten SDK anlegen (`project/agentFiles.ts`).
 // Typen erzeugt sync nicht: das SDK leitet sie aus `typeof site` ab.
 
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ import { CliError, EXIT } from '../api/errors.js';
 import { runCheck } from '../check/run.js';
 import { AGENTS_BLOCK_SOURCE, SDK_PACKAGE } from '../check/sdk.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
+import { agentFilesNote, restoreAgentFiles } from '../project/agentFiles.js';
 import { updateAgentsMd } from '../project/agentsBlock.js';
 import { readSiteConfig, SITE_CONFIG_FILE } from '../project/siteConfig.js';
 import {
@@ -104,6 +106,8 @@ export async function syncCommand(ctx: CommandContext): Promise<CommandResult> {
 			? []
 			: compareSnapshot(snapshot, config.data, codeSlotKeys(createUploadFileSet(ctx.projectDir)));
 	const agentsMd = updateAgents(ctx);
+	const agentFiles = restoreAgentFiles(ctx.projectDir);
+	const agentFilesLine = agentFilesNote(agentFiles);
 
 	const notes = [
 		offline
@@ -116,6 +120,7 @@ export async function syncCommand(ctx: CommandContext): Promise<CommandResult> {
 		agentsMd === 'skipped'
 			? 'AGENTS.md: kein Block im installierten SDK gefunden, übersprungen.'
 			: `AGENTS.md: ${agentsMd === 'updated' ? 'aktualisiert' : 'unverändert'}.`,
+		...(agentFilesLine ? [agentFilesLine] : []),
 		...fixedConfig.map((f) => `${f} wiederhergestellt (alte Fassung: ${f}.bak).`),
 		drift.length ? `${drift.length} Abweichung(en) zwischen CRM und Code.` : 'CRM und Code passen zusammen.',
 	];
@@ -126,6 +131,7 @@ export async function syncCommand(ctx: CommandContext): Promise<CommandResult> {
 			drift,
 			typesFileCreated: typesCreated,
 			agentsMd,
+			agentFiles,
 			fixedConfig,
 		},
 		text: notes.join('\n'),

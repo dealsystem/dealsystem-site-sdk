@@ -1,7 +1,7 @@
 <!--
 @component
 Die Datenschutzerklärung der Seite. Gibt den Text aus, den der Kunde im CRM
-unter Website → Einstellungen eingetragen hat. Der Text steht nie im Code, und
+unter Eigene Website → Rechtliches eingetragen hat. Der Text steht nie im Code, und
 die Komponente erzeugt keinen eigenen. Gehört auf
 `src/routes/datenschutz/+page.svelte`.
 
@@ -27,12 +27,14 @@ Live schalten lässt sich die Seite erst mit Text.
 
 <script lang="ts">
 	import { consent } from '../consent/consent.svelte.js';
+	import { siteUsesConsent } from '../internal/consentNeed.js';
 	import { privacyHtml } from '../internal/privacy.js';
 	import { hasVisibleText, nestHeadings } from './legal.js';
 
 	let { headingLevel = 1, class: className }: DatenschutzProps = $props();
 
 	const text = privacyHtml();
+	const hasTracking = siteUsesConsent();
 	const html = $derived(nestHeadings(text, headingLevel + 1));
 </script>
 
@@ -43,15 +45,17 @@ Live schalten lässt sich die Seite erst mit Text.
 		{@html html}
 	{:else}
 		<p class="ds-legal__missing" data-ds-legal-missing="privacy">
-			<strong>Der Datenschutztext fehlt.</strong> Bitte tragen Sie ihn im CRM unter Website → Einstellungen ein.
-			Ohne Datenschutzerklärung kann die Seite nicht live geschaltet werden.
+			<strong>Der Datenschutztext fehlt.</strong> Bitte tragen Sie ihn im CRM unter Eigene Website → Rechtliches
+			ein. Ohne Datenschutzerklärung kann die Seite nicht live geschaltet werden.
 		</p>
 	{/if}
-	<p>
-		<button type="button" class="ds-legal__link" onclick={() => consent.openSettings()}>
-			Cookie-Einstellungen öffnen
-		</button>
-	</p>
+	{#if hasTracking || consent.needed}
+		<p>
+			<button type="button" class="ds-legal__link" onclick={() => consent.openSettings()}>
+				Cookie-Einstellungen öffnen
+			</button>
+		</p>
+	{/if}
 </section>
 
 <style>

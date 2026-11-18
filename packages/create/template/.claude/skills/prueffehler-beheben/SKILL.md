@@ -17,10 +17,15 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/regeln.md` (jede Regel mit Kor
 4. Häufige Fälle:
    - nicht freigegebenes Paket → entfernen; die Liste zeigt `npx dealsystem check --allowed`
    - `<img>` → `<MediaImage>` mit `alt`
-   - eigenes `<form>` oder `fetch` → `<LeadForm>`
-   - fremde Schrift oder fremdes Skript → lokal ablegen oder in `<ConsentGate>`
+   - `<form>` mit `action`, `target` oder ohne `onsubmit` (`SEC-007`), eigenes `fetch` → `<LeadForm>` oder
+     `<form onsubmit={senden}>` mit `createLeadClient()`
+   - fremde Schrift → lokal ablegen (`@fontsource/…`)
+   - fremder Dienst, Host oder Skript (`SEC-005`, `SEC-006`, `SEC-008`, `PRV-003`, `PRV-008`) → Eintrag unter
+     `external` und `<Embed>`/`<ExternalScript>`, Skill `extern-einbinden`; Karte ohne Eintrag: `<MapEmbed>`
+   - feste Adresse, Telefonnummer oder E-Mail (`CNT-002`) → `{data.site.address}` usw. aus dem CRM
    - zwei `h1` oder übersprungene Ebene → Überschriften ordnen
    - langer fester Text → `<Text>` oder `<RichText>` mit `key` und `default`
-5. Erneut prüfen, bis kein Fehler mehr gemeldet wird.
+   - `\n` im `default="…"` (`CNT-003`) → `default={'Zeile 1\nZeile 2'}` in geschweiften Klammern
+5. Erneut prüfen, bis die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 6. Dem Kunden zeigst du die Meldungen nicht. Erst wenn eine Meldung nach drei Versuchen bleibt, sag ihm in
    einem Satz, was nicht geht.

@@ -8,6 +8,9 @@ import type {
 	MediaRef,
 	MediaVariant,
 	RawCollectionEntry,
+	SeoConfig,
+	SeoFavicon,
+	SeoMeta,
 	SlotOverride,
 } from './types.js';
 
@@ -102,6 +105,63 @@ function normalizeLegal(raw: unknown): LegalProfile {
 	};
 }
 
+// eslint-disable-next-line no-control-regex -- Steuerzeichen gehören nicht in Titel und Beschreibung
+const CONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g;
+
+/** Klartext für Titel und Beschreibung: Steuerzeichen raus, Leerraum zusammengefasst, leer = `null`. */
+function plainText(value: unknown, max: number): string | null {
+	if (typeof value !== 'string') return null;
+	const text = value.replace(CONTROL, '').replace(/\s+/g, ' ').trim().slice(0, max);
+	return text === '' ? null : text;
+}
+
+function normalizeSeoMeta(raw: unknown): SeoMeta {
+	const r = isRecord(raw) ? raw : {};
+	const image = normalizeMediaRef(r.image);
+	return {
+		title: plainText(r.title, 300),
+		description: plainText(r.description, 1000),
+		image: image && image.kind === 'image' && image.variants.length > 0 ? image : null,
+	};
+}
+
+/** Statische Route in SvelteKit-Schreibweise, wie im Manifest: `/`, `/kontakt`, `/ueber-uns/team`. */
+const STATIC_ROUTE = /^\/(?:[a-z0-9._~-]+(?:\/[a-z0-9._~-]+)*)?$/i;
+
+function normalizeFavicon(raw: unknown): SeoFavicon | null {
+	if (!isRecord(raw) || typeof raw.id !== 'string' || !Array.isArray(raw.icons)) return null;
+	const icons: SeoFavicon['icons'] = [];
+	for (const icon of raw.icons) {
+		if (!isRecord(icon) || icon.type !== 'image/png') continue;
+		// Nur Pfade der eigenen Seite: fremde Adressen würde die CSP ohnehin blockieren.
+		const url = typeof icon.url === 'string' && /^\/(?!\/)/.test(icon.url) ? icon.url : null;
+		const size = icon.size;
+		if (!url || typeof size !== 'number' || !Number.isInteger(size) || size <= 0) continue;
+		icons.push({ url, size, type: 'image/png' });
+	}
+	icons.sort((a, b) => a.size - b.size);
+	return icons.length > 0 ? { id: raw.id, icons } : null;
+}
+
+/** Liest `seo` nachsichtig. Fehlt der Block (älterer Core), ist alles leer. */
+export function normalizeSeo(raw: unknown): SeoConfig {
+	const r = isRecord(raw) ? raw : {};
+	const pages: Record<string, SeoMeta> = {};
+	if (isRecord(r.pages)) {
+		for (const [route, meta] of Object.entries(r.pages)) {
+			if (!STATIC_ROUTE.test(route)) continue;
+			const normalized = normalizeSeoMeta(meta);
+			if (normalized.title || normalized.description || normalized.image) pages[route] = normalized;
+		}
+	}
+	return {
+		noindex: r.noindex === true,
+		defaults: normalizeSeoMeta(r.defaults),
+		pages,
+		favicon: normalizeFavicon(r.favicon),
+	};
+}
+
 /** Ein leerer Schnappschuss: die Seite zeigt überall ihre Standardwerte. */
 export function emptySnapshot(): ContentSnapshot {
 	return normalizeSnapshot({});
@@ -165,5 +225,6 @@ export function normalizeSnapshot(raw: unknown): ContentSnapshot {
 			: [],
 		slots,
 		collections,
+		seo: normalizeSeo(r.seo),
 	};
 }

@@ -1,5 +1,6 @@
 // Snapshot der Ausgabe von `check` (Text und JSON) und Stabilität der Bibliotheks-Schnittstelle.
 
+import type { CheckResult } from '../src/check/types.js';
 import { afterAll, describe, expect, it } from 'vitest';
 import {
 	checkResultToJson,
@@ -97,7 +98,7 @@ describe('Bibliothek für den Build-Host', () => {
 
 	it('Schweregrad überschreibbar (neue Regel erst als Warnung)', async () => {
 		const dir = materialize(BASE_SOURCE, {
-			'src/routes/+page.svelte': homePage('<h1>A</h1>\n<form></form>'),
+			'src/routes/+page.svelte': homePage('<h1>A</h1>\n<form action="/danke"></form>'),
 		});
 		const result = await runCheck({ projectDir: dir, severityOverrides: { 'SEC-007': 'warning' } });
 		expect(result.passed).toBe(true);
@@ -141,7 +142,26 @@ describe('Bibliothek für den Build-Host', () => {
 		expect(Object.keys(report.errors[0]!)).toEqual(['rule', 'file', 'line', 'message', 'fix']);
 		expect(report.errors.every((f) => f.fix.length > 0)).toBe(true);
 		expect(checkResultToJson(source).passed).toBe(false);
-		expect(formatCheckText(output)).toBe('Prüfung bestanden (0 Warnungen).');
+		expect(formatCheckText(output)).toBe(
+			'Fertige Seite geprüft: 0 Fehler, 0 Warnungen. Der Quelltext ist nicht geprüft.',
+		);
+	});
+
+	it('„Prüfung bestanden“ steht nur da, wenn Quelltext und fertige Seite geprüft sind', () => {
+		const result = (stages: CheckResult['stages']): CheckResult => ({
+			passed: true,
+			ruleSetVersion: RULE_SET_VERSION,
+			stages,
+			errors: [],
+			warnings: [],
+		});
+		expect(formatCheckText(result(['source', 'output']))).toBe(
+			'Prüfung bestanden: Quelltext und fertige Seite geprüft, 0 Fehler, 0 Warnungen.',
+		);
+		const sourceOnly = formatCheckText(result(['source']));
+		expect(sourceOnly).not.toContain('bestanden');
+		expect(sourceOnly).toContain('Die fertige Seite ist noch NICHT geprüft');
+		expect(sourceOnly).toContain('npx dealsystem check --output build');
 	});
 });
 

@@ -35,6 +35,10 @@ anderen Anbieter, wird es erst nach der Einwilligung „Externe Inhalte“ gelad
 	onMount(() => consent.init());
 
 	$effect(() => {
+		if (external) return consent.require('media');
+	});
+
+	$effect(() => {
 		if (typeof title !== 'string' || title.trim() === '') {
 			usageError('<MediaVideo> braucht einen title, z. B. title="Rundgang durch die Wohnung".');
 		}

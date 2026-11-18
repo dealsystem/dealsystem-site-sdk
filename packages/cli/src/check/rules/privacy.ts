@@ -7,6 +7,8 @@ import { outputRule, sourceRule, type OutputRule, type SourceRule } from '../rul
 import { COMPONENT, MARKER } from '../sdk.js';
 import type { RawFinding } from '../types.js';
 import { excerpt, findAll } from '../util/code.js';
+import { declaredExternal, tighteningSeverity } from '../util/csp.js';
+import { getAttr } from '../util/svelte.js';
 import { lineOf, parseHtml, type HtmlDoc } from '../util/html.js';
 
 /** Schrift- und Skript-CDNs (PRV-002). */
@@ -260,22 +262,89 @@ const TRACKING_PATTERNS: readonly { pattern: RegExp; name: string }[] = [
 	{ pattern: /plausible\.io\/js/g, name: 'Plausible' },
 ];
 
-const prv003 = sourceRule('PRV-003', (ctx) => {
-	const out: RawFinding[] = [];
-	for (const path of [...ctx.codeFiles(), ...ctx.htmlFiles()]) {
-		for (const { pattern, name } of TRACKING_PATTERNS) {
-			for (const m of findAll(ctx.code(path), pattern, ctx.lines(path))) {
-				out.push({
-					file: path,
-					line: m.line,
-					column: m.column,
-					message: `\`${path}\` enthält ein eigenes Tracking-Snippet (${name}).`,
-				});
-			}
+/** Pfade aus `static/`, die ein `<ExternalScript>` lädt, mit der Kategorie seines Dienstes. */
+function externalScriptFiles(ctx: SourceContext): Map<string, string[]> {
+	const declared = new Map(declaredExternal(ctx).map((e) => [e.id, e.category]));
+	const out = new Map<string, string[]>();
+	for (const path of ctx.svelteFiles()) {
+		for (const el of ctx.svelte(path)?.elements ?? []) {
+			if (el.kind !== 'component' || el.name !== COMPONENT.externalScript) continue;
+			const src = getAttr(el, 'src')?.value;
+			const id = getAttr(el, 'id')?.value;
+			if (typeof src !== 'string' || !src.startsWith('/') || src.startsWith('//')) continue;
+			const file = `static${src.split(/[?#]/)[0]}`;
+			const category = typeof id === 'string' ? declared.get(id) : undefined;
+			out.set(file, [...(out.get(file) ?? []), category ?? 'unbekannt']);
 		}
 	}
 	return out;
+}
+
+const prv003 = sourceRule('PRV-003', (ctx) => {
+	const out: RawFinding[] = [];
+	const scan = (path: string, report: (m: { line: number; column: number }, name: string) => void) => {
+		for (const { pattern, name } of TRACKING_PATTERNS) {
+			for (const m of findAll(ctx.code(path), pattern, ctx.lines(path))) report(m, name);
+		}
+	};
+	for (const path of [...ctx.codeFiles(), ...ctx.htmlFiles()]) {
+		scan(path, (m, name) =>
+			out.push({
+				file: path,
+				line: m.line,
+				column: m.column,
+				message: `\`${path}\` enthält ein eigenes Tracking-Snippet (${name}).`,
+			}),
+		);
+	}
+	// Regelsatz 3: Snippets der Anbieter liegen als Datei in `static/` und laden über `<ExternalScript>` nach der
+	// Einwilligung. Erlaubt nur, wenn genau das geschieht und der Dienst als Statistik oder Marketing deklariert ist.
+	const loaded = externalScriptFiles(ctx);
+	const severity = tighteningSeverity(ctx);
+	for (const path of ctx.paths().filter((p) => p.startsWith('static/') && /\.m?js$/.test(p))) {
+		const categories = loaded.get(path) ?? [];
+		const ok = categories.length > 0 && categories.every((c) => c === 'marketing' || c === 'statistics');
+		if (ok) continue;
+		scan(path, (m, name) =>
+			out.push({
+				file: path,
+				line: m.line,
+				column: m.column,
+				severity,
+				message:
+					categories.length === 0
+						? `\`${path}\` enthält ein Tracking-Snippet (${name}), wird aber nicht über \`<ExternalScript>\` geladen.`
+						: `\`${path}\` enthält ein Tracking-Snippet (${name}), sein Dienst ist aber nicht als \`statistics\` oder \`marketing\` deklariert.`,
+				fix: 'Lade die Datei mit `<ExternalScript id="…" src="/…" />` und deklariere den Dienst unter `external` mit `category: \'marketing\'` (oder `statistics`). Google Tag und Meta Pixel gehen einfacher über `<Tracking />` mit der Kennung im CRM. Anleitung: extern.md.',
+			}),
+		);
+	}
+	return out;
 });
+
+// ------------------------------------------------------------------ PRV-008
+
+const prv008 = sourceRule('PRV-008', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const entry of declaredExternal(ctx)) {
+		if (entry.preset) continue;
+		const missing = (['provider', 'purpose', 'privacyUrl'] as const).filter((k) => entry[k] === null);
+		if (missing.length === 0) continue;
+		out.push({
+			file: 'dealsystem.config.ts',
+			line: ctx.siteConfig().data ? findExternalLine(ctx, entry.id) : null,
+			message: `Der fremde Dienst \`${entry.id}\` nennt nicht ${missing.map((k) => `\`${k}\``).join(', ')}. Der Cookie-Hinweis kann dem Besucher dann nicht sagen, wer die Daten bekommt.`,
+			fix: `Ergänze unter \`external.${entry.id}\` z. B. \`provider: 'Anbieter GmbH, Deutschland'\`, \`purpose: 'Live-Chat'\`, \`privacyUrl: 'https://anbieter.de/datenschutz'\`. Frag den Kunden, wenn du den Anbieter nicht sicher kennst.`,
+		});
+	}
+	return out;
+});
+
+function findExternalLine(ctx: SourceContext, id: string): number | null {
+	const text = ctx.text('dealsystem.config.ts') ?? '';
+	const idx = text.search(new RegExp(`['"]?${id.replace(/-/g, '\\-')}['"]?\\s*:\\s*\\{`));
+	return idx < 0 ? null : ctx.lines('dealsystem.config.ts').at(idx).line;
+}
 
 // ------------------------------------------------------------------ PRV-004
 
@@ -410,6 +479,7 @@ export const privacySourceRules: SourceRule[] = [
 	prv004Source,
 	prv005Source,
 	prv006,
+	prv008,
 ];
 export const privacyOutputRules: OutputRule[] = [prv001Output, prv002Output, prv004Output, prv005Output];
 export { normalizeRoute };

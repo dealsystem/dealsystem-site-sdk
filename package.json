@@ -3,6 +3,14 @@
 	"private": true,
 	"description": "SDK, CLI und Starter für Self-Service-Websites auf DealSystem",
 	"license": "MIT",
+	"homepage": "https://github.com/dealsystem/dealsystem-site-sdk#readme",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/dealsystem/dealsystem-site-sdk.git"
+	},
+	"bugs": {
+		"url": "https://github.com/dealsystem/dealsystem-site-sdk/issues"
+	},
 	"type": "module",
 	"workspaces": [
 		"packages/*"

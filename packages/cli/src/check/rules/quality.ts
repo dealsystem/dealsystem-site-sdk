@@ -1,6 +1,8 @@
 // QUA-*, CNT-*: Größe, Links, Pflichtdateien, Formular- und Slot-Schlüssel, Agenten-Anleitung, Content-Slots.
 
 import { gzipSync } from 'node:zlib';
+import { FUNNEL_MANIFEST_MAX_FIELDS } from '@dealsystem/site/config';
+import { findPathLine, SITE_CONFIG_FILE } from '../../project/siteConfig.js';
 import { mergeSlots, scanSlots, SlotScanError, type FoundSlot } from '@dealsystem/site/vite';
 import type { OutputContext, SourceContext } from '../context.js';
 import { routeOfPage, routeOfSource } from '../context.js';
@@ -306,6 +308,8 @@ const NON_CONTENT_ANCESTORS = new Set([
 	COMPONENT.datenschutz,
 ]);
 
+const HEADINGS = new Set(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
+
 const cnt001 = sourceRule('CNT-001', (ctx) => {
 	const out: RawFinding[] = [];
 	for (const path of ctx.svelteFiles()) {
@@ -313,13 +317,78 @@ const cnt001 = sourceRule('CNT-001', (ctx) => {
 			continue;
 		for (const t of ctx.svelte(path)?.texts ?? []) {
 			const text = t.data.replace(/\s+/g, ' ').trim();
-			if (text.length < CONTENT_SLOT_MIN_LENGTH || t.ancestors.some((a) => NON_CONTENT_ANCESTORS.has(a)))
+			if (t.ancestors.some((a) => NON_CONTENT_ANCESTORS.has(a))) continue;
+			const offset = t.start + (t.data.length - t.data.trimStart().length);
+			// Überschriften gliedern die Seite: Der Kunde will sie umbenennen können, auch wenn sie kurz sind.
+			const heading = t.ancestors.findLast((a) => HEADINGS.has(a));
+			if (heading && /\p{L}{2,}/u.test(text)) {
+				out.push(
+					ctx.at(
+						path,
+						offset,
+						`Feste Überschrift in \`${path}\`: „${excerpt(text, 60)}“ ist im CRM nicht änderbar.`,
+						`Schreibe sie als Slot: \`<Text key="seite.bereich.titel" default="${excerpt(text, 40)}" as="${heading}" />\`.`,
+					),
+				);
 				continue;
+			}
+			if (text.length < CONTENT_SLOT_MIN_LENGTH) continue;
+			out.push(
+				ctx.at(path, offset, `Fester Text in \`${path}\`: „${excerpt(text, 60)}“ ist im CRM nicht änderbar.`),
+			);
+		}
+	}
+	return out;
+});
+
+// ------------------------------------------------------------------ CNT-002
+
+/** Muster für Firmendaten, die aus dem CRM kommen sollen. Bewusst eng: lieber ein Fund zu wenig als Fehlalarme. */
+const COMPANY_DATA: readonly { label: string; pattern: RegExp }[] = [
+	{ label: 'E-Mail-Adresse', pattern: /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/ },
+	{ label: 'Adresse', pattern: /\b[0-9]{5}\s+\p{Lu}\p{Ll}{2,}/u },
+	{
+		label: 'Telefonnummer',
+		pattern: /(?:\+49|0049|\(0|(?<![0-9.,:])0)[1-9][0-9]{1,4}\)?[\s/-]{0,3}[0-9]{2,}(?:[\s-]?[0-9]{2,})*/,
+	},
+];
+const COMPANY_DATA_IGNORED = new Set(['script', 'style', 'svelte:head', 'title', 'code', 'pre', 'svg']);
+
+const cnt002 = sourceRule('CNT-002', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.svelteFiles()) {
+		if (path.startsWith('src/routes/') && ['/impressum', '/datenschutz'].includes(routeOfSource(path)))
+			continue;
+		const ast = ctx.svelte(path);
+		if (!ast) continue;
+		for (const t of ast.texts) {
+			if (t.ancestors.some((a) => COMPANY_DATA_IGNORED.has(a))) continue;
+			for (const { label, pattern } of COMPANY_DATA) {
+				const m = pattern.exec(t.data);
+				if (!m) continue;
+				// Telefonnummern haben mindestens sieben Ziffern; Jahreszahlen und Preise nicht.
+				if (label === 'Telefonnummer' && m[0].replace(/\D/g, '').length < 7) continue;
+				out.push(
+					ctx.at(
+						path,
+						t.start + m.index,
+						`Feste ${label} in \`${path}\`: „${excerpt(m[0].trim(), 60)}“. Ändert der Kunde sie im CRM, bleibt hier die alte stehen.`,
+					),
+				);
+				break;
+			}
+		}
+		for (const el of ast.elements) {
+			if (el.kind !== 'element' || el.name.toLowerCase() !== 'a') continue;
+			const href = el.attributes.find((a) => a.kind === 'attribute' && a.name.toLowerCase() === 'href');
+			if (typeof href?.value !== 'string') continue;
+			const m = /^(mailto|tel):(.+)/i.exec(href.value.trim());
+			if (!m) continue;
 			out.push(
 				ctx.at(
 					path,
-					t.start + (t.data.length - t.data.trimStart().length),
-					`Fester Text in \`${path}\`: „${excerpt(text, 60)}“ ist im CRM nicht änderbar.`,
+					el.start,
+					`Feste ${m[1]!.toLowerCase() === 'tel' ? 'Telefonnummer' : 'E-Mail-Adresse'} im Link in \`${path}\`: „${excerpt(m[2]!, 60)}“. Ändert der Kunde sie im CRM, bleibt hier die alte stehen.`,
 				),
 			);
 		}
@@ -327,5 +396,143 @@ const cnt001 = sourceRule('CNT-001', (ctx) => {
 	return out;
 });
 
-export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001];
+// ------------------------------------------------------------------ CNT-003
+
+const cnt003 = sourceRule('CNT-003', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.svelteFiles()) {
+		for (const el of ctx.svelte(path)?.elements ?? []) {
+			if (el.kind !== 'component' || (el.name !== COMPONENT.text && el.name !== COMPONENT.richText)) continue;
+			const attr = getAttr(el, 'default');
+			// Nur der feste Wert in Anführungszeichen. In `{…}` ist `\n` JavaScript und ein echter Zeilenumbruch.
+			if (attr?.kind !== 'attribute' || typeof attr.value !== 'string' || !attr.value.includes('\\n'))
+				continue;
+			out.push(
+				ctx.at(
+					path,
+					attr.start,
+					`Im \`default\` von \`<${el.name}>\` steht \`\\n\`. In \`default="…"\` ist das kein Zeilenumbruch; auf der Seite steht dann wörtlich „\\n“.`,
+				),
+			);
+		}
+	}
+	return out;
+});
+
+// ------------------------------------------------------------------ CNT-004
+
+/** Tags, die `<Seo>` setzt. Stehen sie zusätzlich im Kopf der Seite, gibt es sie doppelt. */
+function seoTag(name: string, attrs: Map<string, string | true | null>): string | null {
+	if (name === 'title') return '<title>';
+	if (name !== 'meta') return null;
+	const meta = String(attrs.get('name') ?? attrs.get('property') ?? '').toLowerCase();
+	if (meta === 'description' || meta.startsWith('og:') || meta.startsWith('twitter:'))
+		return `<meta ${meta}>`;
+	return null;
+}
+
+const cnt004 = sourceRule('CNT-004', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.svelteFiles()) {
+		if (!/^src\/routes\/(?:.*\/)?\+(?:page|layout|error)(?:@[^.]*)?\.svelte$/.test(path)) continue;
+		for (const el of ctx.svelte(path)?.elements ?? []) {
+			if (el.kind !== 'element' || !el.ancestors.includes('svelte:head')) continue;
+			const attrs = new Map(
+				el.attributes.filter((a) => a.kind === 'attribute').map((a) => [a.name.toLowerCase(), a.value]),
+			);
+			const tag = seoTag(el.name.toLowerCase(), attrs);
+			if (!tag) continue;
+			out.push(
+				ctx.at(
+					path,
+					el.start,
+					`\`${tag}\` steht fest in \`<svelte:head>\` von \`${path}\`. Was der Kunde unter Eigene Website → Einstellungen → Google und Teilen einträgt, wirkt hier nicht, und mit \`<Seo>\` stünde der Tag doppelt da.`,
+				),
+			);
+		}
+	}
+	const layout = 'src/routes/+layout.svelte';
+	if (
+		ctx.files.has(layout) &&
+		!ctx.svelte(layout)?.elements.some((e) => e.kind === 'component' && e.name === COMPONENT.siteHead)
+	) {
+		out.push({
+			file: layout,
+			message: `\`<${COMPONENT.siteHead} />\` fehlt im Haupt-Layout: Favicon und „Nicht bei Google anzeigen“ aus dem CRM wirken nicht.`,
+		});
+	}
+	const appHtml = ctx.text('src/app.html');
+	const icon = appHtml ? /<link\b[^>]*\brel=["']?(?:shortcut )?icon\b/i.exec(appHtml) : null;
+	if (appHtml && icon) {
+		out.push({
+			file: 'src/app.html',
+			line: appHtml.slice(0, icon.index).split('\n').length,
+			message:
+				'Der Favicon-Link steht in `src/app.html`. Lädt der Kunde im CRM ein Favicon hoch, gäbe es zwei.',
+			fix: 'Entferne den Link aus `src/app.html` und gib das Favicon `<SiteHead favicon="/favicon.svg" />` mit.',
+		});
+	}
+	return out;
+});
+
+// ------------------------------------------------------------------ QUA-008
+
+const LEAD_CLIENT_IMPORT = /import\s*\{[^}]*\bcreateLeadClient\b[^}]*\}\s*from\s*['"]@dealsystem\/site['"]/;
+
+const qua008 = sourceRule('QUA-008', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.codeFiles()) {
+		const code = ctx.code(path);
+		const imported = LEAD_CLIENT_IMPORT.exec(code);
+		if (!imported) continue;
+		if (/\.submit\s*\(/.test(code) && !/\bfallback\b/.test(code)) {
+			out.push(
+				ctx.at(
+					path,
+					imported.index,
+					`\`${path}\` sendet mit \`createLeadClient\`, zeigt aber keinen Ausweichkontakt (\`fallback\`). Scheitert der Versand, kann der Besucher nicht anfragen.`,
+				),
+			);
+		}
+		if (path.endsWith('.svelte') && !/<LeadHoneypot\b/.test(code)) {
+			out.push(
+				ctx.at(
+					path,
+					imported.index,
+					`\`${path}\` nutzt \`createLeadClient\` ohne \`<LeadHoneypot>\`. Ohne Bot-Falle kommen mehr Spam-Anfragen an.`,
+				),
+			);
+		}
+	}
+	return out;
+});
+
+// ------------------------------------------------------------------ QUA-010
+
+const qua010 = sourceRule('QUA-010', (ctx) => {
+	const config = ctx.siteConfig();
+	const mod = ctx.module(SITE_CONFIG_FILE);
+	const out: RawFinding[] = [];
+	for (const funnel of config.data?.funnels ?? []) {
+		if (funnel.fields.length <= FUNNEL_MANIFEST_MAX_FIELDS) continue;
+		out.push({
+			file: SITE_CONFIG_FILE,
+			line: mod ? findPathLine(mod, `funnels.${funnel.key}.fields`) : null,
+			message: `Das Formular "${funnel.key}" hat ${funnel.fields.length} Felder. Das CRM übernimmt nur die ersten ${FUNNEL_MANIFEST_MAX_FIELDS}; die übrigen kommen nur als Notiz an, ohne Prüfung und ohne Zuordnung.`,
+		});
+	}
+	return out;
+});
+
+export const qualitySourceRules: SourceRule[] = [
+	qua010,
+	qua008,
+	qua005,
+	qua006,
+	qua007,
+	cnt001,
+	cnt002,
+	cnt003,
+	cnt004,
+];
 export const qualityOutputRules: OutputRule[] = [qua001, qua002, qua003, qua004];

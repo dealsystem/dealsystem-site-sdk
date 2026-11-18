@@ -1,92 +1,100 @@
 ## DealSystem-Website: Anleitung für KI-Agenten
 
-Diese Website ist eine statische SvelteKit-Seite mit `@dealsystem/site` 0.1.0. DealSystem erzeugt und hostet sie und prüft jeden Stand beim Hochladen.
+Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.0. DealSystem prüft, baut und hostet sie.
 
-**Lies vor jeder Aufgabe die passende Datei unter `node_modules/@dealsystem/site/docs/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit sonst üblich ist (Server-Code, eigenes `fetch`, eigene Formulare, Schriften von Google), ist hier verboten und wird abgelehnt.
+**Lies vor jeder Aufgabe die passende Datei unter `node_modules/@dealsystem/site/docs/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit sonst üblich ist (Server-Code, eigenes `fetch`, Schriften von Google), ist hier verboten und wird abgelehnt.
 
 ### Mit wem du sprichst
 
-Dein Auftraggeber ist kein Techniker, sondern meist Immobilien-Investor oder Makler.
+Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
 
-- Sprich Deutsch, kurz und ohne Fachbegriffe. Sag „Vorschau“, „hochladen“, „veröffentlichen“ – nicht „Build“, „Deploy“, „Repository“.
-- Stelle höchstens eine Rückfrage auf einmal, und nur, wenn du ohne Antwort nicht sinnvoll weiterkommst. Sonst triff eine vernünftige Annahme und nenne sie in einem Satz.
+- Sprich Deutsch, kurz und ohne Fachbegriffe: „Vorschau“, „hochladen“, „veröffentlichen“, nicht „Build“, „Deploy“, „Repository“.
+- **Eine Nachricht, höchstens eine Frage.** Nie eine Liste von Fragen, nie eine Frage neben einer Bitte (etwa um die Anmeldung). Frag nur, wenn du ohne Antwort nicht weiterkommst; sonst triff eine vernünftige Annahme und nenne sie in einem Satz.
 - Melde nach jedem größeren Schritt in einem Satz, was fertig ist und was als Nächstes kommt.
-- Zeige keinen Code und keine Fehlermeldungen. Prüffehler behebst du selbst. Erst wenn etwas dreimal scheitert, sag in einem Satz, was nicht geht und was du brauchst.
-- Erfinde nichts über das Unternehmen: keine Adressen, Telefonnummern, Preise, Referenzen, Zahlen. Was du nicht weißt, erfragst du oder lässt du weg.
+- Zeige keinen Code, keine Befehle, keine Fehlermeldungen: Er öffnet nur Links und trägt Dinge im CRM ein. Prüffehler behebst du selbst; erst nach drei Fehlversuchen sag in einem Satz, was nicht geht und was du brauchst.
+- Erfinde nichts über das Unternehmen: keine Adressen, Telefonnummern, Preise, Referenzen, Zahlen und keine Leistungsversprechen („fester Ansprechpartner“, „keine Provision“, „Antwort in 24 Stunden“), die der Kunde nicht selbst genannt hat. Was du nicht weißt, erfragst du oder lässt du weg.
+- Nenne nur die Orte im CRM aus dieser Anleitung; erfinde keine Bereiche.
 
 ### Fester Ablauf
 
-1. **Anmelden:** `npx dealsystem login --start` nennt eine Adresse und einen Code. Bitte den Menschen, die Adresse zu öffnen und zu bestätigen. Danach `npx dealsystem login --wait`.
-2. **Seite verbinden:** `npx dealsystem init` (vorhandene Seite: `--site <name>`, neue: `--create --name "…" --slug …`), dann `npx dealsystem sync`.
+**Zu Beginn jeder Sitzung `npx dealsystem sync` ausführen.** Ob Rechtstexte fehlen, sagt `npx dealsystem status`, nicht `.dealsystem/content.json`. Einzelheiten: `ablauf.md`.
+
+1. **Anmelden:** `npx dealsystem login --start`, den Menschen die Adresse öffnen und bestätigen lassen, dann `npx dealsystem login --wait`.
+2. **Verbinden:** `npx dealsystem init` (Seite wählen oder anlegen: `ablauf.md`), dann `npx dealsystem sync`.
 3. **Bauen:** Seiten ändern, ansehen mit `npm run dev`.
-4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alles beheben, bis kein Fehler mehr gemeldet wird.
-5. **Hochladen:** `npx dealsystem deploy -m "kurze Notiz"`. Am Ende steht die Adresse der Vorschau. Gib sie dem Menschen und bitte ihn, sie anzusehen.
-6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“.
+4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`, alles beheben. „Geprüft“ nur, wenn die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet. Prüfen geht auch ohne Anmeldung.
+5. **Hochladen:** `npx dealsystem deploy -m "kurze Notiz"`, dem Menschen die Vorschau-Adresse geben.
+6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja.**
+
+Kein Projektordner? `npx dealsystem pull` (`ablauf.md`).
 
 ### Was nur der Mensch kann
 
-Sag ihm klar, was er tun soll und wo. Versuche nie, es zu umgehen.
+Sag ihm klar, was er tun soll und wo. Umgehe es nie.
 
-- die Anmeldung im Browser bestätigen
-- dem Veröffentlichen zustimmen
-- **Impressum und Datenschutzerklärung** im CRM unter Website → Einstellungen eintragen (dazu Firmenname und E-Mail). Diese Texte schreibst du nicht, auch nicht als Entwurf im Code. Ohne sie lässt sich die Seite nicht veröffentlichen.
-- Angebote, Bilder und Tracking-Kennungen im CRM pflegen
-- eine eigene Domain: im CRM unter Website → Domains eintragen und die dort genannten Einträge beim Domain-Anbieter setzen
+- die Anmeldung im Browser bestätigen und dem Veröffentlichen zustimmen
+- **Impressum und Datenschutzerklärung** (dazu Firmenname, E-Mail) unter Eigene Website → Rechtliches eintragen. Diese Texte schreibst du nicht, auch nicht als Entwurf. Ohne sie geht nichts live.
+- Texte und Fotos unter Eigene Website → Inhalte tauschen, erst nachdem du ihren Platz gebaut und hochgeladen hast (Fotos: `gestaltung.md`)
+- Sammlungen (Angebote, Referenzen) samt Bildern unter CMS, Tracking-Kennungen unter Eigene Website → Einstellungen
+- eine Domain unter Eigene Website → Domains eintragen und die Einträge beim Domain-Anbieter setzen
 
 ### Regeln, die immer gelten
 
-- Kein Server-Code: keine `+server.ts` (außer `sitemap.xml` und `robots.txt` aus dem Starter), keine `hooks.server.ts`, keine Form-Actions. `+page.server.ts` nur mit `export const prerender = true` und nur zum Laden über `@dealsystem/site/content`.
-- Keine Zugangsdaten, keine `.env`, kein eigenes `fetch` zu DealSystem.
-- Formulare nur mit `<LeadForm>`. Felder stehen in `dealsystem.config.ts`.
-- Bilder nur mit `<MediaImage>` und einem `alt`, das das Bild beschreibt.
-- Sichtbare Texte als `<Text>` oder `<RichText>` mit festem `key` und `default`, damit der Kunde sie später selbst ändern kann.
-- Nichts von fremden Servern: Schriften lokal (`@fontsource/…`), keine CDN-Links. Karten, Videos und andere fremde Inhalte nur in `<ConsentGate>`.
-- Kein `{@html}`. Formatierten Text gibt `<RichText>` aus.
-- Jede Seite: genau eine `h1`, eigener `<title>`, eigene `meta description`. `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
-- `svelte.config.js` und `vite.config.ts` nicht ändern. Beschädigt? `npx dealsystem sync --fix-config`.
-- Nur freigegebene Pakete installieren: `npx dealsystem check --allowed`.
-- Auf Barrierefreiheit achten: ausreichender Kontrast, sichtbarer Fokus, alles mit der Tastatur bedienbar.
+Jede Regel mit Korrektur: `regeln.md`.
+
+- Kein Server-Code (`+server.ts`, `hooks.server.ts`, Form-Actions; Ausnahmen in `regeln.md`). Keine Zugangsdaten, keine `.env`, kein eigenes `fetch`, kein `{@html}`.
+- Formulare mit `<LeadForm>` oder `createLeadClient`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos des Kunden mit `npx dealsystem image add`, ins CRM mit `image push` (Skill `bild-einbauen`).
+- Jeder sichtbare Text als `<Text>`/`<RichText>` mit festem `key` und `default` (Schlüssel-Regeln: `komponenten.md`). Adresse, Telefon, E-Mail kommen als `data.site` aus dem CRM.
+- Schriften lokal, keine CDN-Links. Fremdes nur über `external` in `dealsystem.config.ts` und `<Embed>`/`<ExternalScript>` (Skill `extern-einbinden`).
+- Jede Seite: eine `h1`, Titel und Beschreibung über `<Seo>`, nicht als `<title>` in `<svelte:head>`. `<SiteHead />`, `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
+- Titel, Beschreibung, Vorschaubild und Favicon pflegt der Kunde unter Eigene Website → Einstellungen → Google und Teilen; nicht fest im Code überschreiben (`seo.md`).
+- `svelte.config.js` und `vite.config.ts` nicht ändern (`npx dealsystem sync --fix-config`). Nur freigegebene Pakete (`npx dealsystem check --allowed`).
+- Barrierefrei bauen: `gestaltung.md`.
+- Kampagnen, Klick-IDs und Seitenaufrufe erfasst das SDK; nicht nachbauen (`rechtstexte.md`).
+
+### Skills
+
+Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden, bevor du anfängst, auch wenn dein Werkzeug Skills nicht selbst lädt:
+
+- `neue-seite` – neue Seite oder Abschnitt, Texte, tauschbare Fotos
+- `bild-einbauen` – Foto des Kunden einbauen (ohne Standort)
+- `formular-anbinden` – Kontakt- oder Anfrageformular, Ratgeber zum Download
+- `funnel-mehrstufig` – eigenes Formular in Schritten (Funnel)
+- `termin-buchung` – Termine aus dem DealSystem-Kalender buchen (`termine.md`)
+- `extern-einbinden` – Video, Karte, Termin, Chat, fremdes Skript
+- `angebote-einbauen` – Angebote, Referenzen, andere Sammlungen aus dem CRM
+- `prueffehler-beheben` – Meldungen von `check` oder abgelehnte Version
+- `veroeffentlichen` – hochladen, Vorschau, nach dem Ja veröffentlichen
+- `domain-verbinden` – eigene Domain des Kunden
 
 ### Bausteine
 
-Alle aus `@dealsystem/site`. Pflichtangaben und Beispiele: `node_modules/@dealsystem/site/docs/komponenten.md`.
+Aus `@dealsystem/site`; Pflichtangaben und Beispiele in `komponenten.md`.
 
-- `<Text>` – Ein kurzer Text (Überschrift, Satz, Beschriftung), den der Kunde später im CRM selbst ändern kann
-- `<RichText>` – Formatierter Text: Absätze, Überschriften, Listen, Links
-- `<Link>` – Ein Link, dessen Ziel und Beschriftung der Kunde im CRM ändern kann, z. B. die wichtigste Schaltfläche der Startseite
-- `<MediaImage>` – Ein Bild, immer mit Alternativtext
-- `<MediaVideo>` – Ein Video aus dem CMS, mit Bedienelementen und ohne automatischen Start
-- `<LeadForm>` – Ein Formular aus `dealsystem.config.ts`
-- `<CollectionList>` – Liste der Einträge einer Sammlung
-- `<CookieBanner>` – Hinweis zur Einwilligung
-- `<ConsentGate>` – Zeigt seinen Inhalt erst, wenn der Besucher dem Zweck zugestimmt hat
-- `<Tracking>` – Bindet Meta Pixel und Google Tag ein
-- `<Impressum>` – Das Impressum der Seite
-- `<Datenschutz>` – Die Datenschutzerklärung der Seite
-- `<SiteFooterLegal>` – Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellungen“ (Widerruf der Einwilligung)
+- Text: `<Text>`, `<RichText>`, `<Link>`
+- Bild und Video: `<MediaImage>`, `<MediaVideo>`
+- Formular und Listen: `<LeadForm>`, `<LeadHoneypot>`, `<Booker>`, `<CollectionList>`
+- Fremde Dienste: `<MapEmbed>`, `<Embed>`, `<ExternalScript>`
+- Einwilligung: `<CookieBanner>`, `<ConsentGate>`, `<Tracking>`
+- Rechtliches: `<Impressum>`, `<Datenschutz>`, `<SiteFooterLegal>`
+- Google und Teilen: `<Seo>`, `<SiteHead>`
+- Zeitgesteuert: `<Zeitfenster>`
 
 ### Befehle
 
-- `npx dealsystem login` – Anmelden per Gerätecode (Bestätigung im Browser)
-- `npx dealsystem logout` – Abmelden und Token löschen
-- `npx dealsystem init` – Seite wählen oder anlegen, siteId in dealsystem.config.ts eintragen
-- `npx dealsystem sync` – Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern
-- `npx dealsystem dev` – Dev-Server starten; Formulare gehen als Probe an das CRM
-- `npx dealsystem check` – Regeln lokal prüfen (Exit-Code 1 bei Fehlern)
-- `npx dealsystem deploy` – Prüfen, hochladen, bauen lassen, Vorschau-URL ausgeben
-- `npx dealsystem publish` – Eine fertige Version live schalten (mit Bestätigung)
-- `npx dealsystem rollback` – Auf eine frühere Version zurückschalten (mit Bestätigung)
-- `npx dealsystem status` – Seite, Live-Version, letzte Versionen, Domains
+`npx dealsystem <befehl>`: `login`, `logout`, `init`, `sync`, `dev`, `check`, `deploy`, `publish`, `rollback`, `pull`, `image`, `status`. Was sie tun, Optionen und Exit-Codes: `befehle.md`.
 
 ### Nachschlagen
 
 Unter `node_modules/@dealsystem/site/docs/`:
 
-- `ablauf.md` – der ganze Weg von der Anmeldung bis zur veröffentlichten Seite
-- `komponenten.md` – alle Bausteine mit Pflichtangaben und Beispielen
-- `inhalte.md` – Angebote und andere Inhalte aus dem CRM laden
+- `ablauf.md` – Weg bis zur veröffentlichten Seite
+- `komponenten.md` – Bausteine mit Pflichtangaben und Beispielen
+- `inhalte.md` – Angebote und andere Sammlungen laden
 - `konfiguration.md` – Formulare und Sammlungen in dealsystem.config.ts
 - `gestaltung.md` – Farben, Schrift, Bilder, Barrierefreiheit
 - `rechtstexte.md` – Impressum, Datenschutz, Cookie-Hinweis
-- `regeln.md` – alle Prüfregeln mit Korrektur
-- `befehle.md` – alle Befehle mit Optionen
+- `extern.md` – fremde Dienste: Videos, Widgets, Skripte
+- `seo.md` – Titel, Beschreibung, Vorschaubild, Favicon, noindex
+- `regeln.md` – Prüfregeln mit Korrektur
+- `befehle.md` – Befehle mit Optionen

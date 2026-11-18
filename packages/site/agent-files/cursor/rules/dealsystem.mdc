@@ -1,0 +1,7 @@
+---
+description: Regeln für diese DealSystem-Website
+alwaysApply: true
+---
+
+Die Anleitung für diese Website steht in `AGENTS.md` im Projektordner. Lies sie vollständig, bevor du etwas
+änderst, und halte dich daran. Die Detailseiten liegen unter `node_modules/@dealsystem/site/docs/`.

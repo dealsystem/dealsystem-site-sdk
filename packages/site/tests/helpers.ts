@@ -41,6 +41,7 @@ export function testSiteData(overrides: Partial<SiteData> = {}): SiteData {
 				],
 			},
 		},
+		bookings: { erstgespraech: { label: 'Erstgespräch', eventType: 'erstgespraech' } },
 		...overrides,
 	};
 }

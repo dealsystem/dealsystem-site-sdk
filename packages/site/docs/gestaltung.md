@@ -37,7 +37,8 @@ npm install @fontsource-variable/inter
 ```
 
 Dazu in `app.css`: `--font-sans: 'Inter Variable', system-ui, sans-serif;`. Andere Schriften gibt es als
-`@fontsource/<name>` und `@fontsource-variable/<name>`.
+`@fontsource/<name>` und `@fontsource-variable/<name>`. Wechselst du die Schrift, entferne die alte mit
+`npm uninstall @fontsource-variable/inter`, damit sie nicht ungenutzt im Projekt bleibt.
 
 ## Bilder
 
@@ -45,8 +46,13 @@ Nie `<img>` schreiben, immer `<MediaImage>` (`A11Y-002`).
 
 - **Bilder aus dem CRM** (Angebote): `<MediaImage media={angebot.media.bilder[0]} sizes="…" />`. Größen und
   Alternativtext kommen aus dem CRM.
-- **Eigene Bilder im Projekt:** Datei verkleinert (höchstens etwa 2000 Pixel breit) nach `src/lib/bilder/`
-  legen, mit `import bild from '$lib/bilder/haus.jpg'` einbinden und als
+- **Fotos ins Projekt holen:** `npx dealsystem image add <datei> --name haus --alt "…"`. Der Befehl prüft das
+  Format (JPEG, PNG, WebP, AVIF, höchstens 15 MB), dreht nach der Kamera-Angabe, verkleinert auf höchstens
+  2 560 px, **entfernt alle Metadaten samt Standort (GPS)** und schreibt nach `src/lib/assets/bilder/`. Er gibt
+  die Import-Zeile und einen fertigen `<MediaImage>` aus. Fotos nicht von Hand kopieren: Sonst gehen die
+  Standortdaten aus dem Handy mit auf die Seite. HEIC (iPhone) lässt sich nicht umwandeln; der Kunde schickt
+  es als JPEG.
+- **Eigene Bilder im Projekt:** mit `import bild from '$lib/assets/bilder/haus.jpg'` einbinden und als
   `<MediaImage src={bild} alt="…" width={1600} height={1067} />` ausgeben. `width` und `height` sind die
   echten Maße der Datei; sie verhindern, dass die Seite beim Laden springt. Logos und kleine Grafiken als
   SVG nach `static/` legen: `src="/logo.svg"`.
@@ -55,13 +61,23 @@ Nie `<img>` schreiben, immer `<MediaImage>` (`A11Y-002`).
 - `sizes` nennt die Anzeigebreite, z. B. `sizes="(min-width: 60rem) 33vw, 100vw"`. Das wichtigste Bild im
   sichtbaren Bereich bekommt `priority`.
 - Große Videos gehören ins CRM, nicht ins Projekt.
+- **Fotos, die der Kunde selbst tauschen will** (Porträt für „Über uns“, Team, Titelbild): als Bild-Slot
+  einbauen, mit festem `key` und einem Bild aus dem Projekt als `default`:
+  `<MediaImage key="team.inhaber.foto" default={portrait} width={1200} height={1500} alt="…" label="Foto des Inhabers" group="Über uns" />`.
+  `key`, `label`, `group` und `help` stehen als feste Zeichenketten in Anführungszeichen, sonst scheitern
+  Build und Prüfung (`QUA-006`). Hat der Kunde noch kein Foto, nimm ein neutrales Platzhalterbild aus dem
+  Projekt und sag ihm das.
+- **So erklärst du es dem Kunden, in dieser Reihenfolge:** Erst baust du den Platz für das Bild ein, dann
+  lädst du die Seite hoch, danach kann er das Bild im CRM unter Eigene Website → Inhalte selbst tauschen.
+  Vorher gibt es dort nichts zu tauschen. Einen anderen Ort im CRM dafür nennst du nicht.
+- Bilder in Sammlungen (Angebote, Referenzen) pflegt er dagegen im CRM unter CMS, beim jeweiligen Eintrag.
 
 ## Barrierefreiheit (WCAG 2.1 AA)
 
 Die Bausteine sind darauf ausgelegt. Für eigene Teile der Seite gilt:
 
 - Genau eine `h1` je Seite, darunter `h2`, dann `h3`, ohne eine Ebene zu überspringen.
-- Jede Seite hat einen eigenen `<title>` und eine eigene `meta description` in `<svelte:head>`.
+- Jede Seite hat einen eigenen Titel und eine eigene Beschreibung, gesetzt mit `<Seo>` (`seo.md`).
 - Links und Schaltflächen haben einen Text, der für sich verständlich ist. Nicht „hier klicken“.
 - Alles ist mit der Tastatur erreichbar. Den sichtbaren Fokus nie entfernen (`outline: none` ist verboten).
 - Bedienelemente sind mindestens 44 × 44 Pixel groß.
@@ -89,10 +105,35 @@ Fehler in `npm run check`, statt als toter Link auf der Seite zu landen.
 Links nach außen sind gewöhnliche `<a href="https://…">`. Öffnen sie in einem neuen Tab, dann mit
 `target="_blank" rel="noopener noreferrer"`.
 
+## Karte
+
+Für die Anfahrt gibt es genau eine Karte: `<MapEmbed>` mit OpenStreetMap.
+
+```svelte
+<script lang="ts">
+	import { MapEmbed, Text } from '@dealsystem/site';
+
+	let { data } = $props();
+</script>
+
+<Text key="kontakt.anfahrt.titel" default="Anfahrt" as="h2" label="Überschrift Anfahrt" group="Kontakt" />
+{#if data.site.address}<p>{data.site.address}</p>{/if}
+<MapEmbed lat={53.8676} lon={10.6866} title="Unser Büro in der Lübecker Altstadt" />
+```
+
+- `lat` und `lon` sind die Koordinaten als Dezimalzahlen. Kennst du sie nicht sicher, frag den Kunden: Er
+  findet sie auf openstreetmap.org (Adresse suchen, Rechtsklick auf den Ort, „Adresse anzeigen“). Rate sie
+  nicht; eine Markierung am falschen Haus ist schlimmer als keine Karte.
+- Die Karte lädt erst nach „Karte anzeigen“. Der Link „Karte in OpenStreetMap öffnen“ steht immer da.
+- Die Adresse daneben kommt aus dem CRM (`data.site.address`), nicht aus dem Code.
+- Wünscht der Kunde ausdrücklich Google Maps, nimm `<Embed>` mit der Vorlage `google-maps` und der Adresse
+  aus Google Maps → Teilen → Karte einbetten (`extern.md`). Ohne diese Adresse bleibt es bei `<MapEmbed>`.
+
 ## Fremde Inhalte
 
-Alles, was beim Laden Daten an andere Anbieter schickt (Karten, eingebettete Videos, Bewertungs-Widgets),
-steht in `<ConsentGate category="media">` mit einem `fallback`, der erklärt, was geladen wird. Tracking
-läuft nur über `<Tracking />` in `<ConsentGate category="marketing">`; die Kennungen stehen im CRM.
-Wird ein fremder Dienst gebraucht, den die Sicherheitsregeln der Seite nicht kennen, lässt er sich nicht
-einbinden. Sag das dem Kunden, statt die Regeln zu lockern.
+Videos (YouTube, Vimeo), Google Maps, Terminbuchung, Widgets und fremde Skripte stehen in
+`dealsystem.config.ts` unter `external` und kommen über `<Embed>` oder `<ExternalScript>` auf die Seite. Daraus
+entstehen die Sicherheitsregeln (`csp: dealsystemCsp()` in `svelte.config.js`) und der Cookie-Hinweis; vor der
+Einwilligung lädt nichts davon. Anleitung mit Beispielen: `extern.md`. Ohne Eintrag gehen nur Tracking über
+`<Tracking />` (Kennungen im CRM) und die Karte über `<MapEmbed />`. Lockere nie die Regeln in
+`svelte.config.js`; `npx dealsystem check` lehnt das ab (`SEC-005`, `SEC-008`).

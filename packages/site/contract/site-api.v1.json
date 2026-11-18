@@ -3,7 +3,7 @@
   "info": {
     "title": "DealSystem Site-API (Self-Service-Websites)",
     "version": "1.0.0",
-    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen, Captcha-Challenge holen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`."
+    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen (Sammlungen), Captcha-Challenge holen, Formulare einreichen,\n  Seitenaufrufe zählen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`. `Retry-After` ist freigegeben (`Access-Control-Expose-Headers`); auch ein 429 des\n  IP-Limits vor der Schlüssel-Prüfung trägt den `Origin` zurück, damit der Browser es lesen kann.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`.\n\n## Medien\n\nBilder und Dateien aus dem CMS kommen als `MediaRef` mit **seitenrelativen, dauerhaften** URLs\n(`/_ds/media/<siteId>/<id>/<variante>.<endung>`). Sie werden vom selben Origin wie die Seite ausgeliefert (der\nEdge holt sie aus dem öffentlichen Medien-Speicher) — keine fremden Hosts, keine ablaufenden Links. Öffentlich wird\nnur, was im CMS veröffentlicht ist; nach dem Zurückziehen verschwinden die Dateien."
   },
   "servers": [
     {
@@ -110,7 +110,7 @@
             }
           },
           "429": {
-            "description": "`rate_limited`: zu viele Challenges. Header `Retry-After` (Sekunden).",
+            "description": "`rate_limited`: zu viele Anfragen dieser IP an die Site-API (300/min, vor der Prüfung des Schlüssels) oder zu viele Challenges. Header `Retry-After` (Sekunden).",
             "content": {
               "application/json": {
                 "schema": {
@@ -142,7 +142,7 @@
       "post": {
         "operationId": "submitLead",
         "summary": "Formular einreichen",
-        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Honeypot → Body → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
+        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.\n\n**Attribution** (`attribution`, optional): Fassung 2 (`v: 2`) oder die flache Fassung 1. `clickIds` speichert der Core nur mit `consent.marketing: true`, `visitorId` nur mit `consent.marketing: true`; sonst verwirft er sie vor dem Speichern. Query und Fragment in `landingPath` entfernt der Core. Für Pixel und gtag gilt die Ereignis-ID `lead-<submissionId>` (Deduplizierung mit der serverseitigen Conversion).",
         "tags": [
           "Site-API"
         ],
@@ -215,39 +215,425 @@
                     "description": "Antworten je Feldname. Text, ja/nein (Checkbox) oder Liste (Mehrfachauswahl). Geprüft gegen die Felder, die der Build im Manifest gemeldet hat; unbekannte Felder landen nur in der Notiz, nie in Kontaktfeldern."
                   },
                   "attribution": {
-                    "type": "object",
-                    "properties": {
-                      "utmSource": {
-                        "type": "string",
-                        "maxLength": 200
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "v": {
+                            "type": "number",
+                            "const": 2
+                          },
+                          "first": {
+                            "description": "Erster Besuch (First Touch).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "medium": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "campaign": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "term": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "referrerHost": {
+                                    "description": "Nur der Host, ohne Schema und Pfad.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 255
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "landingPath": {
+                                    "description": "Einstiegsseite (Pfad). Query und Fragment entfernt der Core vor dem Speichern.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "description": "Zeitpunkt des Besuchs (ISO 8601).",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "last": {
+                            "description": "Letzter Besuch vor der Anfrage (Last Touch).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "medium": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "campaign": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "term": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "referrerHost": {
+                                    "description": "Nur der Host, ohne Schema und Pfad.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 255
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "landingPath": {
+                                    "description": "Einstiegsseite (Pfad). Query und Fragment entfernt der Core vor dem Speichern.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "description": "Zeitpunkt des Besuchs (ISO 8601).",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "touches": {
+                            "description": "Anzahl der Besuche bis zur Anfrage.",
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "clickIds": {
+                            "description": "Klick-IDs der Werbenetze. Nur mit `consent.marketing: true` gespeichert.",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "gclid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "gbraid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "wbraid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fbc": {
+                                    "description": "Meta-Format `fb.1.<ms>.<fbclid>`.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fbp": {
+                                    "description": "Wert des Pixel-Cookies `_fbp`.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "msclkid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "visitorId": {
+                            "description": "Zufalls-UUID des Browsers. Nur mit `consent.marketing: true` gespeichert.",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "params": {
+                            "description": "Eigene URL-Parameter des aktuellen Besuchs (z. B. `partner`).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "maxLength": 500
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "consent": {
+                            "type": "object",
+                            "properties": {
+                              "statistics": {
+                                "type": "boolean"
+                              },
+                              "marketing": {
+                                "type": "boolean"
+                              },
+                              "at": {
+                                "description": "Zeitpunkt der Einwilligung (ISO 8601).",
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 64
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "statistics",
+                              "marketing"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Einwilligung des Besuchers aus dem Cookie-Banner. `visitorId` und `clickIds` zählen nur mit `marketing: true` — sonst verwirft der Core sie vor dem Speichern."
+                          }
+                        },
+                        "required": [
+                          "v",
+                          "consent"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Fassung 2: First/Last Touch über Besuche, Klick-IDs, Besuchs-ID, Einwilligung."
                       },
-                      "utmMedium": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "utmCampaign": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "utmTerm": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "utmContent": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "referrerHost": {
-                        "type": "string",
-                        "maxLength": 255
-                      },
-                      "capturedAt": {
-                        "type": "string",
-                        "maxLength": 64
+                      {
+                        "type": "object",
+                        "properties": {
+                          "utmSource": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmMedium": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmCampaign": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmTerm": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmContent": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "referrerHost": {
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          "capturedAt": {
+                            "type": "string",
+                            "maxLength": 64
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Fassung 1 (flach, ältere SDKs): erster Kontaktpunkt des aktuellen Besuchs (UTM, Referrer). Wird weiter angenommen; gespeichert wie Fassung 2 ohne Einwilligung."
                       }
-                    },
-                    "additionalProperties": false,
-                    "description": "Erster Kontaktpunkt (UTM, Referrer). Optional. Das SDK hält ihn bis zur Einwilligung „Marketing“ nur im Arbeitsspeicher der Seite und legt ihn erst danach in `sessionStorage` ab (TDDDG § 25)."
+                    ],
+                    "description": "Herkunft des Leads. Optional. Fassung 2 (`v: 2`) oder die flache Fassung 1. Ohne Einwilligung hält das SDK nur den aktuellen Besuch im Arbeitsspeicher (TDDDG § 25)."
                   },
                   "captcha": {
                     "type": "string",
@@ -279,9 +665,37 @@
                   "nachricht": "Bitte um Rückruf."
                 },
                 "attribution": {
-                  "utmSource": "newsletter",
-                  "referrerHost": "www.google.com",
-                  "capturedAt": "2026-11-17T09:12:00.000Z"
+                  "v": 2,
+                  "first": {
+                    "source": "google",
+                    "medium": "cpc",
+                    "campaign": "herbst",
+                    "referrerHost": "www.google.com",
+                    "landingPath": "/verkaufen",
+                    "at": "2026-11-10T08:03:00.000Z"
+                  },
+                  "last": {
+                    "source": "newsletter",
+                    "medium": "email",
+                    "landingPath": "/",
+                    "at": "2026-11-17T09:12:00.000Z"
+                  },
+                  "touches": 3,
+                  "clickIds": {
+                    "gclid": "EAIaIQobChMI-example",
+                    "fbc": null,
+                    "fbp": null,
+                    "msclkid": null
+                  },
+                  "visitorId": "5b1d7c2e-8f4a-4e3b-9c6d-2a7f1e0b3c4d",
+                  "params": {
+                    "partner": "bank-west"
+                  },
+                  "consent": {
+                    "statistics": true,
+                    "marketing": true,
+                    "at": "2026-11-10T08:03:05.000Z"
+                  }
                 },
                 "captcha": "eyJhbGdvcml0aG0iOiJTSEEtMjU2IiwiY2hhbGxlbmdlIjoi4oCmIiwibnVtYmVyIjo0MjEzNywic2FsdCI6IuKApiIsInNpZ25hdHVyZSI6IuKApiJ9",
                 "website": ""
@@ -382,6 +796,22 @@
               }
             }
           },
+          "413": {
+            "description": "`payload_too_large`: Body größer als 64 KB (angekündigt per `Content-Length` oder beim Lesen erkannt). Gelesen wird erst nach dem Rate-Limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Payload Too Large",
+                  "message": "Die Anfrage ist zu groß.",
+                  "status": 413,
+                  "code": "payload_too_large"
+                }
+              }
+            }
+          },
           "415": {
             "description": "`unsupported_media_type`: `Content-Type` ist nicht `application/json`.",
             "content": {
@@ -415,7 +845,7 @@
             }
           },
           "429": {
-            "description": "`rate_limited`: 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
+            "description": "`rate_limited`: 300/min je IP über die ganze Site-API (vor der Prüfung des Schlüssels), dazu 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite. Header `Retry-After` (Sekunden).",
             "content": {
               "application/json": {
                 "schema": {
@@ -446,6 +876,2185 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/track": {
+      "post": {
+        "operationId": "trackPageview",
+        "summary": "Seitenaufruf zählen",
+        "description": "Zählt einen Seitenaufruf für die Statistik der Website (Besuche, Seiten, Kanäle). Das SDK ruft ihn bei jedem Seitenwechsel auf, mit `landing: true` beim ersten Aufruf eines Besuchs; nur dann zählen `utm` und `referrerHost` (Kanal des Besuchs).\n\n**Datenschutz:** Ohne Einwilligung speichert der Core nur Pfad (ohne Query und Fragment), Kanal, Kampagne und einen täglich wechselnden Hash aus IP und User-Agent; die IP selbst nie. `visitorId` nur mit `consent.marketing: true`; damit verknüpft eine spätere Anfrage die Besuche mit dem Kontakt. Aus der Vorschau wird nichts gezählt (`dryRun`). Bots werden still verworfen (dieselbe Antwort).\n\nBody höchstens 4 KB. Fehler hier darf das SDK ignorieren — nie dem Besucher zeigen.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^\\/",
+                    "description": "`location.pathname`. Query und Fragment entfernt der Core vor dem Speichern."
+                  },
+                  "landing": {
+                    "description": "`true` beim ersten Seitenaufruf eines Besuchs (Einstieg). Nur dann zählen `utm` und `referrerHost`.",
+                    "type": "boolean"
+                  },
+                  "referrerHost": {
+                    "description": "Host von `document.referrer`, nur wenn fremd.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 255
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "utm": {
+                    "description": "UTM-Parameter des aktuellen Besuchs.",
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "medium": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "campaign": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "term": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "content": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visitorId": {
+                    "description": "Nur mit `consent.marketing: true` gespeichert.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "consent": {
+                    "description": "Fehlt = keine Einwilligung.",
+                    "type": "object",
+                    "properties": {
+                      "statistics": {
+                        "type": "boolean"
+                      },
+                      "marketing": {
+                        "type": "boolean"
+                      },
+                      "at": {
+                        "description": "Zeitpunkt der Einwilligung (ISO 8601).",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "statistics",
+                      "marketing"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "path": "/verkaufen",
+                "landing": true,
+                "referrerHost": "www.google.com",
+                "utm": {
+                  "source": "google",
+                  "medium": "cpc",
+                  "campaign": "herbst"
+                },
+                "visitorId": "5b1d7c2e-8f4a-4e3b-9c6d-2a7f1e0b3c4d",
+                "consent": {
+                  "statistics": false,
+                  "marketing": true,
+                  "at": "2026-11-10T08:03:05.000Z"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vorschau: geprüft, nichts gezählt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageviewAccepted"
+                },
+                "example": {
+                  "data": {
+                    "accepted": true,
+                    "dryRun": true
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Gezählt (oder als Bot verworfen).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageviewAccepted"
+                },
+                "example": {
+                  "data": {
+                    "accepted": true
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "400": {
+            "description": "`invalid_json`: Body ist kein JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `funnel_not_found` (nur Leads): Formular unbekannt oder ausgeschaltet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Diese Website ist nicht (mehr) verfügbar.",
+                  "status": 404,
+                  "code": "site_not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET` und `POST`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: Body größer als 4 KB. Gelesen wird erst nach dem Rate-Limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Payload Too Large",
+                  "message": "Die Anfrage ist zu groß.",
+                  "status": 413,
+                  "code": "payload_too_large"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: `Content-Type` ist nicht `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_error`: unbekanntes Feld, Pfad ohne führendes `/`, ungültige `visitorId` …",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Validation Error",
+                  "message": "path: Pfad muss mit / beginnen.",
+                  "status": 422,
+                  "code": "validation_error",
+                  "details": [
+                    {
+                      "path": "path",
+                      "message": "Pfad muss mit / beginnen."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 300/min je IP über die ganze Site-API, dazu 60/min je IP und Seite, 1 200/min und 50 000/Tag je Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Speichern gescheitert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/collections/{collection}": {
+      "get": {
+        "operationId": "listCollection",
+        "summary": "Einträge einer Sammlung",
+        "description": "Veröffentlichte Einträge einer Sammlung der Seite (Schlüssel wie in `dealsystem.config.ts`), mit Medien. Entwürfe kommen nie vor. Gedacht für Seiten, die Inhalte zur Laufzeit nachladen; beim Build liest das SDK den Inhalts-Schnappschuss (gleiche Form je Eintrag).\n\nAbfrage: `limit` 1–100 (Standard 20), `offset` 0–10000, `sort` `-publishedAt` (Standard, neueste zuerst) oder `publishedAt`. Werte außerhalb werden auf die Grenzen gesetzt, ein unbekanntes `sort` gilt als Standard; `meta` nennt die angewandten Werte.\n\n`Cache-Control: public, max-age=60, stale-while-revalidate=300` und `ETag`; mit `If-None-Match` → 304. Rate-Limit: 120/min je IP und Seite, 3 000/min je Seite.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Sammlung.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 10000,
+              "default": 0
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "-publishedAt",
+                "publishedAt"
+              ],
+              "default": "-publishedAt"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Einträge.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionList"
+                },
+                "example": {
+                  "data": [
+                    {
+                      "slug": "altbau-leipzig",
+                      "publishedAt": "2026-11-01T09:00:00.000Z",
+                      "data": {
+                        "titel": "Sanierter Altbau",
+                        "beschreibung": "<p><strong>Drei</strong> Zimmer</p>"
+                      },
+                      "media": {
+                        "bilder": [
+                          {
+                            "id": "7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d",
+                            "kind": "image",
+                            "alt": "Fassade des Altbaus",
+                            "width": 1600,
+                            "height": 1067,
+                            "variants": [
+                              {
+                                "url": "/_ds/media/2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a/7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d/thumb.jpg",
+                                "width": 400,
+                                "format": "jpeg"
+                              },
+                              {
+                                "url": "/_ds/media/2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a/7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d/medium.jpg",
+                                "width": 800,
+                                "format": "jpeg"
+                              },
+                              {
+                                "url": "/_ds/media/2c4e6a8b-0d1f-4a3c-9e5b-7d9f1b3d5f7a/7b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d/large.jpg",
+                                "width": 1600,
+                                "format": "jpeg"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  ],
+                  "meta": {
+                    "total": 1,
+                    "limit": 20,
+                    "offset": 0
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "304": {
+            "description": "Unverändert (`If-None-Match` passt zum `ETag`)."
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `not_found`: Die Seite liest diese Sammlung nicht (laut letztem Build).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Nicht gefunden.",
+                  "status": 404,
+                  "code": "not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 120/min je IP und Seite, 3 000/min je Seite, dazu 300/min je IP über die ganze Site-API. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/collections/{collection}/{slug}": {
+      "get": {
+        "operationId": "getCollectionEntry",
+        "summary": "Ein Eintrag einer Sammlung",
+        "description": "Ein veröffentlichter Eintrag mit Medien. Ein Entwurf oder ein zurückgezogener Eintrag ergibt 404 `not_found`. Caching und Rate-Limit wie bei der Liste.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Sammlung.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "maxLength": 100
+            }
+          },
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "description": "Slug des Eintrags (ab der ersten Veröffentlichung unveränderlich).",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eintrag.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CollectionEntry"
+                },
+                "example": {
+                  "data": {
+                    "slug": "altbau-leipzig",
+                    "publishedAt": "2026-11-01T09:00:00.000Z",
+                    "data": {
+                      "titel": "Sanierter Altbau"
+                    },
+                    "media": {
+                      "bilder": []
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "304": {
+            "description": "Unverändert (`If-None-Match` passt zum `ETag`)."
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `not_found`: Sammlung oder veröffentlichter Eintrag gibt es nicht.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Nicht gefunden.",
+                  "status": 404,
+                  "code": "not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: wie bei der Liste. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/booking/{bookingKey}": {
+      "get": {
+        "operationId": "getBooking",
+        "summary": "Terminart einer Buchung",
+        "description": "Titel, Dauer, Ort-Arten (ohne Adressen), Buchungsfragen und die Zeitzone des Kalenders. Rate-Limit 60/min je IP und Seite (mit `…/slots`).",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bookingKey",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Buchung aus `booking` in `dealsystem.config.ts`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Terminart.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingInfo"
+                },
+                "example": {
+                  "data": {
+                    "key": "erstgespraech",
+                    "label": "Erstgespräch",
+                    "title": "Erstgespräch 30 Minuten",
+                    "description": null,
+                    "durationMinutes": 30,
+                    "timezone": "Europe/Berlin",
+                    "locations": [
+                      {
+                        "type": "google_meet",
+                        "label": "Videoanruf"
+                      }
+                    ],
+                    "questions": [
+                      {
+                        "key": "anliegen",
+                        "label": "Worum geht es?",
+                        "type": "textarea",
+                        "required": true,
+                        "options": null,
+                        "placeholder": null
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Für diese Terminbuchung sind gerade keine Termine verfügbar. Bitte nimm auf anderem Weg Kontakt auf.",
+                  "status": 404,
+                  "code": "booking_unavailable"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 60/min je IP und Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/booking/{bookingKey}/slots": {
+      "get": {
+        "operationId": "listBookingSlots",
+        "summary": "Freie Zeiten",
+        "description": "Freie Zeiten in UTC, berechnet wie auf der Buchungsseite der Termine-App (Arbeitszeiten, Vorlauf, Buchungsfenster, belegte Kalender). `from`/`to` als ISO-Zeitpunkt oder Datum, höchstens 31 Tage je Abfrage; fehlt `to`, sieben Tage; Vergangenheit beginnt jetzt. `timezone` ist die Zeitzone des Kalenders; zum Anzeigen in die Zone des Besuchers umrechnen. Cache 30 s.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bookingKey",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Buchung aus `booking` in `dealsystem.config.ts`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "tz",
+            "in": "query",
+            "required": false,
+            "description": "Nur geprüft (IANA); Zeiten bleiben UTC.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Freie Zeiten.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingSlots"
+                },
+                "example": {
+                  "data": {
+                    "timezone": "Europe/Berlin",
+                    "from": "2026-12-01T00:00:00.000Z",
+                    "to": "2026-12-08T00:00:00.000Z",
+                    "slots": [
+                      {
+                        "start": "2026-12-01T09:00:00.000Z",
+                        "end": "2026-12-01T09:30:00.000Z"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid_range` (Format, Reihenfolge, mehr als 31 Tage) oder `invalid_timezone`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Bad Request",
+                  "message": "Höchstens 31 Tage je Abfrage",
+                  "status": 400,
+                  "code": "invalid_range"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Für diese Terminbuchung sind gerade keine Termine verfügbar. Bitte nimm auf anderem Weg Kontakt auf.",
+                  "status": 404,
+                  "code": "booking_unavailable"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 60/min je IP und Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`slots_unavailable`: Kalender gerade nicht abfragbar.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/booking/{bookingKey}/bookings": {
+      "post": {
+        "operationId": "createBooking",
+        "summary": "Termin buchen",
+        "description": "Bucht die Zeit über den Buchungskern der Termine-App: Kontakt (ein vorhandener wird nur ergänzt, nie überschrieben), Termin im Kalender des Gastgebers, Mail an die Gastgeber, Automationen. Die Bestätigung an den Buchenden kommt von DealSystem („<Firma> über DealSystem“) mit Links zum Absagen und Verschieben. Aus der Vorschau wird geprüft (Antworten, Zeit frei), aber nichts gebucht (`dryRun`, 200).\n\nAblauf: Rate-Limit → Body (höchstens 64 KB) → Bot-Falle → Body-Form → Captcha → Buchung der Seite → Antworten → Doppel-Einsendung (`submissionId`, 24 h) → Buchen. `start` am besten genau aus `…/slots`; Ende = Beginn + Dauer.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bookingKey",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Buchung aus `booking` in `dealsystem.config.ts`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "submissionId": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                    "description": "Vom Client je Buchungsvorgang erzeugt. Dieselbe ID innerhalb von 24 h wird nur einmal gebucht."
+                  },
+                  "start": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$",
+                    "description": "Beginn als ISO-Zeitpunkt mit Zone, am besten genau `start` aus `…/slots` (UTC)."
+                  },
+                  "tz": {
+                    "type": "string",
+                    "maxLength": 64,
+                    "description": "IANA-Zeitzone des Buchenden (z. B. `Europe/Berlin`), für die Zeiten in der Bestätigung."
+                  },
+                  "attendee": {
+                    "type": "object",
+                    "properties": {
+                      "firstName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 100
+                      },
+                      "lastName": {
+                        "type": "string",
+                        "maxLength": 100
+                      },
+                      "email": {
+                        "type": "string",
+                        "maxLength": 254,
+                        "format": "email",
+                        "pattern": "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$"
+                      },
+                      "phone": {
+                        "type": "string",
+                        "maxLength": 50
+                      }
+                    },
+                    "required": [
+                      "firstName",
+                      "email"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "answers": {
+                    "description": "Antworten auf die Buchungsfragen (`questions[].key` aus `GET …/booking/{bookingKey}`).",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 5000
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 500
+                          }
+                        }
+                      ]
+                    }
+                  },
+                  "locationType": {
+                    "description": "Gewählte Ort-Art aus `locations[].type`; fehlt sie, gilt die erste.",
+                    "type": "string",
+                    "enum": [
+                      "google_meet",
+                      "in_person",
+                      "phone",
+                      "link"
+                    ]
+                  },
+                  "attribution": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "v": {
+                            "type": "number",
+                            "const": 2
+                          },
+                          "first": {
+                            "description": "Erster Besuch (First Touch).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "medium": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "campaign": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "term": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "referrerHost": {
+                                    "description": "Nur der Host, ohne Schema und Pfad.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 255
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "landingPath": {
+                                    "description": "Einstiegsseite (Pfad). Query und Fragment entfernt der Core vor dem Speichern.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "description": "Zeitpunkt des Besuchs (ISO 8601).",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "last": {
+                            "description": "Letzter Besuch vor der Anfrage (Last Touch).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "medium": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "campaign": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "term": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "referrerHost": {
+                                    "description": "Nur der Host, ohne Schema und Pfad.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 255
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "landingPath": {
+                                    "description": "Einstiegsseite (Pfad). Query und Fragment entfernt der Core vor dem Speichern.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "description": "Zeitpunkt des Besuchs (ISO 8601).",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "touches": {
+                            "description": "Anzahl der Besuche bis zur Anfrage.",
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "clickIds": {
+                            "description": "Klick-IDs der Werbenetze. Nur mit `consent.marketing: true` gespeichert.",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "gclid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "gbraid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "wbraid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fbc": {
+                                    "description": "Meta-Format `fb.1.<ms>.<fbclid>`.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fbp": {
+                                    "description": "Wert des Pixel-Cookies `_fbp`.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "msclkid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "visitorId": {
+                            "description": "Zufalls-UUID des Browsers. Nur mit `consent.marketing: true` gespeichert.",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "params": {
+                            "description": "Eigene URL-Parameter des aktuellen Besuchs (z. B. `partner`).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "maxLength": 500
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "consent": {
+                            "type": "object",
+                            "properties": {
+                              "statistics": {
+                                "type": "boolean"
+                              },
+                              "marketing": {
+                                "type": "boolean"
+                              },
+                              "at": {
+                                "description": "Zeitpunkt der Einwilligung (ISO 8601).",
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 64
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "statistics",
+                              "marketing"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Einwilligung des Besuchers aus dem Cookie-Banner. `visitorId` und `clickIds` zählen nur mit `marketing: true` — sonst verwirft der Core sie vor dem Speichern."
+                          }
+                        },
+                        "required": [
+                          "v",
+                          "consent"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Fassung 2: First/Last Touch über Besuche, Klick-IDs, Besuchs-ID, Einwilligung."
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "utmSource": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmMedium": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmCampaign": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmTerm": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmContent": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "referrerHost": {
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          "capturedAt": {
+                            "type": "string",
+                            "maxLength": 64
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Fassung 1 (flach, ältere SDKs): erster Kontaktpunkt des aktuellen Besuchs (UTM, Referrer). Wird weiter angenommen; gespeichert wie Fassung 2 ohne Einwilligung."
+                      }
+                    ],
+                    "description": "Herkunft des Leads. Optional. Fassung 2 (`v: 2`) oder die flache Fassung 1. Ohne Einwilligung hält das SDK nur den aktuellen Besuch im Arbeitsspeicher (TDDDG § 25)."
+                  },
+                  "captcha": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 4000,
+                    "description": "Lösung des Captchas wie bei `…/leads` (ALTCHA v3, einmal, 10 Minuten, nur diese Seite)."
+                  },
+                  "website": {
+                    "description": "Bot-Falle: unsichtbares Feld, bleibt leer. Ist es gefüllt, wird nichts gebucht.",
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "submissionId",
+                  "start",
+                  "tz",
+                  "attendee",
+                  "captcha"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "submissionId": "0b7e3c9a-2f4d-4e8b-9a1c-5d6e7f8a9b0c",
+                "start": "2026-12-01T09:00:00.000Z",
+                "tz": "Europe/Berlin",
+                "attendee": {
+                  "firstName": "Erika",
+                  "lastName": "Muster",
+                  "email": "erika@example.de"
+                },
+                "answers": {
+                  "anliegen": "Wohnung bewerten"
+                },
+                "captcha": "eyJhbGdvcml0aG0iOiJTSEEtMjU2In0",
+                "website": ""
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vorschau: geprüft, nichts gebucht.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingCreated"
+                },
+                "example": {
+                  "data": {
+                    "booked": true,
+                    "dryRun": true,
+                    "start": "2026-12-01T09:00:00.000Z",
+                    "end": "2026-12-01T09:30:00.000Z"
+                  }
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Gebucht. Auch bei wiederholter `submissionId` (`duplicate: true`) und gefüllter Bot-Falle.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingCreated"
+                },
+                "example": {
+                  "data": {
+                    "booked": true,
+                    "start": "2026-12-01T09:00:00.000Z",
+                    "end": "2026-12-01T09:30:00.000Z",
+                    "timezone": "Europe/Berlin"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`captcha_failed` (neue Challenge holen) oder `invalid_json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Bad Request",
+                  "message": "Die Sicherheitsprüfung ist fehlgeschlagen. Bitte erneut versuchen.",
+                  "status": 400,
+                  "code": "captcha_failed"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Für diese Terminbuchung sind gerade keine Termine verfügbar. Bitte nimm auf anderem Weg Kontakt auf.",
+                  "status": 404,
+                  "code": "booking_unavailable"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`slot_taken`: die Zeit ist inzwischen vergeben oder nicht (mehr) buchbar — freie Zeiten neu laden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Conflict",
+                  "message": "Diese Zeit ist nicht (mehr) frei. Bitte wähle eine andere.",
+                  "status": 409,
+                  "code": "slot_taken"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: Body größer als 64 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_error` (Body-Form, Antworten auf die Buchungsfragen; `details`) oder `not_qualified` (Antworten passen nicht zu den Regeln der Terminart).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Validation Error",
+                  "message": "answers.anliegen: Pflichtfeld",
+                  "status": 422,
+                  "code": "validation_error",
+                  "details": [
+                    {
+                      "path": "answers.anliegen",
+                      "message": "Pflichtfeld"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 5/min und 30/h je IP und Seite, 60/min und 1 000/Tag je Seite (wie Leads). Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: dieselbe `submissionId` darf erneut gesendet werden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "`captcha_unavailable` oder `slots_unavailable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/appointments/{token}": {
+      "get": {
+        "operationId": "getAppointment",
+        "summary": "Gebuchter Termin",
+        "description": "Termin per Token aus der Bestätigung: Zeit, Zustand, ob er noch geändert werden kann. 10/min je IP.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "Token des Termins aus der Bestätigungs-Mail (32 Hex-Zeichen).",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Termin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                },
+                "example": {
+                  "data": {
+                    "bookingKey": "erstgespraech",
+                    "label": "Erstgespräch",
+                    "start": "2026-12-01T09:00:00.000Z",
+                    "end": "2026-12-01T09:30:00.000Z",
+                    "status": "booked",
+                    "canChange": true
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`appointment_not_found`: Token unbekannt, Termin abgesagt oder nicht von dieser Seite.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Dieser Link ist ungültig oder abgelaufen.",
+                  "status": 404,
+                  "code": "appointment_not_found"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 10/min je IP. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/appointments/{token}/cancel": {
+      "post": {
+        "operationId": "cancelAppointment",
+        "summary": "Termin absagen",
+        "description": "Sagt den Termin ab (Body `{}`), mit Mail an Gast und Gastgeber wie auf der Buchungsseite. Danach gilt der Token nicht mehr. Vorschau: `dryRun`, nichts geändert.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "Token des Termins aus der Bestätigungs-Mail (32 Hex-Zeichen).",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Abgesagt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                },
+                "example": {
+                  "data": {
+                    "bookingKey": "erstgespraech",
+                    "label": "Erstgespräch",
+                    "start": "2026-12-01T09:00:00.000Z",
+                    "end": "2026-12-01T09:30:00.000Z",
+                    "status": "cancelled",
+                    "canChange": false
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`appointment_not_found`: Token unbekannt, Termin abgesagt oder nicht von dieser Seite.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Dieser Link ist ungültig oder abgelaufen.",
+                  "status": 404,
+                  "code": "appointment_not_found"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`appointment_closed`: Termin hat schon begonnen oder ist vorbei.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Gone",
+                  "message": "Dieser Termin kann nicht mehr abgesagt werden.",
+                  "status": 410,
+                  "code": "appointment_closed"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 10/min je IP. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/appointments/{token}/reschedule": {
+      "post": {
+        "operationId": "rescheduleAppointment",
+        "summary": "Termin verschieben",
+        "description": "Verschiebt auf eine freie Zeit aus `…/slots` (volle Prüfung wie beim Buchen), mit Mail an Gast und Gastgeber. Vorschau: `dryRun`.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "description": "Token des Termins aus der Bestätigungs-Mail (32 Hex-Zeichen).",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{32}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(:\\d{2}(\\.\\d{1,3})?)?(Z|[+-]\\d{2}:\\d{2})$",
+                    "description": "Beginn als ISO-Zeitpunkt mit Zone, am besten genau `start` aus `…/slots` (UTC)."
+                  }
+                },
+                "required": [
+                  "start"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "start": "2026-12-02T10:00:00.000Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verschoben.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Appointment"
+                },
+                "example": {
+                  "data": {
+                    "bookingKey": "erstgespraech",
+                    "label": "Erstgespräch",
+                    "start": "2026-12-02T10:00:00.000Z",
+                    "end": "2026-12-02T10:30:00.000Z",
+                    "status": "booked",
+                    "canChange": true,
+                    "token": "9f2c4e6a8b0d1f3a5c7e9b1d3f5a7c9e"
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`appointment_not_found`: Token unbekannt, Termin abgesagt oder nicht von dieser Seite.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Dieser Link ist ungültig oder abgelaufen.",
+                  "status": 404,
+                  "code": "appointment_not_found"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`slot_taken`: die Zeit ist inzwischen vergeben oder nicht (mehr) buchbar — freie Zeiten neu laden.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Conflict",
+                  "message": "Diese Zeit ist nicht (mehr) frei. Bitte wähle eine andere.",
+                  "status": 409,
+                  "code": "slot_taken"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`appointment_closed`: Termin hat schon begonnen oder ist vorbei.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Gone",
+                  "message": "Dieser Termin kann nicht mehr verschoben werden.",
+                  "status": 410,
+                  "code": "appointment_closed"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_error`: `start` fehlt oder ist kein Zeitpunkt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 10/min je IP. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
                 }
               }
             }
@@ -567,10 +3176,19 @@
               "funnel_not_found",
               "method_not_allowed",
               "unsupported_media_type",
+              "payload_too_large",
               "validation_error",
               "rate_limited",
               "internal_error",
-              "captcha_unavailable"
+              "captcha_unavailable",
+              "booking_unavailable",
+              "slot_taken",
+              "slots_unavailable",
+              "invalid_range",
+              "invalid_timezone",
+              "not_qualified",
+              "appointment_not_found",
+              "appointment_closed"
             ]
           },
           "details": {
@@ -630,6 +3248,668 @@
         ],
         "additionalProperties": false,
         "description": "Angenommen. Enthält bewusst keine Kontakt- oder Deal-ID. Nie eine Erfolgsmeldung anzeigen ohne `accepted: true`."
+      },
+      "PageviewAccepted": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              },
+              "dryRun": {
+                "description": "Nur aus der Vorschau: geprüft, aber nichts gezählt.",
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "accepted"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false,
+        "description": "Angenommen (oder als Bot still verworfen). Enthält keine IDs."
+      },
+      "CollectionList": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "publishedAt": {
+                  "type": "string",
+                  "description": "ISO-Zeitpunkt der Veröffentlichung."
+                },
+                "data": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {},
+                  "description": "Werte je Feld des Schemas aus `dealsystem.config.ts`, ohne Medienfelder. Richtext-Felder sind bereinigtes HTML (keine Bilder, keine Einbettungen, keine Stile) — nicht noch einmal als Markdown rendern."
+                },
+                "media": {
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "description": "Kennung des Mediums (stabil)."
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "image",
+                            "video",
+                            "file"
+                          ]
+                        },
+                        "alt": {
+                          "type": "string",
+                          "description": "Alternativtext aus dem CMS. Leer = dekorativ."
+                        },
+                        "width": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ],
+                          "description": "Pixelbreite des größten Bildes; bei Dateien `null`."
+                        },
+                        "height": {
+                          "anyOf": [
+                            {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        },
+                        "variants": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "url": {
+                                "type": "string",
+                                "description": "Dauerhafte, seitenrelative URL `/_ds/media/<siteId>/<id>/<variante>.<endung>` — vom selben Origin wie die Seite."
+                              },
+                              "width": {
+                                "type": "integer",
+                                "minimum": -9007199254740991,
+                                "maximum": 9007199254740991
+                              },
+                              "format": {
+                                "type": "string",
+                                "enum": [
+                                  "jpeg",
+                                  "webp",
+                                  "avif"
+                                ]
+                              }
+                            },
+                            "required": [
+                              "url",
+                              "width",
+                              "format"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "description": "Bildgrößen, nach Breite aufsteigend. Phase 1: JPEG; WebP/AVIF kommen später dazu."
+                        },
+                        "video": {
+                          "description": "Phase 2.",
+                          "type": "object",
+                          "properties": {
+                            "provider": {
+                              "type": "string",
+                              "const": "bunny"
+                            },
+                            "playbackUrl": {
+                              "type": "string"
+                            },
+                            "posterUrl": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "provider",
+                            "playbackUrl",
+                            "posterUrl"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "url": {
+                          "description": "Nur bei `kind: \"file\"`: dauerhafte, seitenrelative URL.",
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "kind",
+                        "alt",
+                        "width",
+                        "height",
+                        "variants"
+                      ],
+                      "additionalProperties": false,
+                      "description": "Öffentliches Medium (Bild, Datei). Keine signierten, ablaufenden Links."
+                    }
+                  },
+                  "description": "Je Bild-, Galerie- oder Dateifeld die Medien in der Reihenfolge des CMS — auch in der Liste."
+                }
+              },
+              "required": [
+                "slug",
+                "publishedAt",
+                "data",
+                "media"
+              ],
+              "additionalProperties": false,
+              "description": "Ein veröffentlichter Eintrag. Entwürfe gibt es hier nie."
+            }
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991,
+                "description": "Zahl der veröffentlichten Einträge der Sammlung."
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "offset": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "total",
+              "limit",
+              "offset"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data",
+          "meta"
+        ],
+        "additionalProperties": false
+      },
+      "CollectionEntry": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "slug": {
+                "type": "string"
+              },
+              "publishedAt": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt der Veröffentlichung."
+              },
+              "data": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {},
+                "description": "Werte je Feld des Schemas aus `dealsystem.config.ts`, ohne Medienfelder. Richtext-Felder sind bereinigtes HTML (keine Bilder, keine Einbettungen, keine Stile) — nicht noch einmal als Markdown rendern."
+              },
+              "media": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string",
+                        "description": "Kennung des Mediums (stabil)."
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "image",
+                          "video",
+                          "file"
+                        ]
+                      },
+                      "alt": {
+                        "type": "string",
+                        "description": "Alternativtext aus dem CMS. Leer = dekorativ."
+                      },
+                      "width": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ],
+                        "description": "Pixelbreite des größten Bildes; bei Dateien `null`."
+                      },
+                      "height": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "variants": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "url": {
+                              "type": "string",
+                              "description": "Dauerhafte, seitenrelative URL `/_ds/media/<siteId>/<id>/<variante>.<endung>` — vom selben Origin wie die Seite."
+                            },
+                            "width": {
+                              "type": "integer",
+                              "minimum": -9007199254740991,
+                              "maximum": 9007199254740991
+                            },
+                            "format": {
+                              "type": "string",
+                              "enum": [
+                                "jpeg",
+                                "webp",
+                                "avif"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "url",
+                            "width",
+                            "format"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "description": "Bildgrößen, nach Breite aufsteigend. Phase 1: JPEG; WebP/AVIF kommen später dazu."
+                      },
+                      "video": {
+                        "description": "Phase 2.",
+                        "type": "object",
+                        "properties": {
+                          "provider": {
+                            "type": "string",
+                            "const": "bunny"
+                          },
+                          "playbackUrl": {
+                            "type": "string"
+                          },
+                          "posterUrl": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "provider",
+                          "playbackUrl",
+                          "posterUrl"
+                        ],
+                        "additionalProperties": false
+                      },
+                      "url": {
+                        "description": "Nur bei `kind: \"file\"`: dauerhafte, seitenrelative URL.",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "kind",
+                      "alt",
+                      "width",
+                      "height",
+                      "variants"
+                    ],
+                    "additionalProperties": false,
+                    "description": "Öffentliches Medium (Bild, Datei). Keine signierten, ablaufenden Links."
+                  }
+                },
+                "description": "Je Bild-, Galerie- oder Dateifeld die Medien in der Reihenfolge des CMS — auch in der Liste."
+              }
+            },
+            "required": [
+              "slug",
+              "publishedAt",
+              "data",
+              "media"
+            ],
+            "additionalProperties": false,
+            "description": "Ein veröffentlichter Eintrag. Entwürfe gibt es hier nie."
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "BookingInfo": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string",
+                "description": "Bezeichnung aus dem Code, sonst der Name der Terminart."
+              },
+              "title": {
+                "type": "string",
+                "description": "Name der Terminart im CRM."
+              },
+              "description": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "durationMinutes": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "timezone": {
+                "type": "string",
+                "description": "IANA-Zeitzone des Kalenders."
+              },
+              "locations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "type": "string",
+                      "enum": [
+                        "google_meet",
+                        "in_person",
+                        "phone",
+                        "link"
+                      ]
+                    },
+                    "label": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "type",
+                    "label"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Ort-Arten ohne Adresse, Telefonnummer oder Link des Gastgebers."
+              },
+              "questions": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "type": {
+                      "type": "string"
+                    },
+                    "required": {
+                      "type": "boolean"
+                    },
+                    "options": {
+                      "anyOf": [
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "placeholder": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "label",
+                    "type",
+                    "required",
+                    "options",
+                    "placeholder"
+                  ],
+                  "additionalProperties": false
+                },
+                "description": "Buchungsfragen; Antworten gehen unter `answers[key]` in die Buchung."
+              }
+            },
+            "required": [
+              "key",
+              "label",
+              "title",
+              "description",
+              "durationMinutes",
+              "timezone",
+              "locations",
+              "questions"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "BookingSlots": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "timezone": {
+                "type": "string",
+                "description": "IANA-Zeitzone des Kalenders (zum Anzeigen umrechnen)."
+              },
+              "from": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+              },
+              "to": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+              },
+              "slots": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "start": {
+                      "type": "string",
+                      "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+                    },
+                    "end": {
+                      "type": "string",
+                      "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+                    }
+                  },
+                  "required": [
+                    "start",
+                    "end"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            },
+            "required": [
+              "timezone",
+              "from",
+              "to",
+              "slots"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "BookingCreated": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "booked": {
+                "type": "boolean",
+                "const": true
+              },
+              "start": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+              },
+              "end": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+              },
+              "timezone": {
+                "description": "Zeitzone des Buchenden, wie gesendet.",
+                "type": "string"
+              },
+              "dryRun": {
+                "description": "Vorschau: geprüft, nichts gebucht.",
+                "type": "boolean",
+                "const": true
+              },
+              "duplicate": {
+                "description": "Dieselbe `submissionId` schon gebucht.",
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "booked"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false,
+        "description": "Gebucht. Keine internen IDs; Absagen und Verschieben über den Link in der Bestätigung."
+      },
+      "Appointment": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "bookingKey": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "start": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+              },
+              "end": {
+                "type": "string",
+                "description": "ISO-Zeitpunkt in UTC (`…Z`)."
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "booked",
+                  "past",
+                  "cancelled"
+                ]
+              },
+              "canChange": {
+                "type": "boolean"
+              },
+              "token": {
+                "description": "Nur nach dem Verschieben: neuer Token (der alte gilt nicht mehr).",
+                "type": "string"
+              },
+              "dryRun": {
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "bookingKey",
+              "label",
+              "start",
+              "end",
+              "status",
+              "canChange"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
       }
     }
   }

@@ -3,7 +3,7 @@
 ## Wer die Texte schreibt
 
 Impressum und Datenschutzerklärung schreibt und verantwortet **der Kunde**. Er trägt sie im CRM unter
-Website → Einstellungen ein. DealSystem liefert keine vorformulierten Rechtstexte, und du schreibst auch
+Eigene Website → Rechtliches ein. DealSystem liefert keine vorformulierten Rechtstexte, und du schreibst auch
 keine: nicht als Vorschlag, nicht als Platzhalter, nicht im Code. Frag der Kunde danach, verweise ihn auf
 seinen Anwalt oder einen Generator seiner Wahl; den fertigen Text fügt er im CRM ein.
 
@@ -30,20 +30,55 @@ Angaben fehlen. Pflicht sind Impressum, Datenschutzerklärung, Firmenname und E-
 Telefonnummer ist freiwillig.
 
 Sag dem Kunden in einem Satz, was fehlt und wo er es einträgt. Nach dem Eintragen: `npx dealsystem sync`,
-neu hochladen.
+neu hochladen, die neue Vorschau zeigen und **erneut fragen**, ob die Seite veröffentlicht werden soll.
+Jede neue Vorschau braucht ein neues ausdrückliches Ja; die frühere Zustimmung galt dem Stand ohne die
+Texte.
 
 ## Firmendaten auf der Seite
 
-Firmenname, Adresse, E-Mail und Telefon aus dem CRM liefert `getSite()` (siehe `inhalte.md`). Das Formular
-zeigt sie von selbst als Ausweichkontakt, wenn das Senden scheitert. Schreibe solche Angaben nie fest in den
-Code: Ändert der Kunde sie im CRM, soll die Seite folgen.
+Firmenname, Adresse, E-Mail und Telefon aus dem CRM liefert `getSite()` (siehe `inhalte.md`). Im Starter
+stehen sie auf jeder Seite als `data.site` bereit:
+
+```svelte
+<script lang="ts">
+	let { data } = $props();
+</script>
+
+{#if data.site.address}<p>{data.site.address}</p>{/if}
+{#if data.site.phone}<p><a href="tel:{data.site.phone.replace(/[^+0-9]/g, '')}">{data.site.phone}</a></p>{/if}
+{#if data.site.email}<p><a href="mailto:{data.site.email}">{data.site.email}</a></p>{/if}
+```
+
+Das Formular zeigt sie von selbst als Ausweichkontakt, wenn das Senden scheitert. Schreibe Adresse,
+Telefonnummer und E-Mail-Adresse nie fest in den Code, auch wenn der Kunde sie dir im Gespräch nennt
+(`CNT-002`): Ändert er sie im CRM, soll die Seite folgen. Bitte ihn stattdessen, sie im CRM unter
+Eigene Website → Rechtliches einzutragen. Ein Feld, das dort leer ist, lässt du auf der Seite weg.
 
 ## Einwilligung
 
 - Vor der Entscheidung des Besuchers lädt die Seite nichts von fremden Servern und speichert nur seine Wahl.
 - „Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Ändere das nicht.
 - Tracking: nur `<ConsentGate category="marketing"><Tracking /></ConsentGate>`. Keine eigenen Pixel-Snippets.
-- Karten, Videos und andere fremde Inhalte: `<ConsentGate category="media">` mit `fallback`.
-- Nutzt die Seite nur manche Zwecke, nenne sie: `<CookieBanner categories={['marketing']} />`.
+- Karte: `<MapEmbed lat={…} lon={…} title="…" />` (OpenStreetMap). Sie fragt selbst nach der Zustimmung.
+- Andere fremde Dienste (YouTube, Vimeo, Google Maps, Widgets, Chat) stehen unter `external` in
+  `dealsystem.config.ts` und kommen über `<Embed>` oder `<ExternalScript>` auf die Seite (`extern.md`). Der
+  Hinweis nennt sie je Zweck mit Anbieter und Datenschutz-Link. Der Kunde muss sie in seiner
+  Datenschutzerklärung aufführen; sag ihm das, den Text schreibst du nicht.
+- Der Hinweis erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht: Tracking-Kennungen im
+  CRM, einen Dienst unter `external`, `<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters. Sonst bleibt er unsichtbar, und
+  „Cookie-Einstellungen“ fehlt ebenfalls; es gibt dann nichts einzuwilligen. `<CookieBanner />` und
+  `<SiteFooterLegal />` bleiben trotzdem im Layout. Ein `<ConsentGate category="marketing">` zählt nur mit
+  Tracking-Kennung oder einem Dienst mit `category: 'marketing'` unter `external`.
+- Gefragt wird nur nach den Zwecken, die die Seite braucht. Fest vorgeben: `<CookieBanner categories={['marketing']} />`.
+- **Kampagnen und Seitenaufrufe erfasst das SDK selbst** (`<SiteHead>`, `<LeadForm>`). Bau nichts davon nach:
+  kein eigenes Auslesen von `utm_*`, `gclid` oder `fbclid`, kein eigener Speicher, keine eigenen Pixel-Ereignisse.
+  - Ohne Einwilligung: nur der aktuelle Besuch (UTM, fremder Referrer, Einstiegsseite, eigene URL-Parameter), nur
+    im Arbeitsspeicher. Er geht mit der Anfrage ins CRM. Seitenaufrufe zählt das CRM anonym.
+  - Mit Einwilligung „Marketing“ zusätzlich im Browser (`localStorage` `ds-attr`): erster und letzter Besuch,
+    Klick-IDs (`gclid`, `gbraid`, `wbraid`, `fbclid`, `msclkid`, `_fbp`, 90 Tage) und eine Besuchs-ID (13 Monate).
+    Ein Widerruf löscht das wieder.
+  - Nach einer angenommenen Anfrage meldet das SDK `Lead` an das Meta Pixel und `generate_lead` an Google, mit
+    derselben Ereignis-ID wie die serverseitige Meldung des CRM (`lead-<submissionId>`); so zählt sie einmal.
+  - Eigene URL-Parameter (z. B. `?partner=…`) liest `getCampaignParam('partner')` (`komponenten.md`).
 - Das Formular schützt eine Rechenaufgabe im Hintergrund (ALTCHA) vor Missbrauch. Sie kommt von
   DealSystem selbst, setzt kein Cookie und braucht keine Einwilligung.

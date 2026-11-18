@@ -1,11 +1,15 @@
 // Regelkatalog von `dealsystem check` (Konzept Abschnitt 7, „Regeln von dealsystem check“).
 // Neue Regeln kommen zuerst als Warnung und werden frühestens mit der nächsten Minor-Version zum Fehler,
-// sonst scheitert der Inhalts-Rebuild einer unveränderten Seite. Jede Änderung an Regeln oder
-// Schweregraden erhöht `RULE_SET_VERSION`.
+// sonst scheitert der Inhalts-Rebuild einer unveränderten Seite. `RULE_SET_VERSION` steigt, sobald sich
+// das Urteil ändern kann: eine neue oder geänderte Fehler-Regel, ein geänderter Schweregrad. Der Core gibt
+// die Version dem Build-Host vor (`SELF_SITE_RULE_SET_VERSION`); weicht sie ab, scheitert jeder Build.
+// Eine neue Warnung lässt das Urteil gleich und erhöht die Version deshalb nicht (CNT-003).
 
 import type { RuleMeta } from './types.js';
 
-export const RULE_SET_VERSION = '1';
+// 3: fremde Dienste über `external` und `dealsystemCsp()` (Phase 2, Paket A). Verschärfungen gelten als Fehler nur
+// für Seiten mit `dealsystemCsp()`; Seiten mit der festen CSP bis SDK 0.1 bekommen sie als Warnung.
+export const RULE_SET_VERSION = '3';
 
 /** Bereich von `@dealsystem/site`, den dieser Regelkatalog kennt. Der Build-Host gibt seinen eigenen mit. */
 export const DEFAULT_SDK_RANGE = '>=0.1.0 <2.0.0';
@@ -61,7 +65,7 @@ export const RULES: readonly RuleMeta[] = [
 		severity: 'error',
 		stages: ['source'],
 		title: 'Vite-Plugin `dealsystem(site)` vor `sveltekit()` in vite.config.ts',
-		fix: "Schreibe in vite.config.ts `plugins: [dealsystem(site), sveltekit()]` mit `import { dealsystem } from '@dealsystem/site/vite'` und `import site from './dealsystem.config'`.",
+		fix: "Schreibe in vite.config.ts `plugins: [dealsystem(site), sveltekit()]` mit `import { dealsystem } from '@dealsystem/site/vite'` und `import site from './dealsystem.config.ts'`.",
 	},
 	{
 		id: 'STR-006',
@@ -125,30 +129,65 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'SEC-005',
 		severity: 'error',
 		stages: ['source'],
-		title: '`kit.csp` wie im Starter (Modus `hash`, Direktiven nicht gelockert)',
-		fix: 'Stelle den Abschnitt `csp` in svelte.config.js wieder her: `npx dealsystem sync --fix-config`.',
+		title:
+			'`kit.csp: dealsystemCsp()` (oder die feste Liste bis SDK 0.1); `external` in dealsystem.config.ts gültig: nur `https://host`, Platzhalter nicht in `script`/`frame`, kein `unsafe-eval`',
+		fix: 'Schreibe in svelte.config.js `csp: dealsystemCsp()` (`npx dealsystem sync --fix-config`) und trage fremde Hosts unter `external` in dealsystem.config.ts ein (extern.md).',
 	},
 	{
 		id: 'SEC-006',
 		severity: 'error',
 		stages: ['source'],
-		title: 'kein `eval`, `new Function`, kein Inline-Event-Handler als Zeichenkette',
-		fix: 'Entferne den Fund; die Seite läuft mit einer strengen Content-Security-Policy.',
+		title:
+			'kein `eval`, `new Function`, WebAssembly, kein Inline-Event-Handler als Zeichenkette, kein `<script>` ohne `src`, kein eigener Inhaltsblock `ds-content`',
+		fix: 'Entferne den Fund; die Seite läuft mit einer strengen Content-Security-Policy. Eigenen Code legst du als Datei in `static/scripts/` ab und lädst ihn mit `<ExternalScript>` (extern.md).',
 	},
 	{
 		id: 'SEC-007',
 		severity: 'error',
 		stages: ['source'],
-		title: 'Formulare nur über `<LeadForm>`, kein eigenes `<form>`',
-		fix: 'Ersetze das `<form>` durch `<LeadForm funnel="…" />` und lege das Formular in dealsystem.config.ts unter `funnels` an.',
+		title:
+			'eigenes `<form>` mit `onsubmit`, ohne `action` oder nur auf dieselbe Seite/`#`; kein `method="post"` mit `action`, kein fremdes `target`',
+		fix: 'Lass `action` weg, schreib `<form onsubmit={senden}>` und sende in `senden` mit `createLeadClient()`; oder nimm `<LeadForm funnel="…" />` mit dem Formular unter `funnels` in dealsystem.config.ts.',
+	},
+	{
+		id: 'SEC-008',
+		severity: 'error',
+		stages: ['source', 'output'],
+		title:
+			'fremde Rahmen und Skripte nur über `<Embed>`/`<ExternalScript>` mit Eintrag unter `external`; CSP der fertigen Seite = erwartete CSP',
+		fix: 'Trage den Dienst unter `external` in dealsystem.config.ts ein und binde ihn mit `<Embed>` (Video, Karte, Termin) oder `<ExternalScript>` (Skript) ein. Anleitung: extern.md. Lockere nicht die Regeln in svelte.config.js.',
+	},
+	{
+		id: 'SEC-009',
+		severity: 'error',
+		stages: ['source', 'output'],
+		title: 'kein Passwortfeld (`<input type="password">`)',
+		fix: 'Entferne das Passwortfeld. Eine Seite auf DealSystem hat keine Anmeldung.',
+	},
+	{
+		id: 'SEC-010',
+		severity: 'error',
+		stages: [],
+		title:
+			'deklarierte fremde Hosts sind nicht als gefährlich gemeldet (Prüfung durch DealSystem beim Hochladen)',
+		fix: 'Entferne den Dienst aus `external` in dealsystem.config.ts und aus der Seite. Ein gemeldeter Host schadet den Besuchern.',
+	},
+	{
+		id: 'SEC-011',
+		severity: 'error',
+		stages: ['output'],
+		title:
+			'`<ExternalScript>` nur auf Seiten mit eigener Domain, solange `dealsystem.site` nicht auf der Public Suffix List steht (nur Build-Host)',
+		fix: 'Verbinde eine eigene Domain (Eigene Website → Domains) oder nimm `<ExternalScript>` heraus. Videos über `<Embed>` und `<Tracking />` gehen auch ohne.',
 	},
 	// --------------------------------------------------------------- Datenschutz
 	{
 		id: 'PRV-001',
 		severity: 'error',
 		stages: ['source', 'output'],
-		title: 'keine externen Skripte, Styles, Iframes, Schriften, Bilder außerhalb `<ConsentGate>`',
-		fix: 'Lege die Datei lokal ab (Ordner `static/` oder Import) oder umschließe das Element mit `<ConsentGate category="…">`.',
+		title:
+			'keine externen Skripte, Styles, Iframes, Schriften, Bilder vor der Einwilligung (außerhalb `<Embed>`, `<ExternalScript>`, `<ConsentGate>`)',
+		fix: 'Lege die Datei lokal ab (Ordner `static/` oder Import). Fremde Dienste bindest du mit `<Embed>` oder `<ExternalScript>` ein (extern.md).',
 	},
 	{
 		id: 'PRV-002',
@@ -161,8 +200,9 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'PRV-003',
 		severity: 'error',
 		stages: ['source'],
-		title: 'Tracking nur über `<Tracking>` in `<ConsentGate>`, keine eigenen Pixel-Snippets',
-		fix: 'Entferne das Snippet. Trage die ID im CRM ein und nutze `<ConsentGate category="marketing"><Tracking /></ConsentGate>`.',
+		title:
+			'Tracking über `<Tracking>` oder als Datei in `static/`, geladen von `<ExternalScript>` mit Kategorie `statistics`/`marketing`',
+		fix: 'Google Tag und Meta Pixel: Kennung im CRM eintragen und `<ConsentGate category="marketing"><Tracking /></ConsentGate>`. Andere Snippets als Datei unter `static/scripts/` mit `<ExternalScript>` laden (extern.md).',
 	},
 	{
 		id: 'PRV-004',
@@ -184,6 +224,13 @@ export const RULES: readonly RuleMeta[] = [
 		stages: ['source'],
 		title: 'kein eigener Zugriff auf `document.cookie`, `localStorage`, `sessionStorage`',
 		fix: 'Wenn das Speichern nicht technisch nötig ist, gehört es hinter `<ConsentGate>`.',
+	},
+	{
+		id: 'PRV-008',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'eigener fremder Dienst unter `external` nennt `provider`, `purpose` und `privacyUrl`',
+		fix: 'Ergänze Anbieter mit Sitz, Zweck und Datenschutz-Link: Der Cookie-Hinweis zeigt sie dem Besucher.',
 	},
 	// ------------------------------------------------------------ Barrierefreiheit
 	{
@@ -290,7 +337,7 @@ export const RULES: readonly RuleMeta[] = [
 		severity: 'error',
 		stages: ['source'],
 		title: 'Schlüssel-Formate (Slots, Formulare, Sammlungen), kein Slot-Schlüssel mit zwei Typen',
-		fix: 'Erlaubt sind Kleinbuchstaben, Ziffern und Bindestriche; Slots mit Punkten, z. B. `start.hero.titel`.',
+		fix: 'Formular- und Sammlungs-Schlüssel: Kleinbuchstaben, Ziffern und Bindestriche, z. B. `kontakt`. Slot-Schlüssel: zwei bis fünf Teile mit Punkten, der erste ohne Bindestrich, z. B. `ueberuns.team.titel` für die Seite „Über uns“.',
 	},
 	{
 		id: 'QUA-007',
@@ -299,13 +346,57 @@ export const RULES: readonly RuleMeta[] = [
 		title: 'AGENTS.md-Block passt zur installierten SDK-Version',
 		fix: 'Führe `npx dealsystem sync` aus, damit die Agenten-Anleitung zur SDK-Version passt.',
 	},
+	{
+		id: 'QUA-009',
+		severity: 'warning',
+		stages: ['source'],
+		title: '`<Zeitfenster>`: `ab`/`bis` als feste Zeitpunkte mit Zeitzone, `ab` vor `bis`',
+		fix: 'Schreibe den Zeitpunkt als feste Zeichenkette mit Zeitzone, z. B. `bis="2026-12-01T18:00:00+01:00"` (Winterzeit, Sommerzeit `+02:00`). Keine Variable, sonst kann DealSystem zur Grenze nicht neu bauen.',
+	},
+	{
+		id: 'QUA-008',
+		severity: 'warning',
+		stages: ['source'],
+		title:
+			'eigene Oberfläche mit `createLeadClient`: Ausweichkontakt (`fallback`) und Bot-Falle (`<LeadHoneypot>`)',
+		fix: 'Zeig bei jedem Fehler außer `validation` `result.message` und den Ausweichkontakt `result.fallback` (Telefon, E-Mail) und setz `<LeadHoneypot client={lead} />` in die Oberfläche. Vorlage: Skill `funnel-mehrstufig`.',
+	},
+	{
+		id: 'QUA-010',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'höchstens 50 Felder je Formular (mehr übernimmt das CRM nicht)',
+		fix: 'Teile das Formular auf oder streiche Felder. Felder ab dem 51. kommen nur als Notiz an, ohne Prüfung und ohne Zuordnung im CRM. Versteckte Felder zählen mit.',
+	},
 	// ------------------------------------------------------------------ Inhalte
 	{
 		id: 'CNT-001',
 		severity: 'warning',
 		stages: ['source'],
-		title: 'längere Texte als Content-Slot statt fest im Code',
-		fix: 'Lege den Text als Slot an, damit er im CRM änderbar ist: `<Text key="seite.bereich.name" default="…" />` (mehrzeilig: `multiline`, mit Formatierung: `<RichText>`).',
+		title: 'Überschriften und längere Texte als Content-Slot statt fest im Code',
+		fix: 'Lege den Text als Slot an, damit er im CRM änderbar ist: `<Text key="seite.bereich.name" default="…" />` (Überschrift: `as="h2"`, mehrzeilig: `multiline`, mit Formatierung: `<RichText>`).',
+	},
+	{
+		id: 'CNT-002',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'Adresse, Telefonnummer und E-Mail-Adresse kommen aus dem CRM, nicht aus dem Code',
+		fix: 'Nimm die Angabe aus dem CRM: `getSite()` aus `@dealsystem/site/content` liefert `company`, `address`, `email` und `phone` (im Starter als `data.site` auf jeder Seite). Gib sie mit `{data.site.address}` aus. Ändert der Kunde sie im CRM, folgt die Seite.',
+	},
+	{
+		id: 'CNT-003',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'kein `\\n` im `default` von `<Text>`/`<RichText>`: im Attribut ist es kein Zeilenumbruch',
+		fix: "Setz den Text in geschweifte Klammern, dann ist `\\n` ein echter Zeilenumbruch: `default={'1. Erster Schritt\\n2. Zweiter Schritt'}`. Leerzeile (`\\n\\n`) = neuer Absatz. Bei `<Text>` zusätzlich `multiline`. Beispiele: komponenten.md, `<Text>` und `<RichText>`.",
+	},
+	{
+		id: 'CNT-004',
+		severity: 'warning',
+		stages: ['source'],
+		title:
+			'Titel und Beschreibung über `<Seo>`, Favicon und `noindex` über `<SiteHead>`, damit „Google und Teilen“ im CRM wirkt',
+		fix: 'Ersetze `<title>` und `<meta name="description">` in `<svelte:head>` durch `<Seo title="…" description="…" />` (Import aus `@dealsystem/site`). Ins Haupt-Layout gehört `<SiteHead favicon="/favicon.svg" />`, der Favicon-Link nicht nach `src/app.html`.',
 	},
 	// ------------------------------------------------- Meldungen des Build-Hosts
 	{

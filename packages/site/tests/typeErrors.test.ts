@@ -47,6 +47,8 @@ describe('Typfehler im Markup', () => {
 			['<ConsentGate category="werbung">', /"werbung\\"' is not assignable/],
 			['<MediaVideo media={null} />', /Property 'title' is missing/],
 			['<Text key="start.titel" />', /Property 'default' is missing/],
+			['<Embed id="vidoe"', /"vidoe\\"' is not assignable to type '\\"video/],
+			['<Embed id="video" src="https://youtu.be/aqz-KE-bpKQ" />', /Property 'title' is missing/],
 		];
 		for (const [markup, message] of expected) {
 			const line = lineOf(markup);
@@ -57,6 +59,6 @@ describe('Typfehler im Markup', () => {
 		}
 		// Die gültige Zeile und alles außerhalb der Datei bleiben fehlerfrei.
 		expect(errors).toHaveLength(expected.length);
-		expect(output).toMatch(/COMPLETED \d+ FILES 9 ERRORS/);
+		expect(output).toMatch(/COMPLETED \d+ FILES 11 ERRORS/);
 	}, 60_000);
 });
