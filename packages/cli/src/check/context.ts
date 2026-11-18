@@ -195,7 +195,12 @@ export class OutputContext extends BaseContext {
 	/** Erwartete CSP der fertigen Seiten; `null`, wenn die Deklaration unbekannt ist. */
 	expectedCsp(apiOrigin: string): { csp: Record<string, string[]>; strict: boolean } | null {
 		if (!this.declared) return null;
-		return { csp: buildCspDirectives(this.declared.external, apiOrigin), strict: this.declared.strict };
+		// Ob im CRM eine Google-Ads-Kennung steht, weiß die Prüfung nicht: Die festen Ads-Hosts von Google
+		// (`GOOGLE_ADS_CSP`, nur über `<Tracking>` nach Einwilligung) sind deshalb erlaubt, aber nicht verlangt.
+		return {
+			csp: buildCspDirectives(this.declared.external, apiOrigin, { googleAds: true }),
+			strict: this.declared.strict,
+		};
 	}
 
 	html(path: string): HtmlDoc {

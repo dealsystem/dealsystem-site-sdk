@@ -1,5 +1,5 @@
 // `external` in dealsystem.config.ts: Prüfung, Vorlagen, CSP aus der Deklaration, Manifest.
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { validateSiteConfig } from '../src/lib/config/index.js';
@@ -233,6 +233,66 @@ describe('CSP aus der Deklaration', () => {
 			process.chdir(cwd);
 			rmSync(dir, { recursive: true, force: true });
 		}
+	});
+
+	describe('Google Ads (Kennung AW-… im CRM)', () => {
+		const run = (googleTagId: string | null, env?: string) => {
+			const dir = mkdtempSync(join(tmpdir(), 'ds-csp-'));
+			const cwd = process.cwd();
+			const before = process.env.DEALSYSTEM_CONTENT_FILE;
+			try {
+				writeFileSync(join(dir, 'package.json'), '{}');
+				writeFileSync(join(dir, 'dealsystem.config.ts'), "export default defineSite({ siteId: '' });\n");
+				const snapshot = JSON.stringify({ tracking: { metaPixelId: null, googleTagId } });
+				if (env) {
+					writeFileSync(join(dir, env), snapshot);
+					process.env.DEALSYSTEM_CONTENT_FILE = join(dir, env);
+				} else {
+					mkdirSync(join(dir, '.dealsystem'));
+					writeFileSync(join(dir, '.dealsystem/content.json'), snapshot);
+				}
+				process.chdir(dir);
+				return dealsystemCsp().directives!;
+			} finally {
+				process.chdir(cwd);
+				if (before === undefined) delete process.env.DEALSYSTEM_CONTENT_FILE;
+				else process.env.DEALSYSTEM_CONTENT_FILE = before;
+				rmSync(dir, { recursive: true, force: true });
+			}
+		};
+
+		it('mit AW-Kennung: Hosts für Ads-Conversions in script-, img-, connect- und frame-src', () => {
+			const d = run('AW-123456789');
+			expect(d['script-src']).toEqual(expect.arrayContaining(['https://www.googleadservices.com']));
+			expect(d['img-src']).toEqual(expect.arrayContaining(['https://googleads.g.doubleclick.net']));
+			expect(d['connect-src']).toEqual(
+				expect.arrayContaining([
+					'https://www.googleadservices.com',
+					'https://googleads.g.doubleclick.net',
+					'https://ad.doubleclick.net',
+				]),
+			);
+			expect(d['frame-src']).toContain('https://www.googletagmanager.com');
+		});
+
+		it('auch über DEALSYSTEM_CONTENT_FILE (Build-Host)', () => {
+			expect(run('AW-123456789', 'schnappschuss.json')['connect-src']).toContain(
+				'https://googleads.g.doubleclick.net',
+			);
+		});
+
+		it('ohne AW-Kennung (G-…, keine, keine Datei): keine Ads-Hosts', () => {
+			for (const id of ['G-ABCDEF1234', null]) {
+				const d = run(id);
+				const all = Object.values(d).flat();
+				expect(all).not.toContain('https://www.googleadservices.com');
+				expect(all).not.toContain('https://googleads.g.doubleclick.net');
+				expect(d['frame-src']).not.toContain('https://www.googletagmanager.com');
+			}
+			expect(Object.values(buildCspDirectives([], 'https://app.dealsystem.io')).flat()).not.toContain(
+				'https://www.googleadservices.com',
+			);
+		});
 	});
 
 	it('nicht feste Werte kommen nicht in die CSP', () => {

@@ -360,4 +360,11 @@ export {
 	type PresetContractEntry,
 	type PresetDef,
 } from '../external/presets.js';
-export { CSP_DIRECTIVE, MAP_EMBED_ORIGIN, TRACKING_CSP, buildCspDirectives } from '../external/csp.js';
+export {
+	CSP_DIRECTIVE,
+	GOOGLE_ADS_CSP,
+	MAP_EMBED_ORIGIN,
+	TRACKING_CSP,
+	buildCspDirectives,
+	isGoogleAdsId,
+} from '../external/csp.js';

@@ -28,6 +28,37 @@ export const TRACKING_CSP: Readonly<Record<string, readonly string[]>> = {
 	],
 };
 
+/**
+ * Zusätzliche Hosts für Google Ads (Conversion, Remarketing, Conversion Linker), nur wenn im CRM eine Kennung
+ * `AW-…` steht. Laut Google: https://developers.google.com/tag-platform/security/guides/csp (Abschnitt „Google Ads“,
+ * Stand 10.11.2026). `www.google.<TLD>` lässt sich in CSP nicht mit Platzhalter schreiben; aufgenommen ist
+ * `www.google.de` für deutsche Besucher. Geladen wird weiter nur über `<Tracking>` nach der Einwilligung „Marketing“.
+ */
+export const GOOGLE_ADS_CSP: Readonly<Record<string, readonly string[]>> = {
+	'script-src': ['https://www.googleadservices.com', 'https://www.google.com'],
+	'img-src': [
+		'https://www.googleadservices.com',
+		'https://googleads.g.doubleclick.net',
+		'https://pagead2.googlesyndication.com',
+		'https://www.google.com',
+		'https://www.google.de',
+	],
+	'connect-src': [
+		'https://www.googleadservices.com',
+		'https://googleads.g.doubleclick.net',
+		'https://pagead2.googlesyndication.com',
+		'https://www.google.com',
+		'https://www.google.de',
+		'https://ad.doubleclick.net',
+	],
+	'frame-src': ['https://www.googletagmanager.com'],
+};
+
+/** Ist die Google-Kennung aus dem CRM eine von Google Ads (`AW-…`)? */
+export function isGoogleAdsId(id: string | null | undefined): boolean {
+	return typeof id === 'string' && /^AW-[A-Z0-9-]{4,30}$/i.test(id.trim());
+}
+
 /** Herkunft der Karte von `<MapEmbed>` (OpenStreetMap, nach Einwilligung). */
 export const MAP_EMBED_ORIGIN = 'https://www.openstreetmap.org';
 
@@ -59,8 +90,17 @@ function baseDirectives(apiOrigin: string): Record<string, string[]> {
 export function buildCspDirectives(
 	external: readonly ResolvedExternal[],
 	apiOrigin: string,
+	/** `googleAds`: Kennung `AW-…` im CRM, dann kommen die Hosts aus `GOOGLE_ADS_CSP` dazu. */
+	options: { googleAds?: boolean } = {},
 ): Record<string, string[]> {
 	const directives = baseDirectives(apiOrigin);
+	if (options.googleAds) {
+		for (const [name, hosts] of Object.entries(GOOGLE_ADS_CSP)) {
+			const list = directives[name] ?? ['self'];
+			for (const host of hosts) if (!list.includes(host)) list.push(host);
+			directives[name] = list;
+		}
+	}
 	for (const directive of EXTERNAL_DIRECTIVES) {
 		const name = CSP_DIRECTIVE[directive];
 		const declared = [...new Set(external.flatMap((e) => e.hosts[directive]))].sort();

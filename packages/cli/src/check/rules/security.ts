@@ -811,7 +811,7 @@ const sec008Output = outputRule('SEC-008', (ctx) => {
 	const api = externalUrl(ctx.options.apiUrl);
 	// Unbekannte Deklaration (Build-Host, älteres SDK ohne `external` im Manifest): gegen die Basis, nur als Warnung.
 	const known = ctx.expectedCsp(api?.origin ?? SITE_API_SOURCE);
-	const expected = known?.csp ?? buildCspDirectives([], api?.origin ?? SITE_API_SOURCE);
+	const expected = known?.csp ?? buildCspDirectives([], api?.origin ?? SITE_API_SOURCE, { googleAds: true });
 	const looserSeverity = known?.strict ? 'error' : 'warning';
 	let apiReported = false;
 	for (const path of ctx.pages()) {
