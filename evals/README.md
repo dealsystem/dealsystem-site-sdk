@@ -1,6 +1,6 @@
 # Evals: Laien-Prompts
 
-Fünf Aufträge, wie ein Kunde ohne technische Vorkenntnisse sie seinem KI-Agenten gibt. Sie messen, ob der
+Acht Aufträge, wie ein Kunde ohne technische Vorkenntnisse sie seinem KI-Agenten gibt. Sie messen, ob der
 Agent mit Starter, `AGENTS.md`, Skills und den Anleitungen im Paket ohne Hilfe zu einer Seite kommt, die
 DealSystem annimmt.
 
@@ -10,14 +10,14 @@ Die Dateien sind die Vorlage für die Eval-Suite. Ausgeführt werden sie noch ni
 
 Jede Datei unter `prompts/` hat einen Kopf (YAML) und darunter den Auftrag im Wortlaut des Kunden.
 
-| Feld                     | Bedeutung                                                                                     |
-| ------------------------ | --------------------------------------------------------------------------------------------- |
-| `id`                     | Kennung des Falls                                                                             |
-| `start`                  | Ausgangslage: `leer` (leerer Ordner) oder `starter` (frisch angelegter, angemeldeter Starter) |
-| `antworten`              | Was der gespielte Kunde auf Rückfragen sagt. Mehr weiß er nicht                               |
-| `erwartet`               | Prüfbare Ergebnisse. Alle müssen zutreffen                                                    |
-| `verboten`               | Was nicht geschehen darf                                                                      |
-| `hoechstens_rueckfragen` | Obergrenze der Rückfragen an den Kunden                                                       |
+| Feld                     | Bedeutung                                                                                                                                                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`                     | Kennung des Falls                                                                                                                                                                                                            |
+| `start`                  | Ausgangslage: `leer` (leerer Ordner), `starter` (frisch angelegter, angemeldeter Starter) oder `starter-webinar` (Starter mit Abschnitt „Webinar am 1. Dezember“: Text und `<LeadForm funnel="webinar">` auf der Startseite) |
+| `antworten`              | Was der gespielte Kunde auf Rückfragen sagt. Mehr weiß er nicht                                                                                                                                                              |
+| `erwartet`               | Prüfbare Ergebnisse. Alle müssen zutreffen                                                                                                                                                                                   |
+| `verboten`               | Was nicht geschehen darf                                                                                                                                                                                                     |
+| `hoechstens_rueckfragen` | Obergrenze der Rückfragen an den Kunden                                                                                                                                                                                      |
 
 ## Durchführung
 
@@ -32,8 +32,9 @@ Jede Datei unter `prompts/` hat einen Kopf (YAML) und darunter den Auftrag im Wo
      Befehle)
    - Rückfragen zählen
 
-Fall 01 beginnt im leeren Ordner. Sein Auftrag enthält den Befehl, den das CRM dem Kunden zum Kopieren gibt;
-ohne ihn kennt ein Agent DealSystem nicht.
+Fall 01 beginnt im leeren Ordner. Sein Auftrag ist der Satz, den das CRM dem Kunden zum Kopieren gibt: ein Link
+auf `/website-start` (Core: `selfSiteAgentPrompt`). Ohne ihn kennt ein Agent DealSystem nicht. In einer
+Testumgebung zeigt der Link auf den Test-Core, nie auf Production.
 
 Ein Fall ist bestanden, wenn die Prüfung grün ist, alle erwarteten Ergebnisse zutreffen, nichts Verbotenes
 geschah und die Zahl der Rückfragen eingehalten ist.
