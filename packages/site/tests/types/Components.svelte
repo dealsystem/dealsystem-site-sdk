@@ -14,6 +14,8 @@ Jedes `@ts-expect-error` muss einen echten Fehler treffen.
 	import {
 		CollectionList,
 		ConsentGate,
+		Embed,
+		ExternalScript,
 		LeadForm,
 		MediaImage,
 		MediaVideo,
@@ -81,3 +83,5 @@ Jedes `@ts-expect-error` muss einen echten Fehler treffen.
 	{/snippet}
 </CollectionList>
 <ConsentGate category="marketing">Inhalt</ConsentGate>
+<Embed id="video" src="https://youtu.be/aqz-KE-bpKQ" title="Rundgang" />
+<ExternalScript id="video" src="/scripts/x.js" />

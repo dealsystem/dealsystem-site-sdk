@@ -21,6 +21,16 @@ const MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
 
 type Granted = Record<ConsentCategory, boolean>;
 
+/** Ein Anbieter, den der Cookie-Hinweis unter seinem Zweck nennt. */
+export interface ConsentProvider {
+	/** Name mit Sitz, z. B. „Google Ireland Limited, Irland (YouTube)“. */
+	name: string;
+	/** Zweck in einem Satz. */
+	purpose: string | null;
+	/** Datenschutzerklärung des Anbieters. */
+	privacyUrl: string | null;
+}
+
 const NONE: Granted = { statistics: false, marketing: false, media: false };
 
 const state = $state({
@@ -31,6 +41,8 @@ const state = $state({
 	settingsOpen: false,
 	/** Wie viele Bausteine auf der Seite gerade eine Einwilligung je Zweck brauchen. */
 	required: { statistics: 0, marketing: 0, media: 0 } as Record<ConsentCategory, number>,
+	/** Anbieter, die Bausteine auf der Seite gerade melden (z. B. OpenStreetMap über `<MapEmbed>`), mit Zähler. */
+	providers: [] as { category: ConsentCategory; provider: ConsentProvider; count: number }[],
 });
 
 function read(): { granted: Granted } | null {
@@ -99,7 +111,8 @@ export const consent = {
 	},
 	/**
 	 * Zwecke, nach denen die Seite gerade fragen muss: was ein Baustein auf der Seite braucht
-	 * (`<ConsentGate>`, `<MapEmbed>`, `<Tracking>` mit Kennung) oder der Besucher schon erlaubt hat.
+	 * (`<ConsentGate>`, `<MapEmbed>`, `<Embed>`, `<ExternalScript>`, `<Tracking>` mit Kennung) oder der
+	 * Besucher schon erlaubt hat.
 	 */
 	get relevant(): ConsentCategory[] {
 		return CONSENT_CATEGORIES.filter((c) => state.required[c] > 0 || state.granted[c]);
@@ -116,15 +129,37 @@ export const consent = {
 	 * Die Bausteine des SDK rufen das selbst auf.
 	 * @internal
 	 */
-	require(category: ConsentCategory): () => void {
+	require(category: ConsentCategory, provider?: ConsentProvider): () => void {
 		// Ohne untrack hinge ein `$effect`, der das aufruft, von dem Zähler ab, den er selbst erhöht.
-		untrack(() => (state.required[category] += 1));
+		untrack(() => {
+			state.required[category] += 1;
+			if (!provider) return;
+			const known = state.providers.find((p) => p.category === category && p.provider.name === provider.name);
+			if (known) known.count += 1;
+			else state.providers.push({ category, provider: { ...provider }, count: 1 });
+		});
 		let released = false;
 		return () => {
 			if (released) return;
 			released = true;
-			untrack(() => (state.required[category] = Math.max(0, state.required[category] - 1)));
+			untrack(() => {
+				state.required[category] = Math.max(0, state.required[category] - 1);
+				if (!provider) return;
+				const index = state.providers.findIndex(
+					(p) => p.category === category && p.provider.name === provider.name,
+				);
+				const known = state.providers[index];
+				if (known && --known.count <= 0) state.providers.splice(index, 1);
+			});
 		};
+	},
+	/**
+	 * Anbieter, die Bausteine auf der Seite gerade für diesen Zweck melden. Die fremden Dienste aus
+	 * `dealsystem.config.ts` und die Tracking-Kennungen ergänzt `<CookieBanner>` selbst.
+	 * @internal
+	 */
+	activeProviders(category: ConsentCategory): ConsentProvider[] {
+		return state.providers.filter((p) => p.category === category).map((p) => p.provider);
 	},
 	/** `true` nur, wenn der Besucher diesem Zweck zugestimmt hat. */
 	has(category: ConsentCategory): boolean {
@@ -177,5 +212,6 @@ export const consent = {
 		state.granted = { ...NONE };
 		state.settingsOpen = false;
 		state.required = { statistics: 0, marketing: 0, media: 0 };
+		state.providers = [];
 	},
 };

@@ -6,6 +6,8 @@ export { default as CollectionList, type CollectionListProps } from './component
 export { default as ConsentGate, type ConsentGateProps } from './components/ConsentGate.svelte';
 export { default as CookieBanner, type CookieBannerProps } from './components/CookieBanner.svelte';
 export { default as Datenschutz, type DatenschutzProps } from './components/Datenschutz.svelte';
+export { default as Embed, type EmbedProps } from './components/Embed.svelte';
+export { default as ExternalScript, type ExternalScriptProps } from './components/ExternalScript.svelte';
 export { default as Impressum, type ImpressumProps } from './components/Impressum.svelte';
 export { default as Link, type LinkProps } from './components/Link.svelte';
 export { default as LeadForm, type LeadFormProps } from './components/LeadForm.svelte';
@@ -19,7 +21,8 @@ export { default as SiteHead, type SiteHeadProps } from './components/SiteHead.s
 export { default as Text, type TextElement, type TextProps } from './components/Text.svelte';
 export { default as Tracking } from './components/Tracking.svelte';
 
-export { consent, type ConsentCategory } from './consent/consent.svelte.js';
+export { consent, type ConsentCategory, type ConsentProvider } from './consent/consent.svelte.js';
+export type { ExternalScriptAttrs } from './client/externalScript.js';
 export { loadCollection, loadEntry, type LoadedCollection } from './client/collections.js';
 export type { SiteApiError, SiteApiErrorKind, SiteApiResult } from './client/siteApi.js';
 
@@ -30,6 +33,7 @@ export type {
 	EnhancedPicture,
 	EntryData,
 	EntryMedia,
+	ExternalKey,
 	FunnelKey,
 	MediaRef,
 	MediaVariant,

@@ -1,12 +1,21 @@
 import { FIELD_NAME_PATTERN, KEBAB_KEY_MAX_LENGTH, KEBAB_KEY_PATTERN } from '../keys.js';
+import { validateExternal } from '../external/resolve.js';
 import type { CollectionFieldType, FieldType, SiteConfig, StandardFieldKey } from '../types.js';
 
 export type {
 	CollectionDef,
 	CollectionFieldDef,
 	CollectionFieldType,
+	ExternalCategory,
+	ExternalCustomDef,
+	ExternalDef,
+	ExternalDirective,
+	ExternalHosts,
+	ExternalPreset,
+	ExternalPresetDef,
 	FieldType,
 	FunnelDef,
+	ResolvedExternal,
 	FunnelFieldDef,
 	SiteConfig,
 	StandardFieldKey,
@@ -219,11 +228,12 @@ export function validateSiteConfig(config: unknown): ConfigProblem[] {
 			}
 		}
 	}
+	problems.push(...validateExternal(config.external));
 	return problems;
 }
 
 /**
- * Beschreibt die Seite: Kennung, Sammlungen und Formulare. Steht in
+ * Beschreibt die Seite: Kennung, Sammlungen, Formulare und fremde Dienste (`external`). Steht in
  * `dealsystem.config.ts` im Projektordner. Aus dem Rückgabetyp entstehen die
  * Typen für `funnel` und `collection` — ein Tippfehler ist ein Typfehler.
  * Wirft mit einer Liste aller Probleme, wenn die Konfiguration ungültig ist.
@@ -317,3 +327,27 @@ export function siteApiOrigin(): string {
 		return DEFAULT_API_ORIGIN;
 	}
 }
+
+// Fremde Dienste: dieselben Funktionen nutzen Vite-Plugin, `dealsystemCsp()` und `dealsystem check`.
+export {
+	EXTERNAL_CATEGORIES,
+	directivesOf,
+	resolveEmbedSource,
+	resolveExternal,
+	scriptSourceProblem,
+	validateExternal,
+	type EmbedSource,
+	type ExternalProblem,
+} from '../external/resolve.js';
+export {
+	EXTERNAL_DIRECTIVES,
+	SHARED_SUFFIXES,
+	WILDCARD_DIRECTIVES,
+	externalUrl,
+	hostSourceMatches,
+	hostSourceProblem,
+	isLocalPath,
+	parseHostSource,
+} from '../external/hosts.js';
+export { PRESETS, PRESET_NAMES, isPreset, type EmbedSettings, type PresetDef } from '../external/presets.js';
+export { CSP_DIRECTIVE, MAP_EMBED_ORIGIN, TRACKING_CSP, buildCspDirectives } from '../external/csp.js';

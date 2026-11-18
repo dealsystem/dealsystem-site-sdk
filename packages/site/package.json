@@ -46,6 +46,14 @@
 			"types": "./dist/config/index.d.ts",
 			"default": "./dist/config/index.js"
 		},
+		"./config/static": {
+			"types": "./dist/config/static/index.d.ts",
+			"default": "./dist/config/static/index.js"
+		},
+		"./csp": {
+			"types": "./dist/csp/index.d.ts",
+			"default": "./dist/csp/index.js"
+		},
 		"./vite": {
 			"types": "./dist/vite/index.d.ts",
 			"default": "./dist/vite/index.js"
@@ -71,10 +79,14 @@
 	"peerDependencies": {
 		"@sveltejs/kit": "^2.27.0",
 		"svelte": "^5.46.0",
-		"vite": "^7.0.0 || ^8.0.0"
+		"vite": "^7.0.0 || ^8.0.0",
+		"typescript": ">=5.0.0"
 	},
 	"peerDependenciesMeta": {
 		"vite": {
+			"optional": true
+		},
+		"typescript": {
 			"optional": true
 		}
 	},

@@ -10,6 +10,7 @@ import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { Plugin, ViteDevServer } from 'vite';
 import { validateSiteConfig } from '../config/index.js';
+import { resolveExternal } from '../external/resolve.js';
 import { readSnapshot } from '../content/index.js';
 import { CONTENT_FILE_ENV, LOCAL_CONTENT_FILE, LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
 import { defaultRichtextToHtml, sanitizeRichtextHtml } from '../richtext/server.js';
@@ -129,6 +130,7 @@ export function buildManifest(config: SiteConfig, slots: ContentSlotDef[], route
 			source: 'cms' as const,
 		})),
 		funnels: Object.entries(config.funnels ?? {}).map(([key, funnel]) => ({ ...funnel, key })),
+		external: resolveExternal(config.external),
 	};
 }
 
@@ -182,6 +184,7 @@ export function buildSiteData(
 		slots: snapshot.slots,
 		richtext,
 		seo: snapshot.seo,
+		external: Object.fromEntries(resolveExternal(config.external).map((entry) => [entry.id, entry])),
 	};
 }
 
