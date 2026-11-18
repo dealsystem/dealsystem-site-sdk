@@ -123,42 +123,11 @@ Dann zeigt das CRM es als Vorschau; bei `?enhanced` oder einer Variablen nicht.
 	import { getSiteData } from '../internal/siteData.js';
 	import { usageError } from '../internal/usage.js';
 	import { resolveImageSlot } from '../slots.js';
+	import { resolveMediaImage as fromMedia, type ResolvedImage } from '../internal/mediaImage.js';
 
 	let props: MediaImageProps<A> = $props();
 
-	interface Resolved {
-		sources: { type: string; srcset: string }[];
-		src: string;
-		srcset: string | undefined;
-		width: number | undefined;
-		height: number | undefined;
-		alt: string;
-	}
-
-	const FORMAT_ORDER = ['avif', 'webp'] as const;
-
-	function fromMedia(media: MediaRef, alt: string): Resolved | null {
-		if (media.kind !== 'image' || media.variants.length === 0) return null;
-		const byWidth = [...media.variants].sort((a, b) => a.width - b.width);
-		const srcsetOf = (format: string) =>
-			byWidth
-				.filter((v) => v.format === format)
-				.map((v) => `${v.url} ${v.width}w`)
-				.join(', ');
-		const jpeg = byWidth.filter((v) => v.format === 'jpeg');
-		const fallback = (jpeg.length > 0 ? jpeg : byWidth).at(-1)!;
-		const jpegSrcset = srcsetOf('jpeg');
-		return {
-			sources: FORMAT_ORDER.map((format) => ({ type: `image/${format}`, srcset: srcsetOf(format) })).filter(
-				(s) => s.srcset !== '' && (jpeg.length > 0 || s.type !== `image/${fallback.format}`),
-			),
-			src: fallback.url,
-			srcset: jpegSrcset || srcsetOf(fallback.format) || undefined,
-			width: media.width ?? undefined,
-			height: media.height ?? undefined,
-			alt,
-		};
-	}
+	type Resolved = ResolvedImage;
 
 	function fromLocal(
 		image: EnhancedPicture | string,
@@ -226,7 +195,7 @@ Dann zeigt das CRM es als Vorschau; bei `?enhanced` oder einer Variablen nicht.
 			class={props.class}
 			src={image.src}
 			srcset={image.srcset}
-			sizes={image.srcset || image.sources.length > 0 ? sizes : undefined}
+			sizes={image.srcset || image.sources.length > 0 || props.key !== undefined ? sizes : undefined}
 			width={image.width}
 			height={image.height}
 			alt={image.alt}

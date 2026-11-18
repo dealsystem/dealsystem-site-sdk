@@ -1,0 +1,28 @@
+{
+	"$schema": "https://json-schema.org/draft/2020-12/schema",
+	"$id": "https://dealsystem.io/schemas/site/content-patch.v1.json",
+	"title": "Feld contentPatch im Manifest, Fassung 1",
+	"description": "Sagt dem Core, ob er neue Slot-Werte in die fertige Seite schreiben darf (patchArtifact), statt neu zu bauen. Fehlt bei Seiten mit älterem SDK.",
+	"type": "object",
+	"additionalProperties": false,
+	"required": ["version", "delivery", "blockers", "richtextDefaults"],
+	"properties": {
+		"version": { "description": "Fassung des Inhaltsblocks (content-block.v1.schema.json).", "const": 1 },
+		"delivery": {
+			"description": "dom: Die Slot-Werte stehen im Inhaltsblock, nicht im JS-Bundle. embedded: wie früher im Bundle, nicht patchbar.",
+			"enum": ["dom", "embedded"]
+		},
+		"blockers": {
+			"description": "Was einen Patch dieser Seite verhindert. Die Liste kann wachsen: unbekannte Einträge heißen ebenfalls „bauen“.",
+			"type": "array",
+			"maxItems": 20,
+			"items": { "type": "string", "maxLength": 40, "examples": ["site-head-missing", "get-slots"] }
+		},
+		"richtextDefaults": {
+			"description": "Geprüftes Standard-HTML je Richtext-Slot, zum Zurücksetzen ohne Build. Der Core prüft es beim Patchen noch einmal gegen die Positiv-Liste.",
+			"type": "object",
+			"propertyNames": { "not": { "const": "__proto__" } },
+			"additionalProperties": { "type": "string", "maxLength": 20000 }
+		}
+	}
+}

@@ -1,0 +1,74 @@
+{
+	"description": "Beispiele für den Inhaltsblock: `tag` ist das Element genau so, wie es im HTML steht. Erzeugt aus contentBlockTag(block); der Core prüft damit seine Lesart.",
+	"cases": [
+		{
+			"name": "leer (Seite ohne Texte aus dem CRM)",
+			"block": {
+				"v": 1,
+				"slots": {},
+				"richtext": {}
+			},
+			"tag": "<script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{}}</script>"
+		},
+		{
+			"name": "Text, Richtext und Bild",
+			"block": {
+				"v": 1,
+				"slots": {
+					"start.hero.titel": {
+						"type": "text",
+						"value": "Wir kaufen Ihr Haus in Leipzig"
+					},
+					"start.ueber": {
+						"type": "richtext",
+						"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+					},
+					"start.hero.bild": {
+						"type": "image",
+						"value": {
+							"id": "a1",
+							"kind": "image",
+							"alt": "Büro von außen",
+							"width": 1600,
+							"height": 1067,
+							"variants": [
+								{
+									"url": "/_ds/media/s1/a1/480.jpg",
+									"width": 480,
+									"format": "jpeg"
+								},
+								{
+									"url": "/_ds/media/s1/a1/1600.webp",
+									"width": 1600,
+									"format": "webp"
+								}
+							]
+						}
+					},
+					"start.zuruecksetzen": {
+						"type": "text",
+						"value": null
+					}
+				},
+				"richtext": {
+					"start.ueber": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				}
+			},
+			"tag": "<script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.hero.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.hero.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}},\"start.zuruecksetzen\":{\"type\":\"text\",\"value\":null}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script>"
+		},
+		{
+			"name": "Maskierung: </script>, <!--, &, Anführungszeichen, U+2028/U+2029",
+			"block": {
+				"v": 1,
+				"slots": {
+					"a.b": {
+						"type": "text",
+						"value": "</script><script>alert(1)</script><!-- & \"x\"    > ende"
+					}
+				},
+				"richtext": {}
+			},
+			"tag": "<script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"a.b\":{\"type\":\"text\",\"value\":\"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u003c!-- \\u0026 \\\"x\\\" \\u2028\\u2029 \\u003e ende\"}},\"richtext\":{}}</script>"
+		}
+	]
+}

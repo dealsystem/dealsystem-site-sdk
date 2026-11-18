@@ -304,8 +304,50 @@ const sec006 = sourceRule('SEC-006', (ctx) => {
 			});
 		}
 	}
+	out.push(...contentBlockOwnership(ctx));
 	return out;
 });
+
+// Inhaltsblock `ds-content` (Patchen statt Bauen): Ihn schreibt nur `<SiteHead>` aus dem SDK. Ein eigener
+// Block oder Code, der ihn liest oder schreibt, würde beim Patchen alte und neue Texte mischen.
+// Vorerst nur Warnung, das Urteil ändert sich nicht (RULE_SET_VERSION bleibt).
+const CONTENT_BLOCK_ID = /(['"`])ds-content\1/g;
+
+function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
+	const out: RawFinding[] = [];
+	const fix =
+		'Lass den Block weg: `<SiteHead>` im Haupt-Layout schreibt ihn. Texte aus dem CRM gehören in `<Text>`, `<RichText>` oder `<MediaImage key>`.';
+	for (const path of ctx.codeFiles()) {
+		const reported = new Set<number>();
+		if (isSvelteFile(path)) {
+			for (const el of ctx.svelte(path)?.elements ?? []) {
+				if (el.kind !== 'element') continue;
+				const id = el.attributes.find((a) => a.kind === 'attribute' && a.name === 'id');
+				if (id?.value !== 'ds-content') continue;
+				const finding = ctx.at(
+					path,
+					id.start,
+					`\`<${el.name} id="ds-content">\` ist der Inhaltsblock des SDK.`,
+					fix,
+				);
+				reported.add(finding.line ?? -1);
+				out.push({ ...finding, severity: 'warning' });
+			}
+		}
+		for (const m of findAll(ctx.code(path), CONTENT_BLOCK_ID, ctx.lines(path))) {
+			if (reported.has(m.line)) continue;
+			out.push({
+				file: path,
+				line: m.line,
+				column: m.column,
+				message: `\`${path}\` nennt den Inhaltsblock \`ds-content\` des SDK.`,
+				fix,
+				severity: 'warning',
+			});
+		}
+	}
+	return out;
+}
 
 // ------------------------------------------------------------------ SEC-007
 

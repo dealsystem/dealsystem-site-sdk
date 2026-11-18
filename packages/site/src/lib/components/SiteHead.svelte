@@ -10,6 +10,11 @@ Angaben im Kopf jeder Seite, die für die ganze Website gelten. Gehört einmal i
 - „Nicht bei Google anzeigen“: Hat der Kunde das eingestellt, steht auf jeder
   Seite `<meta name="robots" content="noindex">`.
 
+- Inhaltsblock: Die Texte und Bilder aus dem CRM (Content-Slots) stehen einmal
+  je Seite als `<script type="application/json" id="ds-content">` im Kopf. Der
+  Browser liest sie dort, nicht aus dem JS-Bundle. So kann DealSystem einen
+  geänderten Text in die fertige Seite schreiben, ohne sie neu zu bauen.
+
 Titel und Beschreibung je Seite setzt `<Seo>`.
 
 ```svelte
@@ -26,15 +31,20 @@ Titel und Beschreibung je Seite setzt `<Seo>`.
 <script lang="ts">
 	import { getSiteData } from '../internal/siteData.js';
 	import { faviconLinks, iconType, WEB_MANIFEST_PATH } from '../internal/seo.js';
+	import { CONTENT_BLOCK_VERSION, contentBlockTag } from '../contentBlock.js';
 
 	let { favicon }: SiteHeadProps = $props();
 
-	const { seo } = getSiteData();
+	const { seo, slots, richtext } = getSiteData();
+	// JSON mit maskiertem `<`, `>` und `&`: kein Wert kann das Element verlassen.
+	const block = contentBlockTag({ v: CONTENT_BLOCK_VERSION, slots, richtext });
 	const crm = seo.favicon ? faviconLinks(seo.favicon) : null;
 	const hasManifest = seo.favicon?.icons.some((i) => i.size >= 192) ?? false;
 </script>
 
 <svelte:head>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -- JSON, in contentBlockTag maskiert -->
+	{@html block}
 	{#if seo.noindex}
 		<meta name="robots" content="noindex" />
 	{/if}

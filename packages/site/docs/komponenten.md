@@ -659,6 +659,11 @@ Angaben im Kopf jeder Seite, die für die ganze Website gelten. Gehört einmal i
 - „Nicht bei Google anzeigen“: Hat der Kunde das eingestellt, steht auf jeder
   Seite `<meta name="robots" content="noindex">`.
 
+- Inhaltsblock: Die Texte und Bilder aus dem CRM (Content-Slots) stehen einmal
+  je Seite als `<script type="application/json" id="ds-content">` im Kopf. Der
+  Browser liest sie dort, nicht aus dem JS-Bundle. So kann DealSystem einen
+  geänderten Text in die fertige Seite schreiben, ohne sie neu zu bauen.
+
 Titel und Beschreibung je Seite setzt `<Seo>`.
 
 ```svelte
