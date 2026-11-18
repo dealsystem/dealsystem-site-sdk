@@ -1,0 +1,65 @@
+{
+	"version": 1,
+	"presets": {
+		"calendly": {
+			"category": "media",
+			"provider": "Calendly LLC, USA",
+			"hosts": {
+				"script": [],
+				"connect": [],
+				"img": [],
+				"frame": [
+					"https://calendly.com"
+				],
+				"media": [],
+				"style": [],
+				"font": []
+			}
+		},
+		"google-maps": {
+			"category": "media",
+			"provider": "Google Ireland Limited, Irland (Google Maps)",
+			"hosts": {
+				"script": [],
+				"connect": [],
+				"img": [],
+				"frame": [
+					"https://www.google.com"
+				],
+				"media": [],
+				"style": [],
+				"font": []
+			}
+		},
+		"vimeo": {
+			"category": "media",
+			"provider": "Vimeo.com, Inc., USA",
+			"hosts": {
+				"script": [],
+				"connect": [],
+				"img": [],
+				"frame": [
+					"https://player.vimeo.com"
+				],
+				"media": [],
+				"style": [],
+				"font": []
+			}
+		},
+		"youtube": {
+			"category": "media",
+			"provider": "Google Ireland Limited, Irland (YouTube)",
+			"hosts": {
+				"script": [],
+				"connect": [],
+				"img": [],
+				"frame": [
+					"https://www.youtube-nocookie.com"
+				],
+				"media": [],
+				"style": [],
+				"font": []
+			}
+		}
+	}
+}

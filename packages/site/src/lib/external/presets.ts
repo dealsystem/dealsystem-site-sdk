@@ -5,7 +5,8 @@
 // Auch Nocookie-Modus und `dnt=1` ersetzen die Einwilligung nicht (Konzept Phase 2, Abschnitt 4): Alle
 // Vorlagen laden erst nach „Externe Inhalte“ (`media`).
 
-import type { ExternalCategory, ExternalDirective, ExternalPreset } from '../types.js';
+import type { ExternalCategory, ExternalDirective, ExternalHosts, ExternalPreset } from '../types.js';
+import { EXTERNAL_DIRECTIVES } from './hosts.js';
 
 /** Wie `<Embed>` einen Dienst als iframe einbettet. */
 export interface EmbedSettings {
@@ -218,4 +219,39 @@ export const PRESET_NAMES = Object.keys(PRESETS) as ExternalPreset[];
 
 export function isPreset(value: unknown): value is ExternalPreset {
 	return typeof value === 'string' && (PRESET_NAMES as string[]).includes(value);
+}
+
+/** Fassung von `contract/external-presets.v1.json`. */
+export const EXTERNAL_PRESETS_CONTRACT_VERSION = 1;
+
+/** Eine Vorlage, wie sie der Core kennt: ohne Einbettung und ohne Normalisierung. */
+export interface PresetContractEntry {
+	category: ExternalCategory;
+	provider: string;
+	/** Alle sieben Direktiven, je sortiert, wie im Manifest. */
+	hosts: ExternalHosts;
+}
+
+/**
+ * Inhalt von `contract/external-presets.v1.json`, aus `PRESETS` erzeugt. Der Core hält eine byte-gleiche Kopie und
+ * prüft seine Vorlagen dagegen: Ein Manifest-Eintrag zählt dort nur als Vorlage, wenn er genau diese Hosts trägt.
+ */
+export function externalPresetsContract(): {
+	version: number;
+	presets: Record<string, PresetContractEntry>;
+} {
+	const presets: Record<string, PresetContractEntry> = {};
+	for (const name of [...PRESET_NAMES].sort()) {
+		const preset = PRESETS[name];
+		const hosts = Object.fromEntries(
+			EXTERNAL_DIRECTIVES.map((d) => [d, [...new Set(preset.hosts[d] ?? [])].sort()]),
+		) as ExternalHosts;
+		presets[name] = { category: preset.category, provider: preset.provider, hosts };
+	}
+	return { version: EXTERNAL_PRESETS_CONTRACT_VERSION, presets };
+}
+
+/** Text der Vertragsdatei (JSON mit Tabulator, Zeilenende am Schluss). */
+export function externalPresetsContractText(): string {
+	return `${JSON.stringify(externalPresetsContract(), null, '\t')}\n`;
 }
