@@ -43,7 +43,7 @@ export function contractManifest(
 			...buildContentPatchInfo({ siteHeadInRootLayout: true, readsSlotsInCode: false }, CONTRACT_SLOTS),
 			...patch,
 		},
-	} satisfies Omit<SiteManifest, 'schedule' | 'external'> as unknown as SiteManifest;
+	} satisfies Omit<SiteManifest, 'schedule' | 'external' | 'bookings'> as unknown as SiteManifest;
 }
 
 export function image(

@@ -31,6 +31,7 @@ const config: SiteConfig = {
 		},
 		neu: { label: 'Neu', fields: [{ name: 'email', type: 'email', standardField: 'email' }] },
 	},
+	booking: { erstgespraech: { label: 'Erstgespräch', eventType: 'erstgespraech' }, rueckruf: {} },
 };
 
 let root: string;
@@ -127,6 +128,12 @@ describe('dealsystem() im Build', () => {
 		]);
 		expect(manifest.funnels.map((f) => f.key)).toEqual(['kontakt', 'rueckruf', 'neu']);
 		expect(manifest.funnels[0]!.fields).toEqual(config.funnels!.kontakt!.fields);
+		// Terminbuchungen für den Core (`self_site_bookings`): Schlüssel, Bezeichnung, Slug der Terminart.
+		expect(manifest.bookings).toEqual([
+			{ key: 'erstgespraech', label: 'Erstgespräch', eventType: 'erstgespraech' },
+			{ key: 'rueckruf' },
+		]);
+		expect(data.bookings).toEqual(config.booking);
 
 		expect(data.api).toEqual({
 			baseUrl: 'https://app.dealsystem.io',

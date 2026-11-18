@@ -41,5 +41,6 @@ export function emptySiteData(): SiteData {
 		},
 		builtAt: 0,
 		external: {},
+		bookings: {},
 	};
 }

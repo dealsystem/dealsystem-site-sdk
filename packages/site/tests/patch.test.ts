@@ -38,6 +38,7 @@ const manifest = (patch: Partial<NonNullable<SiteManifest['contentPatch']>> = {}
 	funnels: [],
 	schedule: [],
 	external: [],
+	bookings: [],
 	contentPatch: {
 		...buildContentPatchInfo({ siteHeadInRootLayout: true, readsSlotsInCode: false }, SLOTS),
 		...patch,
