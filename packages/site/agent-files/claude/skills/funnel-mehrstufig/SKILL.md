@@ -26,7 +26,8 @@ mit `createLeadClient()` und `createFunnelState()`. Nie mit eigenem `fetch`, nie
    - `<LeadHoneypot client={lead} />` (Bot-Falle)
    - bei jedem Fehler außer `validation` den Text `result.message` und den Ausweichkontakt `result.fallback`
      zeigen (`QUA-008` warnt sonst)
-   - bei `result.dryRun` (Vorschau) einen Hinweis „geprüft, aber nicht gespeichert“
+   - bei `result.dryRun` (Vorschau oder Testlauf unter `npm run dev`) einen Hinweis „geprüft, aber nicht
+     gespeichert“
 4. Barrierefreiheit:
    - Jeder Schritt hat eine Überschrift mit `tabindex="-1"`; nach „Weiter“ und „Zurück“ bekommt sie den Fokus.
    - Fortschritt sichtbar und vorlesbar: „Schritt 2 von 4“ und `<progress>`.
@@ -36,7 +37,9 @@ mit `createLeadClient()` und `createFunnelState()`. Nie mit eigenem `fetch`, nie
    - Jeder Schritt darf ein eigenes `<form onsubmit={…}>` sein: Enter sendet bzw. geht weiter, der Browser prüft
      `required`. Ohne `action` (oder `action="#"`), kein `method="post"`, kein `target`; abgeschickt wird nur im
      Code mit `lead.submit()` (`SEC-007`). Beispiel: Abschnitt „createLeadClient“ in `komponenten.md`.
-5. Danach eine Seite, die die Komponente zeigt, mit `<Seo>`, genau einer `h1` und Texten als `<Text>`.
+5. Danach eine Seite, die die Komponente zeigt, mit `<Seo>`, genau einer `h1` und Texten als `<Text>`. Dann
+   den Testlauf mit dem Kunden wie im Skill `formular-anbinden` (Schritt 7): einmal selbst ausfüllen lassen, dann
+   auf Eigene Website → Testläufe zeigen.
 6. Prüfen und hochladen wie im Skill `veroeffentlichen`. Nach dem Hochladen steht das Formular im CRM unter
    Eigene Website → Formulare.
 

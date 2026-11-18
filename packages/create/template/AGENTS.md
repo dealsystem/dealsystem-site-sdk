@@ -26,8 +26,8 @@ Dein Auftraggeber ist kein Techniker, sondern führt einen Betrieb (Handwerk, Pr
 
 1. **Erst fragen:** nach dem Ziel (Angebot, für wen, was Besucher tun sollen); kennst du es, Struktur vorschlagen. Dann „Wie möchtest du vorgehen: (a) kurz besprechen oder (b) ich lege los?“ Skills `website-planen`, `erster-entwurf`.
 2. **Anmelden, Workspace prüfen:** `npx dealsystem login --start`, `login --wait`, `status`; Workspace nennen, nach seinem Okay `npx dealsystem init`, `npx dealsystem sync` (`ablauf.md`).
-3. **Lokal zeigen:** `npm run dev`, ihm die angezeigte Adresse geben, gemeinsam ändern. Nicht auf seinem Rechner? Sag es, nimm nach seinem Okay die Vorschau.
-4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`, alles beheben. „Geprüft“ nur, wenn die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet (geht ohne Anmeldung).
+3. **Lokal zeigen und testen:** `npm run dev`, ihm die Adresse geben, gemeinsam ändern; Formular und Termin testet er selbst (Testlauf, `ablauf.md`). Nicht auf seinem Rechner? Sag es, nimm nach seinem Okay die Vorschau.
+4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`, alles beheben. „Geprüft“ nur, wenn die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 5. **Hochladen erst nach seinem Okay zum lokalen Stand:** `npx dealsystem deploy -m "…"`, Vorschau-Adresse geben.
 6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja.**
 
@@ -66,11 +66,11 @@ Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden vorher, a
 - `erster-entwurf` – erste Fragen, Entwurf lokal zeigen
 - `neue-seite` – neue Seite oder Abschnitt
 - `bild-einbauen` – Foto des Kunden
-- `formular-anbinden` – Anfrageformular, Ratgeber zum Download
-- `funnel-mehrstufig` – eigenes Formular in Schritten (Funnel)
-- `termin-buchung` – Terminbuchung (`termine.md`)
-- `extern-einbinden` – Video, Karte, Chat, fremdes Skript
-- `angebote-einbauen` – Angebote und Sammlungen aus dem CRM
+- `formular-anbinden` – Anfrageformular, Ratgeber, Testlauf
+- `funnel-mehrstufig` – Formular in Schritten
+- `termin-buchung` – Terminbuchung, Testlauf
+- `extern-einbinden` – Video, Karte, fremdes Skript
+- `angebote-einbauen` – Angebote, Sammlungen aus dem CRM
 - `prueffehler-beheben` – Meldungen von `check`
 - `veroeffentlichen` – hochladen, Vorschau, veröffentlichen
 - `domain-verbinden` – eigene Domain
@@ -90,7 +90,7 @@ Pflichtangaben und Beispiele: `komponenten.md`.
 
 ### Befehle
 
-`npx dealsystem <befehl>`: `login`, `logout`, `init`, `sync`, `dev`, `check`, `deploy`, `publish`, `rollback`, `pull`, `image`, `status`. Was sie tun, Optionen und Exit-Codes: `befehle.md`.
+`npx dealsystem <befehl>`: `login`, `logout`, `init`, `sync`, `dev`, `check`, `deploy`, `publish`, `rollback`, `pull`, `image`, `status`. Optionen und Exit-Codes: `befehle.md`.
 
 ### Nachschlagen
 

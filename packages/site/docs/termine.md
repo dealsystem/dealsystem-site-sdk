@@ -8,8 +8,14 @@ Formular an die Site-API.
 ## Die Terminart kommt aus dem CRM
 
 Was gebucht werden kann, legt der Kunde im CRM unter Termine fest: Dauer, Arbeitszeiten, Buchungsfragen,
-Gastgeber, Ort (Telefon, Google Meet, vor Ort). **Erfinde keine Terminart, keine Dauer und keine
+Gastgeber, Ort (Telefon, Google Meet, vor Ort), Reihenfolge. **Erfinde keine Terminart, keine Dauer und keine
 Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
+
+**Reihenfolge:** Standard ist „erst Termin, dann Angaben“ (`calendar_first`). Steht die Terminart auf „erst
+Angaben, dann Termin“ (`contact_first`), fragt `<Booker>` zuerst Kontaktdaten und Fragen ab und zeigt danach
+die freien Zeiten. Das passt, wenn die Fragen entscheiden, ob ein Termin sinnvoll ist. Eingestellt wird das an
+der Terminart, nicht im Code: über den Konnektor mit `update_event_type` (`bookingFlow: 'contact_first'`),
+sonst im CRM unter Termine. `info().flow` nennt die Einstellung für eigene Oberflächen.
 
 Welche Terminarten wählbar sind, zeigt im DealSystem-Konnektor `list_website_bookings` mit der `websiteId` aus
 `npx dealsystem status`: Das Feld `eventTypes` (mit `slug`) enthält die aktiven Terminarten des Workspaces, zu
@@ -75,6 +81,12 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
 
 ## Ausprobieren
 
-- `npm run dev`: Probe-Terminart mit Zeiten werktags 9 bis 16 Uhr (Berlin), eine Buchung wird nur geprüft.
+- `npm run dev` mit Anmeldung und verbundener Seite: echte Terminart, Fragen, Reihenfolge und freie Zeiten aus
+  dem CRM (vor dem ersten Hochladen über `eventType`). Eine Buchung legt keinen Termin, keinen Kontakt und keine
+  Mail an; DealSystem hält sie als **Testlauf** fest, zu sehen unter Eigene Website → Testläufe („so wäre es
+  angekommen“). Lass den Kunden nach dem Einbau einmal selbst buchen (`ablauf.md`, „Testlauf mit echten
+  Daten“).
+- `npm run dev` ohne Anmeldung oder offline: Probe-Terminart mit Zeiten werktags 9 bis 16 Uhr (Berlin), nichts
+  geht ans CRM.
 - Vorschau nach dem Hochladen: echte freie Zeiten; eine Buchung wird geprüft, aber nicht angelegt (`dryRun`).
 - Erst auf der veröffentlichten Seite entsteht der Termin.

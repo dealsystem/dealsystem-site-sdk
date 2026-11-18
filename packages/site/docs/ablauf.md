@@ -115,8 +115,26 @@ npm run dev
 ```
 
 startet die Seite auf dem Rechner des Kunden. Gib ihm die Adresse, die der Befehl anzeigt (meist
-`http://localhost:5173`), und ändert gemeinsam, bis er zufrieden ist. Formulare lassen sich ausprobieren;
-die Einsendung wird geprüft, aber nicht gespeichert.
+`http://localhost:5173`), und ändert gemeinsam, bis er zufrieden ist.
+
+### Testlauf mit echten Daten
+
+Ist er angemeldet und die Seite verbunden (`npx dealsystem status` nennt sie), zeigt `npm run dev` die echte
+Terminart aus dem CRM: ihre Fragen, die Reihenfolge und die freien Zeiten. Ein abgeschicktes Formular oder eine
+Buchung legt nichts an, keinen Kontakt, keinen Termin, keine Mail. DealSystem hält stattdessen einen
+**Testlauf** fest: so wäre es im CRM angekommen.
+
+- **Nach jedem eingebauten Formular oder Kalender** bittest du ihn, es einmal selbst auszufüllen, mit seinen
+  eigenen Angaben. Zum Beispiel: „Füllen Sie das Formular bitte einmal aus, als wären Sie ein Kunde. Es wird
+  nichts angelegt und keine Mail verschickt.“
+- Danach zeigt die Konsole von `npm run dev` eine kurze Zusammenfassung. Lies sie; fällt etwas auf (eine Frage
+  fehlt, falsche Pipeline), sag es in einem Satz.
+- Dann zeigst du ihm, wo er es nachsieht: „Unter Eigene Website → Testläufe sehen Sie, wie die Anfrage
+  angekommen wäre.“
+- Vor dem ersten Hochladen nimmt der Testlauf die Terminart aus `booking.<schlüssel>.eventType` in
+  `dealsystem.config.ts`.
+- Ohne Anmeldung, ohne Netz oder ohne `siteId` laufen Beispieldaten (Probe-Termine werktags 9 bis 16 Uhr), und
+  nichts geht ans CRM. Die Konsole sagt das. Für einen echten Testlauf erst anmelden und `init`.
 
 **Läufst du nicht auf seinem Rechner** (etwa als Agent in der Cloud), kann er die lokale Adresse nicht
 öffnen. Sag ihm das in einem Satz, überspring das lokale Zeigen und lade nach seinem Okay direkt als Vorschau

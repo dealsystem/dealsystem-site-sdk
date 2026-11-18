@@ -20,8 +20,11 @@ Kennt der Konnektor die Seite nicht, oder weicht sein `workspace` (aus `get_webs
 `npx dealsystem status` ab, bitte den Kunden, den Konnektor neu zu verbinden und den Workspace der Seite zu
 wählen. Bis dahin schlägst du keine Terminart vor.
 
-Passen die Workspaces, legen `create_event_type`, `upsert_schedule` und `upsert_booking_field` an, was er dir
-genannt hat. Ohne Konnektor trägt er die Terminart selbst im CRM unter Termine ein. Die Verbindung zu Google oder Outlook richtet er selbst ein (`get_calendar_connection_link` gibt den Link).
+Passen die Workspaces, legen `create_event_type`, `upsert_schedule` und `upsert_booking_field` (Fragen beim
+Buchen) an, was er dir genannt hat. Sollen die Fragen vor der Zeitwahl kommen (etwa damit nur passende Anfragen
+einen Termin bekommen), stell die Terminart mit `update_event_type` auf `bookingFlow: 'contact_first'`;
+`<Booker>` folgt dem von selbst. Ohne Konnektor sag ihm in einem Satz, dass er Terminart, Fragen und
+Reihenfolge im CRM unter Termine einstellt. Die Verbindung zu Google oder Outlook richtet er selbst ein (`get_calendar_connection_link` gibt den Link).
 
 ## 2. Zuordnung in `dealsystem.config.ts`
 
@@ -53,7 +56,11 @@ selbst Ausweichkontakt, `<LeadHoneypot client={termin} />` und `slot_taken` (Zei
 ## 4. Prüfen und zeigen
 
 1. `npm run check`, `npm run build`, `npx dealsystem check --output build`.
-2. `npm run dev` zeigt Probe-Zeiten (werktags 9 bis 16 Uhr); eine Buchung wird nur geprüft.
-3. Auf der Vorschau nach dem Hochladen sind die Zeiten echt, eine Buchung wird geprüft, aber nicht angelegt. Erst
-   auf der veröffentlichten Seite entsteht der Termin im Kalender, mit Kontakt im CRM und Bestätigungsmail.
-4. Sag dem Kunden in einem Satz, dass gebuchte Termine im CRM unter Termine erscheinen.
+2. **Testlauf mit ihm:** Ist er angemeldet und die Seite verbunden, zeigt `npm run dev` die echte Terminart,
+   ihre Fragen und freie Zeiten. Bitte ihn, einmal selbst zu buchen, mit seinen eigenen Angaben: Es entsteht
+   kein Termin, kein Kontakt und keine Mail. Lies danach die Zusammenfassung in der Konsole von `npm run dev`.
+3. Sag ihm dann: „Unter Eigene Website → Testläufe sehen Sie, wie die Buchung angekommen wäre.“ Passt etwas
+   nicht (Frage fehlt, falsche Reihenfolge), änderst du es an der Terminart und ihr testet noch einmal.
+4. Ohne Anmeldung zeigt `npm run dev` nur Probe-Zeiten (werktags 9 bis 16 Uhr), und nichts geht ans CRM.
+5. Erst auf der veröffentlichten Seite entsteht der Termin im Kalender, mit Kontakt im CRM und
+   Bestätigungsmail. Sag ihm in einem Satz, dass gebuchte Termine im CRM unter Termine erscheinen.

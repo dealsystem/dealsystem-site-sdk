@@ -44,9 +44,10 @@
 		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
 			"source": "claude/skills/formular-anbinden/SKILL.md",
-			"sha256": "3c112d6c8b20e796be60efaf58ea68c3b7da4d6a79f1d690bbe40fe9d166a48e",
+			"sha256": "9464198f70af6e0ddbd2b3b15849f95c8a785595f319c62aeaa030375484df5a",
 			"previous": [
 				"0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
+				"3c112d6c8b20e796be60efaf58ea68c3b7da4d6a79f1d690bbe40fe9d166a48e",
 				"dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71",
 				"e367797a8ccf96fb904ca4fdec8d1fa76f4d7ddf1bf4670fdbfd1e9e6dea203f",
 				"ebb376299b85daa330420f38840ba487d93359ef99b6e80f4aad1c5bffd66298"
@@ -61,10 +62,11 @@
 		{
 			"target": ".claude/skills/funnel-mehrstufig/SKILL.md",
 			"source": "claude/skills/funnel-mehrstufig/SKILL.md",
-			"sha256": "9ebf5d655f71938b52a3370479443e77cba2d6869eb1de2b3995517344fb0816",
+			"sha256": "2ac62432dcf74a1ce9740020183ea9509258a665d4e92c46d83a60b66f3cc6d3",
 			"previous": [
 				"389ca5baa64d93444a532d82c915b672e485944d528a815caced0bbd491341ae",
-				"7e9eb7ff564bd2089065fd891d76f9eb645e0455b31317e94eb3af8d121409b1"
+				"7e9eb7ff564bd2089065fd891d76f9eb645e0455b31317e94eb3af8d121409b1",
+				"9ebf5d655f71938b52a3370479443e77cba2d6869eb1de2b3995517344fb0816"
 			]
 		},
 		{
@@ -89,8 +91,9 @@
 		{
 			"target": ".claude/skills/termin-buchung/SKILL.md",
 			"source": "claude/skills/termin-buchung/SKILL.md",
-			"sha256": "d0d22e8cf29f7e5f629df920dd190de7df27284475aaa57014dbd37e86ba4c2f",
+			"sha256": "cfa14b4c8a87ab3a8061b00d440f409d8ccca06146ffd7bdc6af121fcbc2f67e",
 			"previous": [
+				"d0d22e8cf29f7e5f629df920dd190de7df27284475aaa57014dbd37e86ba4c2f",
 				"fd7063e796755293f301fa7ce17fa31ba3996cd31db517bba31d78fe19a6cbf4"
 			]
 		},
