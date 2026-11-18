@@ -58,6 +58,7 @@ export {
 } from './client/bookingTime.js';
 export { createFunnelState, type FunnelState, type FunnelStep } from './client/funnelState.svelte.js';
 export type {
+	BookingFlow,
 	BookingInfo,
 	BookingLocationType,
 	BookingQuestion,

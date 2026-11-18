@@ -159,3 +159,77 @@ describe('<Booker>', () => {
 		expect(await screen.findByRole('heading', { level: 3 })).toHaveTextContent('Tag und Uhrzeit wählen');
 	});
 });
+
+describe('<Booker> mit flow: contact_first (erst Angaben, dann Zeit)', () => {
+	beforeEach(() => {
+		infoAnswer = () => jsonResponse(200, { data: { ...INFO, flow: 'contact_first' } });
+	});
+
+	async function fillDetails(user: ReturnType<typeof userEvent.setup>) {
+		await user.type(screen.getByLabelText(/^Vorname/), 'Erika');
+		await user.type(screen.getByLabelText(/^E-Mail/), 'erika@beispiel.de');
+		await user.type(screen.getByLabelText(/^Worum geht es\?/), 'Wohnung verkaufen');
+	}
+
+	it('fragt zuerst Angaben und Fragen ab, dann die Zeit, dann bucht es nach Bestätigung', async () => {
+		const user = userEvent.setup();
+		render(Booker, { booking: 'erstgespraech' });
+		expect(await screen.findByRole('heading', { name: 'Erstgespräch: Ihre Angaben' })).toBeInTheDocument();
+		// Noch keine Zeiten sichtbar.
+		expect(screen.queryByRole('group', { name: 'Tag wählen' })).not.toBeInTheDocument();
+		await fillDetails(user);
+		await user.click(screen.getByRole('button', { name: 'Weiter zur Terminwahl' }));
+		await waitFor(() =>
+			expect(screen.getByRole('heading', { name: 'Erstgespräch: Tag und Uhrzeit wählen' })).toHaveFocus(),
+		);
+		expect(screen.getByText(/Ihre Angaben: Erika/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: new RegExp(`${time(0)} Uhr$`) }));
+		await waitFor(() => expect(screen.getByRole('heading', { name: 'Termin bestätigen' })).toHaveFocus());
+		expect(bookings()).toHaveLength(0);
+		await user.click(screen.getByRole('button', { name: 'Termin buchen' }));
+		expect(await screen.findByRole('heading', { name: 'Ihr Termin ist gebucht' })).toBeInTheDocument();
+		const body = JSON.parse(String(bookings()[0]![1]!.body)) as Record<string, unknown>;
+		expect(body).toMatchObject({
+			start: SLOTS[0]!.start,
+			attendee: { firstName: 'Erika', email: 'erika@beispiel.de' },
+			answers: { anliegen: 'Wohnung verkaufen' },
+		});
+	});
+
+	it('fehlende Angaben: bleibt im ersten Schritt, Fokus aufs Feld, keine Zeiten', async () => {
+		const user = userEvent.setup();
+		render(Booker, { booking: 'erstgespraech' });
+		await screen.findByRole('heading', { name: 'Erstgespräch: Ihre Angaben' });
+		await user.click(screen.getByRole('button', { name: 'Weiter zur Terminwahl' }));
+		await waitFor(() => expect(screen.getByLabelText(/^Vorname/)).toHaveFocus());
+		expect(screen.queryByRole('group', { name: 'Tag wählen' })).not.toBeInTheDocument();
+	});
+
+	it('Server lehnt eine Angabe ab: zurück zu den Angaben, die Zeit bleibt gewählt', async () => {
+		const user = userEvent.setup();
+		bookingAnswer = () =>
+			jsonResponse(422, {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'attendee.email', message: 'x' }],
+			});
+		render(Booker, { booking: 'erstgespraech' });
+		await screen.findByRole('heading', { name: 'Erstgespräch: Ihre Angaben' });
+		await fillDetails(user);
+		await user.click(screen.getByRole('button', { name: 'Weiter zur Terminwahl' }));
+		await user.click(await screen.findByRole('button', { name: new RegExp(`${time(0)} Uhr$`) }));
+		await user.click(await screen.findByRole('button', { name: 'Termin buchen' }));
+		await waitFor(() => expect(screen.getByLabelText(/^E-Mail/)).toHaveFocus());
+		expect(screen.getByText(/Bitte prüfen Sie Ihre Angabe bei „E-Mail“/)).toBeInTheDocument();
+	});
+
+	it('ohne flow gilt calendar_first', async () => {
+		infoAnswer = () => jsonResponse(200, { data: INFO });
+		render(Booker, { booking: 'erstgespraech' });
+		expect(
+			await screen.findByRole('heading', { name: 'Erstgespräch: Tag und Uhrzeit wählen' }),
+		).toBeInTheDocument();
+	});
+});

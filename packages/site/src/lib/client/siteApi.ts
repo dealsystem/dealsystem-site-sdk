@@ -124,7 +124,15 @@ export interface BookingInfo {
 	timezone: string;
 	locations: { type: BookingLocationType; label: string }[];
 	questions: BookingQuestion[];
+	/**
+	 * Reihenfolge im CRM: `calendar_first` (erst Zeit, dann Angaben) oder `contact_first` (erst Angaben und
+	 * Fragen, dann Zeit). Fehlt das Feld, gilt `calendar_first`.
+	 */
+	flow: BookingFlow;
 }
+
+/** Reihenfolge der Buchung, eingestellt an der Terminart im CRM. */
+export type BookingFlow = 'calendar_first' | 'contact_first';
 
 /** Ein freier Termin, Zeiten in UTC (`…Z`). */
 export interface BookingSlot {
@@ -215,6 +223,7 @@ function normalizeBookingInfo(raw: unknown): BookingInfo | null {
 		timezone,
 		locations,
 		questions,
+		flow: raw.flow === 'contact_first' ? 'contact_first' : 'calendar_first',
 	};
 }
 
