@@ -306,7 +306,7 @@ export function buildContract() {
 			rules: [
 				'Genau ein Element je vorgerenderter Seite, im <head>, geschrieben von <SiteHead>. Die Rückfall-Seite (404.html) bekommt es beim Packen auf dem Build-Host.',
 				'Inhalt ist JSON.stringify({ v, slots, richtext }) in dieser Schlüsselreihenfolge; danach <, >, &, U+2028, U+2029 als \\u003c, \\u003e, \\u0026, \\u2028, \\u2029. Das Element kann deshalb kein < enthalten.',
-				'slots: die Überschreibungen aus dem CRM (snapshot.slots) in der Reihenfolge der Eingabe. richtext: fertiges HTML je Richtext-Slot in der Reihenfolge von manifest.slots; Wert aus dem CRM durch die Positiv-Liste, sonst contentPatch.richtextDefaults[key].',
+				'slots: die Überschreibungen aus dem CRM (snapshot.slots), so wie das SDK den Schnappschuss liest (normalizeSnapshot): nur echte Überschreibungen (source nicht "default", value nicht null), je Slot genau { type, value } (ohne source), in der Reihenfolge der Eingabe. richtext: fertiges HTML je Richtext-Slot in der Reihenfolge von manifest.slots; Wert aus dem CRM durch die Positiv-Liste, sonst contentPatch.richtextDefaults[key].',
 				'Vor dem Element steht in Produktions-Builds <!---->; es bleibt stehen.',
 			],
 			schema: {
