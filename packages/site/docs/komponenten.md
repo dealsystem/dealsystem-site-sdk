@@ -21,7 +21,7 @@ weiteren Teile dürfen Bindestriche haben (`start.ueber-uns`). Das gilt für all
 Schlüssel von `<Text>`, `<RichText>`, `<Link>` und `<MediaImage>`.
 
 ```svelte
-<Text key="start.hero.titel" default="Wir kaufen Ihr Haus" as="h1" label="Überschrift" group="Startseite" />
+<Text key="start.hero.titel" default="Ihr Meisterbetrieb für Bad und Heizung" as="h1" label="Überschrift" group="Startseite" />
 ```
 
 Mehrere Zeilen: `multiline` und den Text in geschweiften Klammern, dann ist
@@ -99,7 +99,7 @@ wörtlich auf der Seite (`dealsystem check` warnt, CNT-003).
 
 ```svelte
 <RichText
-	key="ankauf.ablauf"
+	key="leistungen.ablauf"
 	default={'1. Sie schicken uns die Eckdaten.\n2. Wir prüfen und melden uns.\n3. Sie erhalten ein Angebot.\n\nDer Ablauf ist für Sie kostenlos.'}
 />
 ```

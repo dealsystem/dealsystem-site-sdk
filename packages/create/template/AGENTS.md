@@ -11,7 +11,7 @@ Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.1. DealSystem prüft, baut 
 
 ### Mit wem du sprichst
 
-Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
+Dein Auftraggeber ist kein Techniker, sondern führt einen Betrieb (Handwerk, Praxis, Agentur, Immobilien …).
 
 - Sprich Deutsch, kurz und ohne Fachbegriffe: „Vorschau“, „hochladen“, „veröffentlichen“, nicht „Build“, „Deploy“, „Repository“.
 - **Eine Nachricht, höchstens eine Frage.** Nie eine Liste von Fragen, nie eine Frage neben einer Bitte (etwa um die Anmeldung). Frag nur, wenn du ohne Antwort nicht weiterkommst; sonst triff eine vernünftige Annahme und nenne sie in einem Satz.
@@ -24,10 +24,10 @@ Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
 
 **Zu Beginn jeder Sitzung `npx dealsystem sync` ausführen.** Ob Rechtstexte fehlen, sagt `npx dealsystem status`, nicht `.dealsystem/content.json`.
 
-1. **Erste Nachricht, eine Frage:** „Wie möchtest du vorgehen: (a) kurz besprechen oder (b) ich lege einfach los?“ Erst danach bauen (Skill `erster-entwurf`).
+1. **Erst fragen:** nach dem Ziel (Angebot, für wen, was Besucher tun sollen); kennst du es, Struktur vorschlagen. Dann „Wie möchtest du vorgehen: (a) kurz besprechen oder (b) ich lege los?“ Skills `website-planen`, `erster-entwurf`.
 2. **Anmelden, verbinden:** `npx dealsystem login --start`, `npx dealsystem login --wait`, `npx dealsystem init`, `npx dealsystem sync` (`ablauf.md`).
-3. **Lokal zeigen:** `npm run dev`, ihm die angezeigte Adresse geben, gemeinsam ändern. Nicht auf seinem Rechner? Sag es, nimm die Vorschau.
-4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`, alles beheben. „Geprüft“ nur, wenn die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet. Prüfen geht auch ohne Anmeldung.
+3. **Lokal zeigen:** `npm run dev`, ihm die angezeigte Adresse geben, gemeinsam ändern. Nicht auf seinem Rechner? Sag es, nimm nach seinem Okay die Vorschau.
+4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`, alles beheben. „Geprüft“ nur, wenn die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet (geht ohne Anmeldung).
 5. **Hochladen erst nach seinem Okay zum lokalen Stand:** `npx dealsystem deploy -m "…"`, Vorschau-Adresse geben.
 6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja.**
 
@@ -52,25 +52,26 @@ Jede Regel mit Korrektur: `regeln.md`.
 - Jeder sichtbare Text als `<Text>`/`<RichText>` mit festem `key` und `default` (Schlüssel-Regeln: `komponenten.md`). Adresse, Telefon, E-Mail kommen als `data.site` aus dem CRM.
 - Schriften lokal, keine CDN-Links. Fremdes nur über `external` in `dealsystem.config.ts` und `<Embed>`/`<ExternalScript>` (Skill `extern-einbinden`).
 - Jede Seite: eine `h1`, Titel und Beschreibung über `<Seo>`, nicht als `<title>` in `<svelte:head>`. `<SiteHead />`, `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
-- Titel, Beschreibung, Vorschaubild und Favicon pflegt der Kunde unter Eigene Website → Einstellungen → Google und Teilen; nicht fest im Code überschreiben (`seo.md`).
-- `svelte.config.js` und `vite.config.ts` nicht ändern (`npx dealsystem sync --fix-config`). Nur freigegebene Pakete (`npx dealsystem check --allowed`).
+- Titel, Vorschaubild und Favicon pflegt der Kunde unter Eigene Website → Einstellungen → Google und Teilen; nicht im Code überschreiben (`seo.md`).
 - Barrierefrei bauen: `gestaltung.md`.
+- `svelte.config.js` und `vite.config.ts` nicht ändern (`npx dealsystem sync --fix-config`). Nur freigegebene Pakete (`npx dealsystem check --allowed`).
 - Kampagnen, Klick-IDs und Seitenaufrufe erfasst das SDK; nicht nachbauen (`rechtstexte.md`).
 
 ### Skills
 
 Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden, bevor du anfängst, auch wenn dein Werkzeug Skills nicht selbst lädt:
 
-- `erster-entwurf` – erste Frage, Entwurf lokal zeigen
-- `neue-seite` – neue Seite oder Abschnitt, Texte, tauschbare Fotos
-- `bild-einbauen` – Foto des Kunden einbauen (ohne Standort)
+- `website-planen` – Ziel und Seiten festlegen
+- `erster-entwurf` – erste Fragen, Entwurf lokal zeigen
+- `neue-seite` – neue Seite oder Abschnitt
+- `bild-einbauen` – Foto des Kunden einbauen
 - `formular-anbinden` – Kontakt- oder Anfrageformular, Ratgeber zum Download
 - `funnel-mehrstufig` – eigenes Formular in Schritten (Funnel)
 - `termin-buchung` – Terminbuchung (`termine.md`)
 - `extern-einbinden` – Video, Karte, Chat, fremdes Skript
 - `angebote-einbauen` – Angebote und andere Sammlungen aus dem CRM
-- `prueffehler-beheben` – Meldungen von `check` oder abgelehnte Version
-- `veroeffentlichen` – hochladen, Vorschau, nach dem Ja veröffentlichen
+- `prueffehler-beheben` – Meldungen von `check`
+- `veroeffentlichen` – hochladen, Vorschau, veröffentlichen
 - `domain-verbinden` – eigene Domain des Kunden
 
 ### Bausteine
@@ -94,13 +95,13 @@ Aus `@dealsystem/site`; Pflichtangaben und Beispiele in `komponenten.md`.
 
 Unter `node_modules/@dealsystem/site/docs/`:
 
-- `ablauf.md` – Weg bis zur veröffentlichten Seite
-- `komponenten.md` – Bausteine mit Pflichtangaben und Beispielen
+- `ablauf.md` – Weg bis zur fertigen Seite
+- `komponenten.md` – Bausteine mit Beispielen
 - `inhalte.md` – Sammlungen (Angebote) laden
 - `konfiguration.md` – Formulare, Sammlungen, Termine
 - `gestaltung.md` – Farben, Schrift, Bilder, Barrierefreiheit
 - `rechtstexte.md` – Impressum, Datenschutz, Cookie-Hinweis
-- `extern.md` – fremde Dienste: Videos, Widgets, Skripte
+- `extern.md` – Videos, Widgets, fremde Skripte
 - `seo.md` – Titel, Vorschaubild, Favicon, noindex
 - `regeln.md` – Prüfregeln mit Korrektur
 - `befehle.md` – Befehle mit Optionen

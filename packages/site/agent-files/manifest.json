@@ -4,8 +4,10 @@
 		{
 			"target": ".claude/skills/angebote-einbauen/SKILL.md",
 			"source": "claude/skills/angebote-einbauen/SKILL.md",
-			"sha256": "e8ada47211c5485b5e9cf60b6554f7ce3ee927d9ff02f7e9a75b91b6eefc891a",
-			"previous": []
+			"sha256": "9c6108fff0ea2317106fc0e793a7645f5eb5024bcbe2e7a3571559e417d0d327",
+			"previous": [
+				"e8ada47211c5485b5e9cf60b6554f7ce3ee927d9ff02f7e9a75b91b6eefc891a"
+			]
 		},
 		{
 			"target": ".claude/skills/bild-einbauen/SKILL.md",
@@ -18,14 +20,18 @@
 		{
 			"target": ".claude/skills/domain-verbinden/SKILL.md",
 			"source": "claude/skills/domain-verbinden/SKILL.md",
-			"sha256": "c850bf5e32c7d0b7811b61153c4f6b07b1489c63b2b1b0fb7afbf8e21890d4ba",
-			"previous": []
+			"sha256": "e58e7771938962f7afa1b5dd3e7ac90a10b06bc275c8fa62b401fa8102f673c4",
+			"previous": [
+				"c850bf5e32c7d0b7811b61153c4f6b07b1489c63b2b1b0fb7afbf8e21890d4ba"
+			]
 		},
 		{
 			"target": ".claude/skills/erster-entwurf/SKILL.md",
 			"source": "claude/skills/erster-entwurf/SKILL.md",
-			"sha256": "8e6b2b2a0454746d7932fc5be531024bfbe94ff29f13b9f34573c488ca7d170b",
-			"previous": []
+			"sha256": "c430c3ed5137dd1475a089a95c00a01a04c274e7e566defe5be1d2bcecdbd6e5",
+			"previous": [
+				"8e6b2b2a0454746d7932fc5be531024bfbe94ff29f13b9f34573c488ca7d170b"
+			]
 		},
 		{
 			"target": ".claude/skills/extern-einbinden/SKILL.md",
@@ -38,11 +44,12 @@
 		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
 			"source": "claude/skills/formular-anbinden/SKILL.md",
-			"sha256": "ebb376299b85daa330420f38840ba487d93359ef99b6e80f4aad1c5bffd66298",
+			"sha256": "3c112d6c8b20e796be60efaf58ea68c3b7da4d6a79f1d690bbe40fe9d166a48e",
 			"previous": [
 				"0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
 				"dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71",
-				"e367797a8ccf96fb904ca4fdec8d1fa76f4d7ddf1bf4670fdbfd1e9e6dea203f"
+				"e367797a8ccf96fb904ca4fdec8d1fa76f4d7ddf1bf4670fdbfd1e9e6dea203f",
+				"ebb376299b85daa330420f38840ba487d93359ef99b6e80f4aad1c5bffd66298"
 			]
 		},
 		{
@@ -54,18 +61,20 @@
 		{
 			"target": ".claude/skills/funnel-mehrstufig/SKILL.md",
 			"source": "claude/skills/funnel-mehrstufig/SKILL.md",
-			"sha256": "389ca5baa64d93444a532d82c915b672e485944d528a815caced0bbd491341ae",
+			"sha256": "9ebf5d655f71938b52a3370479443e77cba2d6869eb1de2b3995517344fb0816",
 			"previous": [
+				"389ca5baa64d93444a532d82c915b672e485944d528a815caced0bbd491341ae",
 				"7e9eb7ff564bd2089065fd891d76f9eb645e0455b31317e94eb3af8d121409b1"
 			]
 		},
 		{
 			"target": ".claude/skills/neue-seite/SKILL.md",
 			"source": "claude/skills/neue-seite/SKILL.md",
-			"sha256": "db7bf1718a4be4ce1db57a13cd897e4218666849417e462f38d28f9328429e09",
+			"sha256": "3f1ab818132e295d9ef7f0690a7c3911290813953c6ae9a7b58523645deb6da4",
 			"previous": [
 				"31391653877cd0a4c66aea93ac8680915d481ba3bbc512757181abb040c73811",
-				"9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af"
+				"9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af",
+				"db7bf1718a4be4ce1db57a13cd897e4218666849417e462f38d28f9328429e09"
 			]
 		},
 		{
@@ -90,6 +99,12 @@
 			"previous": [
 				"899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694"
 			]
+		},
+		{
+			"target": ".claude/skills/website-planen/SKILL.md",
+			"source": "claude/skills/website-planen/SKILL.md",
+			"sha256": "90ad34ad84948ea1b1771cc1c25117273766d6f0d46c4218b0558859f916b1f8",
+			"previous": []
 		},
 		{
 			"target": ".cursor/rules/dealsystem.mdc",

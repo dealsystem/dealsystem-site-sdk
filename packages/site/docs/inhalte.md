@@ -100,7 +100,7 @@ Für die Ausgabe im Markup ist `<Text>` der einfachere Weg.
 
 ```ts
 const slots = await getSlots();
-const titel = slots['start.hero.titel']?.value ?? 'Wir kaufen Ihr Haus';
+const titel = slots['start.hero.titel']?.value ?? 'Ihr Meisterbetrieb für Bad und Heizung';
 ```
 
 ```ts

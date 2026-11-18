@@ -87,6 +87,7 @@ describe('Dateien für KI-Agenten', () => {
 			'prueffehler-beheben',
 			'termin-buchung',
 			'veroeffentlichen',
+			'website-planen',
 		]);
 		for (const skill of skills) {
 			const text = await readFile(join(root, skill, 'SKILL.md'), 'utf8');

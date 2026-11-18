@@ -10,18 +10,25 @@ eingetragen sind, sagt `npx dealsystem status` (Zeile „Rechtstexte im CRM“),
 
 ## 0. Erste Nachricht an den Kunden
 
-Bevor du etwas baust oder hochlädst, fragst du genau eines:
+Bevor du etwas baust oder hochlädst, klärst du zuerst das Ziel der Seite. Weißt du noch nichts über den
+Kunden, fragst du:
+
+> Was bietest du an, für wen, und was soll ein Besucher auf deiner Seite tun: anrufen, ein Formular ausfüllen,
+> einen Termin buchen?
+
+Weißt du schon genug (Auftrag, Dateien, Firmendaten aus `sync`), schlägst du direkt eine passende Struktur vor
+(Skill `website-planen`) und lässt sie bestätigen. Danach genau eine Frage zum Vorgehen:
 
 > Wie möchtest du vorgehen? (a) Wir besprechen kurz deine Seite, ich stelle dir ein paar Fragen nacheinander.
 > (b) Ich lege einfach los und baue dir aus dem, was ich habe, einen ersten Entwurf.
 
-- **(a) Kurz besprechen:** höchstens fünf Fragen, je eine pro Nachricht: Ziel der Seite, Zielgruppe, Stil
-  oder Vorbilder, vorhandene Fotos (Porträt, Team, Objekte), welche Seiten.
+- **(a) Kurz besprechen:** 3 bis 5 Fragen, je eine pro Nachricht: was Besucher tun sollen, Zielgruppe, Stil
+  oder Vorbilder, vorhandene Fotos (Porträt, Team, Arbeiten), welche Seiten.
 - **(b) Einfach loslegen:** Du nimmst, was er schreibt, Dateien im Projektordner, eine bestehende Website
   oder ein Profil (nur wenn er die Adresse nennt) und die Firmendaten aus `npx dealsystem sync`. Was fehlt,
   steht als sichtbarer Platzhalter da; nichts erfinden. Behaupte nicht, du kennst andere Chats.
 
-Einzelheiten und Beispielsätze: Skill `erster-entwurf`. Danach geht es mit den Schritten unten weiter; die
+Einzelheiten und Beispielsätze: Skills `website-planen` und `erster-entwurf`. Danach geht es mit den Schritten unten weiter; die
 Anmeldung (Schritt 2) erbittest du in einer eigenen Nachricht.
 
 ## 1. Neues Projekt
@@ -56,7 +63,7 @@ wartet auf die Bestätigung. Die Anmeldung liegt danach im Benutzerprofil des Re
 ```bash
 npx dealsystem init                     # zeigt die vorhandenen Seiten
 npx dealsystem init --site <name>       # eine davon wählen
-npx dealsystem init --create --name "Muster Immobilien" --slug muster-immobilien   # oder neu anlegen
+npx dealsystem init --create --name "Muster GmbH" --slug muster-gmbh   # oder neu anlegen
 npx dealsystem sync
 ```
 
@@ -76,7 +83,8 @@ startet die Seite auf dem Rechner des Kunden. Gib ihm die Adresse, die der Befeh
 die Einsendung wird geprüft, aber nicht gespeichert.
 
 **Läufst du nicht auf seinem Rechner** (etwa als Agent in der Cloud), kann er die lokale Adresse nicht
-öffnen. Sag ihm das in einem Satz und zeig ihm den Stand gleich als Vorschau (Schritt 6). Wie die Bausteine verwendet werden: `komponenten.md`. Angebote und andere Inhalte:
+öffnen. Sag ihm das in einem Satz, überspring das lokale Zeigen und lade nach seinem Okay direkt als Vorschau
+hoch (Schritt 6). Wie die Bausteine verwendet werden: `komponenten.md`. Angebote und andere Inhalte:
 `inhalte.md`. Aussehen: `gestaltung.md`.
 
 ## 5. Prüfen

@@ -57,16 +57,17 @@ const COMPONENT_GROUPS = [
 
 /** Skills des Starters in der Reihenfolge, in der sie meist gebraucht werden. */
 const SKILLS = [
-	['erster-entwurf', 'erste Frage, Entwurf lokal zeigen'],
-	['neue-seite', 'neue Seite oder Abschnitt, Texte, tauschbare Fotos'],
-	['bild-einbauen', 'Foto des Kunden einbauen (ohne Standort)'],
+	['website-planen', 'Ziel und Seiten festlegen'],
+	['erster-entwurf', 'erste Fragen, Entwurf lokal zeigen'],
+	['neue-seite', 'neue Seite oder Abschnitt'],
+	['bild-einbauen', 'Foto des Kunden einbauen'],
 	['formular-anbinden', 'Kontakt- oder Anfrageformular, Ratgeber zum Download'],
 	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
 	['termin-buchung', 'Terminbuchung (`termine.md`)'],
 	['extern-einbinden', 'Video, Karte, Chat, fremdes Skript'],
 	['angebote-einbauen', 'Angebote und andere Sammlungen aus dem CRM'],
-	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
-	['veroeffentlichen', 'hochladen, Vorschau, nach dem Ja veröffentlichen'],
+	['prueffehler-beheben', 'Meldungen von `check`'],
+	['veroeffentlichen', 'hochladen, Vorschau, veröffentlichen'],
 	['domain-verbinden', 'eigene Domain des Kunden'],
 ];
 
@@ -458,13 +459,13 @@ async function build() {
 		throw new Error(`SKILLS passt nicht zu den Skills des Starters: ${skillDirs.join(', ')}.`);
 	}
 	const docsIndex = [
-		['ablauf.md', 'Weg bis zur veröffentlichten Seite'],
-		['komponenten.md', 'Bausteine mit Pflichtangaben und Beispielen'],
+		['ablauf.md', 'Weg bis zur fertigen Seite'],
+		['komponenten.md', 'Bausteine mit Beispielen'],
 		['inhalte.md', 'Sammlungen (Angebote) laden'],
 		['konfiguration.md', 'Formulare, Sammlungen, Termine'],
 		['gestaltung.md', 'Farben, Schrift, Bilder, Barrierefreiheit'],
 		['rechtstexte.md', 'Impressum, Datenschutz, Cookie-Hinweis'],
-		['extern.md', 'fremde Dienste: Videos, Widgets, Skripte'],
+		['extern.md', 'Videos, Widgets, fremde Skripte'],
 		['seo.md', 'Titel, Vorschaubild, Favicon, noindex'],
 		['regeln.md', 'Prüfregeln mit Korrektur'],
 		['befehle.md', 'Befehle mit Optionen'],

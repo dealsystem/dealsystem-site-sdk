@@ -60,7 +60,7 @@ external: {
 ```svelte
 <Embed id="rundgang" src="https://vimeo.com/76979871" title="Rundgang" />
 <Embed id="anfahrt" src="https://www.google.com/maps/embed?pb=…" title="Anfahrt zum Büro" />
-<Embed id="termin" src="https://calendly.com/makler/erstgespraech" title="Termin für ein Erstgespräch" />
+<Embed id="termin" src="https://calendly.com/beispiel/erstgespraech" title="Termin für ein Erstgespräch" />
 ```
 
 - Google Maps: nur die Adresse aus Google Maps → Teilen → Karte einbetten (`/maps/embed?pb=…`). Ohne sie nimm

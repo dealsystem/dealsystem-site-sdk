@@ -184,7 +184,7 @@ export function collectionEntries<K extends CollectionKey>(key: K): () => Promis
  *
  * @example
  * const slots = await getSlots();
- * const titel = slots['start.hero.titel']?.value ?? 'Wir kaufen Ihr Haus';
+ * const titel = slots['start.hero.titel']?.value ?? 'Ihr Meisterbetrieb für Bad und Heizung';
  */
 export async function getSlots(): Promise<Partial<Record<SlotKey, SlotOverride>>> {
 	assertBuildTime('getSlots');

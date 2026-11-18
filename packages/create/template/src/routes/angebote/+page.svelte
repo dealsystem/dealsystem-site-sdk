@@ -8,7 +8,7 @@
 
 <Seo
 	title="Angebote – {data.site.name || 'Meine Website'}"
-	description="Alle aktuellen Immobilien-Angebote im Überblick."
+	description="Alle aktuellen Angebote im Überblick."
 />
 
 <section class="section">

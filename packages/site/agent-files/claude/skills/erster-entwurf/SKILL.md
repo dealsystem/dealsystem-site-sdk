@@ -7,7 +7,18 @@ description: Der Anfang mit einem neuen Kunden, von der ersten Nachricht bis zum
 
 Nachschlagen: `node_modules/@dealsystem/site/docs/ablauf.md` (Schritte 0, 4 und 6).
 
-## 1. Erste Nachricht: genau eine Frage
+## 0. Zuerst das Ziel
+
+Weißt du noch nichts über den Kunden, frag zuerst nach dem Ziel der Seite, in einer Nachricht:
+
+> Was bietest du an, für wen, und was soll ein Besucher auf deiner Seite tun: anrufen, ein Formular ausfüllen,
+> einen Termin buchen?
+
+Weißt du schon genug (aus dem Auftrag, aus Dateien, aus den Firmendaten von `npx dealsystem sync`), frag nicht
+noch einmal: Schlag eine passende Struktur vor (Skill `website-planen`) und frag „Passt das so, oder sollen wir es
+vorher kurz besprechen?“. Ein Ja heißt (b), „besprechen“ heißt (a).
+
+## 1. Dann das Vorgehen: genau eine Frage
 
 > Wie möchtest du vorgehen? (a) Wir besprechen kurz deine Seite, ich stelle dir ein paar Fragen nacheinander.
 > (b) Ich lege einfach los und baue dir aus dem, was ich habe, einen ersten Entwurf.
@@ -17,19 +28,21 @@ Nachricht.
 
 ## 2a. Kurz besprechen
 
-Höchstens fünf Fragen, **je eine pro Nachricht**, in einfachen Worten. Überspring, was er schon gesagt hat:
+3 bis 5 Fragen, **je eine pro Nachricht**, in einfachen Worten. Überspring, was er schon gesagt hat:
 
-1. Was soll die Seite erreichen (z. B. Verkäufer finden, Anfragen zu Objekten, Vertrauen aufbauen)?
+1. Was soll ein Besucher auf der Seite tun (anrufen, Anfrage senden, Termin buchen)?
 2. Wen möchtest du damit ansprechen?
 3. Wie soll sie wirken? Gibt es eine Seite, die dir gefällt?
-4. Welche Fotos hast du (Porträt, Team, Objekte)? Schick sie mir gern.
-5. Welche Seiten brauchst du (z. B. Start, Leistungen, Über mich, Kontakt)?
+4. Welche Fotos hast du (Porträt, Team, deine Arbeit, Räume)? Schick sie mir gern.
+5. Welche Seiten brauchst du (z. B. Start, Leistungen, Über mich, Kontakt)? Einen Vorschlag nach Ziel hat der
+   Skill `website-planen`.
 
 ## 2b. Einfach loslegen
 
 Nimm, was du hast: was er geschrieben hat, Dateien im Projektordner (Fotos mit `npx dealsystem image add`,
 Skill `bild-einbauen`), eine bestehende Website oder ein Profil, **nur wenn er die Adresse nennt**, und die
-Firmendaten aus `npx dealsystem sync` (`data.site`). Daraus ein erster Entwurf.
+Firmendaten aus `npx dealsystem sync` (`data.site`). Daraus ein erster Entwurf mit der Struktur aus
+`website-planen`.
 
 - Erfinde nichts (AGENTS.md): Was fehlt, steht als sichtbarer Platzhalter da, z. B. „[Hier kommt Ihr Porträt]“
   oder „[Ihre Leistungen in zwei Sätzen]“, als `<Text>` mit festem `key`, damit er es später im CRM tauscht.
@@ -43,7 +56,7 @@ bis er zufrieden ist. Prüfen (`npm run check`, `npm run build`, `npx dealsystem
 dazu, aber nicht in die Nachricht an ihn.
 
 **Läufst du nicht auf seinem Rechner** (etwa als Agent in der Cloud), kann er localhost nicht öffnen. Sag das in
-einem Satz und zeig ihm stattdessen gleich die Vorschau (Schritt 4).
+einem Satz, überspring das lokale Zeigen und lade nach seinem Okay direkt als Vorschau hoch (Schritt 4).
 
 ## 4. Hochladen erst nach seinem Okay
 

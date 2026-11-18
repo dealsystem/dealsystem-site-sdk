@@ -77,6 +77,11 @@ describe('Inhalt des Blocks', () => {
 		expect(block).toContain('nicht nach deinem Vorwissen');
 	});
 
+	it('legt den Kunden auf keine Branche fest', () => {
+		expect(block).not.toMatch(/meist Immobilien|Investor/);
+		expect(block).toMatch(/Handwerk, Praxis, Agentur/);
+	});
+
 	it('nennt die Gesprächsregeln für Laien', () => {
 		expect(block).toContain('Eine Nachricht, höchstens eine Frage');
 		expect(block).toContain('nie eine Frage neben einer Bitte');
@@ -236,6 +241,27 @@ describe('Detailseiten', () => {
 		for (const text of [ablauf, entwurf, await skill('veroeffentlichen')]) {
 			expect(text).toMatch(/ausdrücklichen Okay|ausdrücklich Ja sagt/);
 			expect(text).toContain('„passt, zeig es online“');
+		}
+		// Zuerst das Ziel, dann das Vorgehen; branchenneutral, mit Strukturvorschlag aus `website-planen`.
+		const planen = await skill('website-planen');
+		const goal = 'Was bietest du an, für wen, und was soll ein Besucher auf deiner Seite tun';
+		for (const text of [ablauf, entwurf, planen]) expect(text).toContain(goal);
+		for (const text of [ablauf, entwurf]) {
+			expect(text.indexOf(goal)).toBeLessThan(text.indexOf('Wie möchtest du vorgehen?'));
+			expect(text).toContain('website-planen');
+		}
+		// Nur Quellen, die es gibt; jede Ziel-Zeile nennt ihre Bausteine.
+		for (const url of [...planen.matchAll(/\((https:\/\/[^)\s]+)\)/g)].map((m) => m[1]!)) {
+			expect(url).toMatch(/^https:\/\/(www\.nngroup\.com|developers\.google\.com)\//);
+		}
+		for (const ziel of [
+			'Anfragen',
+			'Termine',
+			'Verkauf über Anfrage',
+			'Mitarbeiter finden',
+			'Arbeiten zeigen',
+		]) {
+			expect(planen).toContain(`**${ziel}**`);
 		}
 		// Im Ablauf steht die erste Frage vor dem Anlegen, das lokale Zeigen vor dem Hochladen.
 		expect(ablauf.indexOf('## 0. Erste Nachricht')).toBeLessThan(ablauf.indexOf('## 1. Neues Projekt'));
