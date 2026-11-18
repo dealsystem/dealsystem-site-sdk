@@ -7,6 +7,7 @@ import { formatBookingTime, visitorTimeZone } from '../src/lib/client/bookingTim
 import { setCaptchaAdapterForTests } from '../src/lib/client/captcha.js';
 import Booker from '../src/lib/components/Booker.svelte';
 import { consent } from '../src/lib/consent/consent.svelte.js';
+import { safeHttpUrl, setNavigateForTests } from '../src/lib/internal/navigate.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
 import { INFO, SLOTS } from './fixtures/booking.js';
 import { jsonResponse, testSiteData } from './helpers.js';
@@ -247,6 +248,37 @@ describe('<Booker> mit flow: contact_first (erst Angaben, dann Zeit)', () => {
 		expect(bookings()).toHaveLength(0);
 		await user.click(screen.getByRole('button', { name: 'Angaben ändern' }));
 		expect(await screen.findByRole('heading', { name: 'Erstgespräch: Ihre Angaben' })).toBeInTheDocument();
+	});
+
+	it('leitet die Regel weiter (redirectUrl): dorthin statt zur Zeitwahl; javascript: wird nie übernommen', async () => {
+		const user = userEvent.setup();
+		const went: string[] = [];
+		setNavigateForTests((url) => went.push(url));
+		try {
+			qualifyAnswer = () =>
+				jsonResponse(200, {
+					data: {
+						qualified: false,
+						headline: 'Passt besser hier',
+						message: 'Wir leiten Sie weiter.',
+						redirectUrl: 'https://kunde.de/mietanfrage',
+					},
+				});
+			render(Booker, { booking: 'erstgespraech' });
+			await screen.findByRole('heading', { name: 'Erstgespräch: Ihre Angaben' });
+			await fillDetails(user);
+			await user.click(screen.getByRole('button', { name: 'Weiter zur Terminwahl' }));
+			await waitFor(() => expect(went).toEqual(['https://kunde.de/mietanfrage']));
+			expect(screen.getByRole('link', { name: 'Weiter' })).toHaveAttribute(
+				'href',
+				'https://kunde.de/mietanfrage',
+			);
+			expect(screen.queryByRole('group', { name: 'Tag wählen' })).not.toBeInTheDocument();
+		} finally {
+			setNavigateForTests(null);
+		}
+		expect(safeHttpUrl('javascript:alert(1)')).toBeNull();
+		expect(safeHttpUrl('https://kunde.de/x')).toBe('https://kunde.de/x');
 	});
 
 	it('qualify technisch gestört: der Besucher kommt trotzdem zur Zeitwahl', async () => {

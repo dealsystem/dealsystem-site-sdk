@@ -113,6 +113,8 @@ export type BookingQualifyResult =
 			qualified: false;
 			headline: string;
 			message: string;
+			/** Weiterleitung aus der Regel im CRM: dorthin statt zur Zeitwahl. */
+			redirectUrl: string | null;
 			fallback: LeadFallback;
 	  }
 	| BookingFailure;
@@ -528,6 +530,7 @@ export function createBookingClient<K extends BookingKey>(
 					qualified: false,
 					headline: result.data.headline || 'Dafür bieten wir leider keinen Termin an',
 					message: result.data.message || MESSAGES.not_qualified,
+					redirectUrl: result.data.redirectUrl,
 					fallback,
 				};
 			}

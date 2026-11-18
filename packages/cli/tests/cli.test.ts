@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HttpDeployApi } from '../src/api/http.js';
 import { CredentialStore } from '../src/auth/credentials.js';
-import { createDevMiddleware, detectDevMode, devProxyPlugin } from '../src/commands/dev.js';
+import { createDevMiddleware, detectDevMode, devProxyPlugin, testRunSummary } from '../src/commands/dev.js';
 import { readTarGz } from '../src/project/tar.js';
 import { BASE_SOURCE, cleanupFixtures, materialize } from './helpers/fixtures.js';
 import { runCli, testIO, type TestIO } from './helpers/io.js';
@@ -779,6 +779,16 @@ describe('dev-Middleware', () => {
 				start: '2026-12-01T08:00:00.000Z',
 			});
 			expect(taken.status).toBe(409);
+			// Bot-Falle: live 201 ohne Speichern, also auch hier Erfolg; die Konsole sagt es.
+			server.state.testRunRejection = { code: 'honeypot', message: 'Bot-Falle' };
+			const trap = await post(`${dev.url}/api/site/v1/s/dev/leads`, {
+				funnelKey: 'kontakt',
+				data: {},
+				website: 'x',
+			});
+			expect(trap.status).toBe(200);
+			expect(await trap.json()).toEqual({ data: { accepted: true, dryRun: true } });
+			expect(dev.log.join('\n')).toContain('Bot-Falle ausgelöst');
 			server.state.testRunRejection = null;
 
 			const rejected = {
@@ -938,5 +948,48 @@ describe('dev: Hinweise zur echten Terminbuchung', () => {
 		} finally {
 			await new Promise((r) => vite.close(r));
 		}
+	});
+});
+
+describe('dev: Zusammenfassung eines Testlaufs', () => {
+	it('abgelehnte Einsendung ohne lead, Buchung mit Weiterleitung aus der Regel', () => {
+		const lead = testRunSummary({
+			data: {
+				kind: 'lead',
+				outcome: 'rejected',
+				rejection: { code: 'funnel_not_found', message: 'Formular aus' },
+				lead: null,
+				booking: null,
+				summary: 'Anfrage wäre abgelehnt worden.',
+			},
+		});
+		expect(lead).toContain(
+			'Testlauf: nichts angelegt, keine Mail verschickt. Anfrage wäre abgelehnt worden.',
+		);
+		expect(lead).toContain('  - Abgelehnt (funnel_not_found): Formular aus');
+		const booking = testRunSummary({
+			data: {
+				kind: 'booking',
+				outcome: 'accepted',
+				rejection: null,
+				lead: null,
+				booking: {
+					eventType: { id: 'e', slug: 'b', title: 'Beratung' },
+					source: 'site',
+					slotFree: null,
+					qualification: {
+						qualified: false,
+						headline: 'Passt besser hier',
+						message: 'Mietanfrage',
+						redirectUrl: 'https://kunde.de/miete',
+					},
+					contact: { match: 'new', fills: ['email'] },
+					confirmation: { wouldSend: false, blocker: 'disabled', to: null, note: null },
+				},
+			},
+		});
+		expect(booking).toContain('  - Nicht passend: Passt besser hier Mietanfrage');
+		expect(booking).toContain('  - Weiterleitung an https://kunde.de/miete');
+		expect(booking).toContain('  - Keine Bestätigungsmail (disabled)');
 	});
 });

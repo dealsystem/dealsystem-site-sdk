@@ -1,6 +1,7 @@
 // Client für die öffentliche Site-API (`/api/site/v1/s/{publishableKey}/…`).
 // Grundsatz: Fehler kommen als Daten zurück. Keine Funktion hier wirft, auch
 // nicht bei Netzfehlern oder kaputten Antworten.
+import { safeHttpUrl } from '../internal/navigate.js';
 import { getSiteData } from '../internal/siteData.js';
 import type { LeadAttributionV2, Touch } from './attribution.js';
 import { normalizeEntry } from '../snapshot.js';
@@ -185,6 +186,8 @@ export type BookingQualification =
 			headline: string | null;
 			/** Text für Besucher aus der Regel im CRM. */
 			message: string | null;
+			/** Leitet die Regel weiter, die Adresse (nur http/https); dann dorthin statt zur Zeitwahl. */
+			redirectUrl: string | null;
 	  };
 
 const LOCATION_TYPES: readonly BookingLocationType[] = ['google_meet', 'in_person', 'phone', 'link'];
@@ -508,7 +511,12 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 				ok: true,
 				data: data.qualified
 					? { qualified: true }
-					: { qualified: false, headline: str(data.headline), message: str(data.message) },
+					: {
+							qualified: false,
+							headline: str(data.headline),
+							message: str(data.message),
+							redirectUrl: safeHttpUrl(data.redirectUrl),
+						},
 			};
 		},
 

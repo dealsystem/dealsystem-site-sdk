@@ -121,7 +121,11 @@ export function testRunSummary(body: unknown): string {
 	const run = isRecord(body) && isRecord(body.data) ? body.data : {};
 	const lines: string[] = [];
 	const rejection = isRecord(run.rejection) ? run.rejection : null;
-	if (run.outcome === 'rejected')
+	if (run.outcome === 'rejected' && rejection?.code === 'honeypot')
+		lines.push(
+			'Bot-Falle ausgelöst (Feld „website“ gefüllt): Die Seite meldet Erfolg, gespeichert wäre nichts worden.',
+		);
+	else if (run.outcome === 'rejected')
 		lines.push(
 			`Abgelehnt (${text(rejection?.code) ?? 'unbekannt'}): ${text(rejection?.message) ?? ''}`.trimEnd(),
 		);
@@ -150,8 +154,10 @@ export function testRunSummary(body: unknown): string {
 		);
 		if (booking.slotFree === false) lines.push('Die Zeit wäre nicht mehr frei gewesen.');
 		const q = isRecord(booking.qualification) ? booking.qualification : null;
-		if (q && q.qualified === false)
+		if (q && q.qualified === false) {
 			lines.push(`Nicht passend: ${text(q.headline) ?? ''} ${text(q.message) ?? ''}`.trim());
+			if (text(q.redirectUrl)) lines.push(`Weiterleitung an ${text(q.redirectUrl)}`);
+		}
 	}
 	const confirmation = isRecord(lead?.confirmation)
 		? lead.confirmation
@@ -307,8 +313,10 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 				log(testRunSummary(r.body));
 				const run = isRecord(r.body) && isRecord(r.body.data) ? r.body.data : {};
 				// Wäre es live abgelehnt worden, sieht die Seite denselben Fehler.
-				if (run.outcome === 'rejected')
-					return relay(res, rejectionResponse(isRecord(run.rejection) ? run.rejection : {}));
+				const rejection = isRecord(run.rejection) ? run.rejection : {};
+				// Bot-Falle: live meldet die Site-API Erfolg und speichert nichts; die Seite sieht dasselbe.
+				if (run.outcome === 'rejected' && rejection.code !== 'honeypot')
+					return relay(res, rejectionResponse(rejection));
 				const data = isRecord(run.booking) ? run.booking : {};
 				// Die Seite sieht dasselbe wie auf einer Vorschau: geprüft, nichts angelegt.
 				return sendJson(

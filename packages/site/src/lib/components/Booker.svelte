@@ -51,6 +51,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	} from '../client/bookingTime.js';
 	import type { BookingInfo, BookingLocationType, BookingSlot } from '../client/siteApi.js';
 	import { consent } from '../consent/consent.svelte.js';
+	import { navigateTo } from '../internal/navigate.js';
 	import LeadHoneypot from './LeadHoneypot.svelte';
 
 	let {
@@ -104,7 +105,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	let booked = $state<{ when: string; dryRun: boolean } | null>(null);
 	/** `contact_first`: Antworten werden geprüft (vor der Zeitwahl). */
 	let qualifying = $state(false);
-	let rejection = $state<{ headline: string; message: string } | null>(null);
+	let rejection = $state<{ headline: string; message: string; redirectUrl: string | null } | null>(null);
 
 	let heading = $state<HTMLElement | null>(null);
 	let form = $state<HTMLFormElement | null>(null);
@@ -254,8 +255,10 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			return;
 		}
 		if (!check.qualified) {
-			rejection = { headline: check.headline, message: check.message };
+			rejection = { headline: check.headline, message: check.message, redirectUrl: check.redirectUrl };
 			step = 'not_qualified';
+			// Die Regel im CRM leitet weiter: dorthin statt zur Zeitwahl (der Link bleibt für alle Fälle stehen).
+			if (check.redirectUrl) return navigateTo(check.redirectUrl);
 			await focusHeading();
 			return;
 		}
@@ -403,7 +406,11 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		<div class="ds-booker__done">
 			{@render stepHeading(rejection.headline)}
 			<p>{rejection.message}</p>
-			{@render contactFallback()}
+			{#if rejection.redirectUrl}
+				<p><a href={rejection.redirectUrl}>Weiter</a></p>
+			{:else}
+				{@render contactFallback()}
+			{/if}
 			<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
 		</div>
 	{:else if step === 'done' && booked}

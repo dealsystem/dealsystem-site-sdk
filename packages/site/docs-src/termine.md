@@ -71,9 +71,9 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
 `groupSlotsByDay(slots, visitorTimeZone())` gruppiert nach Tag in der Zeitzone des Besuchers.
 
 - `info().flow === 'contact_first'`: erst Angaben und Fragen, dann `qualify(answers)`, erst danach die
-  Zeitwahl. `qualify` schreibt nichts. Bei `{ ok: true, qualified: false }` zeig `headline`, `message` und den
-  Ausweichkontakt statt der Zeiten; ein technischer Fehler lässt den Besucher weiter (die Buchung prüft noch
-  einmal).
+  Zeitwahl. `qualify` schreibt nichts. Bei `{ ok: true, qualified: false }` führ den Besucher zu
+  `redirectUrl`, wenn die Regel im CRM weiterleitet; sonst zeig `headline`, `message` und den Ausweichkontakt
+  statt der Zeiten. `<Booker>` macht beides selbst. Ein technischer Fehler lässt den Besucher weiter (die Buchung prüft noch einmal).
 
 - Setz `<LeadHoneypot client={termin} />` in die Oberfläche (Bot-Falle) und ruf `termin.prepare()` auf,
   sobald eine Zeit gewählt ist (startet die Sicherheitsprüfung).
