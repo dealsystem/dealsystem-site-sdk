@@ -462,7 +462,9 @@ export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 	});
 
 	const vite = await loadProjectVite(ctx.projectDir);
-	process.env.DEALSYSTEM_CONTENT_FILE = contentFile;
+	// Nur setzen, wenn es die Datei gibt: Sonst zeigt das SDK Standardtexte (Beispieldaten ohne `sync`), statt
+	// abzubrechen.
+	if (existsSync(contentFile)) process.env.DEALSYSTEM_CONTENT_FILE = contentFile;
 	const port = ctx.str('port');
 	const server = await vite.createServer({
 		root: ctx.projectDir,

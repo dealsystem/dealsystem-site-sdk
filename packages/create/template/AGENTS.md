@@ -2,10 +2,10 @@
 
 Eigene Hinweise gehören über oder unter den Block; ihn erneuert `npx dealsystem sync`.
 
-<!-- dealsystem:begin 0.2.3 -->
+<!-- dealsystem:begin 0.2.4 -->
 ## DealSystem-Website: Anleitung für KI-Agenten
 
-Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.3. DealSystem prüft, baut und hostet sie.
+Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.4. DealSystem prüft, baut und hostet sie.
 
 **Lies vor jeder Aufgabe die passende Datei unter `node_modules/@dealsystem/site/docs/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit üblich ist, wird hier abgelehnt.
 
