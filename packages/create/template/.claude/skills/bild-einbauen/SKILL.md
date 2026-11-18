@@ -25,6 +25,12 @@ das Bild selbst** unter Eigene Website → Inhalte. Einen anderen Ort im CRM daf
 6. Sag dem Kunden in einem Satz: Das Foto ist eingebaut; nach dem Veröffentlichen kann er es unter
    Eigene Website → Inhalte selbst gegen ein anderes tauschen.
 
+Später ein anderes Foto in einen schon veröffentlichten Bild-Platz, ohne neuen Code: `npx dealsystem image push
+<datei> --slot <schlüssel> --alt "…"`. Gleiche Bearbeitung wie `add`, setzt das Bild in DealSystem (wie „Bild
+ersetzen“ unter Eigene Website → Inhalte) und geht **ohne weitere Freigabe live** — frag den Kunden vorher. Der
+Schlüssel ist der aus `<MediaImage key="…">`; ein neuer Platz ist erst nach dem Hochladen bekannt. `npm run dev`
+zeigt das neue Bild danach sofort.
+
 Fehler des Befehls:
 
 - HEIC vom iPhone lässt sich nicht umwandeln: Bitte den Kunden, das Foto als JPEG zu schicken (die Meldung
