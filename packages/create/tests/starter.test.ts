@@ -514,3 +514,111 @@ describe('YouTube-Video auf der Startseite (echter Build, Regelsatz 3)', () => {
 		}
 	});
 });
+
+describe('Phase 2 zusammen: Video, Zeitfenster, Handyfoto, Text aus dem CRM (echter Build)', () => {
+	let project: StarterProject;
+	const MARKER = 'CRM-Titel-Phase2-7f3a';
+
+	beforeAll(async () => {
+		project = await createStarter();
+		await simulateInstallAndInit(project.dir);
+		const configFile = join(project.dir, 'dealsystem.config.ts');
+		const config = await readFile(configFile, 'utf8');
+		await writeFile(
+			configFile,
+			config.replace('\tcollections: {', "\texternal: { video: { preset: 'youtube' } },\n\tcollections: {"),
+		);
+		await writeSnapshot(project.dir, {
+			...FILLED_SNAPSHOT,
+			slots: {
+				...FILLED_SNAPSHOT.slots,
+				'start.hero.titel': { type: 'text', source: 'override', value: MARKER },
+			},
+		});
+		const foto = join(project.dir, '..', `handy-${Date.now()}.jpg`);
+		await writeFile(
+			foto,
+			withPhoneExif(
+				await sharp({ create: { width: 2400, height: 1600, channels: 3, background: '#864' } })
+					.jpeg()
+					.toBuffer(),
+			),
+		);
+		const cli = join(packageDir('dealsystem', project.dir), 'dist/bin.js');
+		const { stdout } = await run(process.execPath, [
+			cli,
+			...['image', 'add', foto, '--dir', project.dir, '--name', 'haus'],
+			...['--key', 'start.haus.foto', '--alt', 'Das Haus von der Straße aus', '--json'],
+		]);
+		await rm(foto);
+		const added = JSON.parse(stdout).data as { import: string; component: string };
+		const home = join(project.dir, 'src/routes/+page.svelte');
+		const original = await readFile(home, 'utf8');
+		const changed = original
+			.replace(
+				"import { RichText, Seo, Text } from '@dealsystem/site';",
+				`import { Embed, MediaImage, RichText, Seo, Text, Zeitfenster } from '@dealsystem/site';\n\t${added.import}`,
+			)
+			.replace(
+				'<section class="section hero">',
+				[
+					'<Embed id="video" src="https://www.youtube.com/watch?v=aqz-KE-bpKQ" title="Rundgang durch das Haus" />',
+					'<Zeitfenster ab="2020-01-01T00:00:00+01:00" bis="2099-01-01T00:00:00+01:00">',
+					'\t<Text key="start.aktion.hinweis" default="Besichtigungstage im Dezember" />',
+					'</Zeitfenster>',
+					added.component,
+					'',
+					'<section class="section hero">',
+				].join('\n'),
+			);
+		expect(changed).not.toBe(original);
+		await writeFile(home, changed);
+		await build(project.dir);
+	});
+
+	afterAll(() => project.remove());
+
+	it('Quelle und fertige Seite bestehen alle Regeln ohne Meldung', async () => {
+		const result = await runCheck({
+			projectDir: project.dir,
+			outputDir: join(project.dir, 'build'),
+			siteUrl: 'https://muster-immobilien.de',
+			apiUrl: 'https://app.dealsystem.io',
+		});
+		expect(problems(result)).toEqual([]);
+	});
+
+	it('Text aus dem CRM steht im Inhaltsblock ds-content, nicht im JavaScript', async () => {
+		const html = await page(project.dir, 'index.html');
+		const block =
+			/<script type="application\/json" id="ds-content">([\s\S]*?)<\/script>/.exec(html)?.[1] ?? '';
+		expect(block).toContain(MARKER);
+		const js: string[] = [];
+		const walk = async (dir: string): Promise<void> => {
+			for (const e of await readdir(dir, { withFileTypes: true })) {
+				const p = join(dir, e.name);
+				if (e.isDirectory()) await walk(p);
+				else if (e.name.endsWith('.js')) js.push(await readFile(p, 'utf8'));
+			}
+		};
+		await walk(join(project.dir, 'build/_app'));
+		expect(js.length).toBeGreaterThan(0);
+		expect(js.filter((code) => code.includes(MARKER))).toEqual([]);
+	});
+
+	it('Video erst nach Einwilligung, Zeitfenster im HTML, Foto ohne Standort lokal', async () => {
+		const html = withoutCsp(await page(project.dir, 'index.html'));
+		expect(html).toContain('data-ds-embed="video"');
+		expect(html).not.toMatch(/<iframe/i);
+		expect(html).toContain('Besichtigungstage im Dezember');
+		const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+			external: { id: string }[];
+			schedule: string[];
+			contentPatch?: { delivery: string };
+		};
+		expect(manifest.external.map((e) => e.id)).toEqual(['video']);
+		expect(manifest.schedule).toEqual(['2098-12-31T23:00:00.000Z']);
+		expect(manifest.contentPatch?.delivery).toBe('dom');
+		expect(html).toMatch(/<img[^>]+src="[^"]*haus[^"]*"/);
+	});
+});
