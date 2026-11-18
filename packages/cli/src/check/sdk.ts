@@ -49,3 +49,5 @@ export const SITE_API_ORIGIN_FN = 'siteApiOrigin';
 export const AGENTS_BLOCK_BEGIN = /<!--\s*dealsystem:begin\s+([^\s]+)\s*-->/;
 export const AGENTS_BLOCK_END = '<!-- dealsystem:end -->';
 export const AGENTS_BLOCK_SOURCE = 'node_modules/@dealsystem/site/docs/agents-block.md';
+/** Skills und Cursor-Regel des Starters im installierten SDK (`project/agentFiles.ts`). */
+export const AGENT_FILES_SOURCE = 'node_modules/@dealsystem/site/agent-files';

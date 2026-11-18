@@ -6,7 +6,8 @@
 // umbenennen. Scheitert etwas, bleibt nichts Halbes liegen.
 //
 // Nicht im Paket, weil `deploy` es nie hochlädt: `node_modules`, `.dealsystem/`, Punkt-Dateien wie
-// `.gitignore` und `.claude/`. `.gitignore` und `CLAUDE.md` schreibt `pull` neu wie der Starter.
+// `.gitignore` und `.claude/`. `.gitignore` und `CLAUDE.md` schreibt `pull` neu wie der Starter; Skills und
+// Cursor-Regel legt `sync` nach `npm install` aus dem installierten SDK wieder an.
 
 import { createHash } from 'node:crypto';
 import {
@@ -223,7 +224,7 @@ export async function pullCommand(ctx: CommandContext): Promise<CommandResult> {
 		'Nächste Schritte:',
 		`  cd ${cdPath}`,
 		'  npm install',
-		'  npx dealsystem sync',
+		'  npx dealsystem sync   (holt die Inhalte und legt die Skills für deinen KI-Agenten wieder an)',
 		'Danach wie gewohnt ändern, prüfen und mit `npx dealsystem deploy` hochladen.',
 	];
 	return {

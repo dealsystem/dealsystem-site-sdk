@@ -1,0 +1,47 @@
+{
+	"manifestVersion": 1,
+	"files": [
+		{
+			"target": ".claude/skills/angebote-einbauen/SKILL.md",
+			"source": "claude/skills/angebote-einbauen/SKILL.md",
+			"sha256": "e8ada47211c5485b5e9cf60b6554f7ce3ee927d9ff02f7e9a75b91b6eefc891a",
+			"previous": []
+		},
+		{
+			"target": ".claude/skills/domain-verbinden/SKILL.md",
+			"source": "claude/skills/domain-verbinden/SKILL.md",
+			"sha256": "c850bf5e32c7d0b7811b61153c4f6b07b1489c63b2b1b0fb7afbf8e21890d4ba",
+			"previous": []
+		},
+		{
+			"target": ".claude/skills/formular-anbinden/SKILL.md",
+			"source": "claude/skills/formular-anbinden/SKILL.md",
+			"sha256": "0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
+			"previous": []
+		},
+		{
+			"target": ".claude/skills/neue-seite/SKILL.md",
+			"source": "claude/skills/neue-seite/SKILL.md",
+			"sha256": "9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af",
+			"previous": []
+		},
+		{
+			"target": ".claude/skills/prueffehler-beheben/SKILL.md",
+			"source": "claude/skills/prueffehler-beheben/SKILL.md",
+			"sha256": "02269e1c8bca746ad74f49928ca4711c08ce55040102284406e0c8753cbeca71",
+			"previous": []
+		},
+		{
+			"target": ".claude/skills/veroeffentlichen/SKILL.md",
+			"source": "claude/skills/veroeffentlichen/SKILL.md",
+			"sha256": "899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694",
+			"previous": []
+		},
+		{
+			"target": ".cursor/rules/dealsystem.mdc",
+			"source": "cursor/rules/dealsystem.mdc",
+			"sha256": "db661665affcfc79ba6a5d452cb2f2aee62e6e1ca4957fffefa1dfeb004ff8be",
+			"previous": []
+		}
+	]
+}

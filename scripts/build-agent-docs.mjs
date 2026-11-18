@@ -2,12 +2,15 @@
 // Erzeugt die Anleitungen für KI-Agenten aus dem Code:
 //   packages/site/docs/*.md, packages/site/docs/llms.txt  → im Paket @dealsystem/site
 //   packages/create/template/AGENTS.md                    → im Starter
+//   packages/site/agent-files/**                          → Kopie der Skills und der Cursor-Regel des Starters,
+//                                                           für `dealsystem sync` (z. B. nach `pull`)
 // Quellen: Komponenten (`@component`-Kommentar und Props-Typen), JSDoc der
 // Funktionen, Regelkatalog und Befehle der CLI, dazu die von Hand geschriebenen
 // Seiten unter packages/site/docs-src/.
 //
 //   node scripts/build-agent-docs.mjs          schreibt die Dateien
 //   node scripts/build-agent-docs.mjs --check  prüft nur; Exit-Code 1, wenn etwas veraltet ist
+import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,6 +21,11 @@ const LIB = join(SITE, 'src/lib');
 const DOCS_SRC = join(SITE, 'docs-src');
 const DOCS_OUT = join(SITE, 'docs');
 const TEMPLATE = join(ROOT, 'packages/create/template');
+/** Agenten-Dateien im Paket: Kopie der Ordner `AGENT_FILE_DIRS` des Starters, Punkt am Anfang weggelassen. */
+const AGENT_FILES = join(SITE, 'agent-files');
+const AGENT_FILES_MANIFEST = join(AGENT_FILES, 'manifest.json');
+/** Diese Ordner des Starters liefert das SDK mit aus; `sync` legt fehlende Dateien daraus wieder an. */
+export const AGENT_FILE_DIRS = ['.claude', '.cursor'];
 
 /** Obergrenze der ganzen AGENTS.md des Starters (Kopf, Marker und Block), in Bytes. Der Block allein bleibt darunter. */
 export const AGENTS_BLOCK_MAX_BYTES = 8192;
@@ -77,6 +85,60 @@ const COMPONENTS = [
 ];
 
 const read = (file) => readFile(file, 'utf8');
+const sha256 = (text) => createHash('sha256').update(text, 'utf8').digest('hex');
+
+/** Alle Dateien unter `dir` (relativ, mit `/`), sortiert. Links brechen ab: das Paket liefert nur echte Dateien. */
+async function walkFiles(dir, base = dir) {
+	const entries = await readdir(dir, { withFileTypes: true }).catch((e) => {
+		if (e.code === 'ENOENT') return [];
+		throw e;
+	});
+	const out = [];
+	for (const e of entries) {
+		const full = join(dir, e.name);
+		if (e.isSymbolicLink())
+			throw new Error(`${relative(ROOT, full)} ist ein Link; erlaubt sind nur Dateien.`);
+		if (e.isDirectory()) out.push(...(await walkFiles(full, base)));
+		else if (e.isFile()) out.push(relative(base, full).split('\\').join('/'));
+	}
+	return out.sort();
+}
+
+/**
+ * Skills und Cursor-Regel des Starters als Agenten-Dateien des Pakets, dazu `manifest.json`: Zielpfad im Projekt,
+ * Datei im Paket, SHA-256 und die Prüfsummen früher ausgelieferter Fassungen (`previous`). Eine Projektdatei, die
+ * byte-genau einer früheren Fassung gleicht, darf `sync` erneuern; alles andere hat der Kunde geändert.
+ * `previous` wächst aus der Fassung auf der Platte: ändert sich eine Datei, wandert ihre alte Prüfsumme hinein.
+ */
+async function buildAgentFiles(files) {
+	let before = { files: [] };
+	try {
+		before = JSON.parse(await read(AGENT_FILES_MANIFEST));
+	} catch {
+		// Noch keine Fassung ausgeliefert.
+	}
+	const old = new Map((before.files ?? []).map((f) => [f.target, f]));
+	const entries = [];
+	for (const dir of AGENT_FILE_DIRS) {
+		for (const rel of await walkFiles(join(TEMPLATE, dir))) {
+			const target = `${dir}/${rel}`;
+			const source = `${dir.slice(1)}/${rel}`;
+			const content = await read(join(TEMPLATE, target));
+			const hash = sha256(content);
+			const prev = old.get(target);
+			const previous = [
+				...new Set([...(prev?.previous ?? []), ...(prev && prev.sha256 !== hash ? [prev.sha256] : [])]),
+			]
+				.filter((h) => h !== hash)
+				.sort();
+			files.set(join(AGENT_FILES, source), content);
+			entries.push({ target, source, sha256: hash, previous });
+		}
+	}
+	if (entries.length === 0)
+		throw new Error('Der Starter hat keine Agenten-Dateien unter .claude/ oder .cursor/.');
+	files.set(AGENT_FILES_MANIFEST, `${JSON.stringify({ manifestVersion: 1, files: entries }, null, '\t')}\n`);
+}
 
 // ------------------------------------------------------------ Quellen lesen
 
@@ -407,6 +469,7 @@ async function build() {
 		);
 	}
 	files.set(join(TEMPLATE, 'AGENTS.md'), agentsMd);
+	await buildAgentFiles(files);
 	const warning = agentsMdSizeWarning(agentsMdBytes);
 	if (warning) console.warn(warning);
 	return { files, bytes, agentsMdBytes, version };
@@ -426,10 +489,16 @@ export async function diffAgentDocs() {
 		[...files.keys()].filter((f) => f.startsWith(DOCS_OUT)).map((f) => relative(DOCS_OUT, f)),
 	);
 	const extra = (await readdir(DOCS_OUT).catch(() => [])).filter((f) => !expected.has(f));
+	const extraAgentFiles = (await walkFiles(AGENT_FILES))
+		.map((f) => join(AGENT_FILES, f))
+		.filter((f) => !files.has(f));
 	return {
 		files,
 		stale,
-		extra: extra.map((f) => join('packages/site/docs', f)),
+		extra: [
+			...extra.map((f) => join('packages/site/docs', f)),
+			...extraAgentFiles.map((f) => relative(ROOT, f)),
+		],
 		bytes,
 		agentsMdBytes,
 		version,

@@ -26,7 +26,7 @@ Seite wählen oder anlegen, `siteId` in dealsystem.config.ts eintragen.
 
 ## `dealsystem sync [--offline] [--fix-config]`
 
-Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern.
+Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern, fehlende Skills wiederherstellen.
 
 - `--offline` – nicht ins Netz; Abgleich mit der vorhandenen .dealsystem/content.json
 - `--fix-config` – svelte.config.js und vite.config.ts aus dem Starter wiederherstellen

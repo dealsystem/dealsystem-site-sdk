@@ -1,9 +1,10 @@
 // CLI gegen den Mock-Server: login, init, sync, deploy, publish, rollback, status, dev-Proxy.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HttpDeployApi } from '../src/api/http.js';
 import { CredentialStore } from '../src/auth/credentials.js';
@@ -233,6 +234,20 @@ describe('sync', () => {
 		expect(agents).toContain('Eigene Notizen des Kunden.');
 		expect(agents).toContain('<!-- dealsystem:begin 0.2.0 -->\nNeue Regeln.\n<!-- dealsystem:end -->');
 		expect(agents).not.toContain('Regeln für Agenten (aus dem SDK).');
+	});
+
+	it('legt fehlende Skills aus dem installierten SDK an (nach `pull`), offline', async () => {
+		materializeSdk(project, '0.2.0', 'Neue Regeln.');
+		const shipped = join(dirname(fileURLToPath(import.meta.url)), '../../site/agent-files');
+		cpSync(shipped, join(project, 'node_modules/@dealsystem/site/agent-files'), { recursive: true });
+		const count = (JSON.parse(readFileSync(join(shipped, 'manifest.json'), 'utf8')) as { files: unknown[] })
+			.files.length;
+		const r = await runCli(io, 'sync', '--offline');
+		expect(r.stdout).toContain(`${count} Agenten-Dateien wiederhergestellt.`);
+		expect(existsSync(join(project, '.claude/skills/neue-seite/SKILL.md'))).toBe(true);
+		expect(existsSync(join(project, '.cursor/rules/dealsystem.mdc'))).toBe(true);
+		const again = await runCli(io, 'sync', '--offline', '--json');
+		expect(again.json.data.agentFiles).toMatchObject({ skipped: null, restored: [], updated: [], kept: [] });
 	});
 
 	it('--fix-config stellt svelte.config.js und vite.config.ts wieder her', async () => {

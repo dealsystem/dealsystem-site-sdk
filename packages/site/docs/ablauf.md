@@ -142,6 +142,10 @@ nur neue Inhalte aus dem CRM enthält, kommt der Code der Version, auf der sie b
 `--site <name>` angeben. Das Herunterladen braucht das Recht „Website verwalten“. Ist der Quellcode einer
 alten Version nach der Aufbewahrungsfrist gelöscht, nimm die Live-Version.
 
+Die Skills unter `.claude/skills/` und die Cursor-Regel gehen nie mit `deploy` hoch und fehlen nach `pull`.
+`sync` legt sie nach `npm install` aus dem installierten SDK wieder an („… Agenten-Dateien wiederhergestellt“).
+Vorhandene Dateien überschreibt `sync` nicht; nur eine unveränderte ältere Fassung aus dem SDK wird erneuert.
+
 ## Was nur der Mensch kann
 
 | Aufgabe                                             | Wo                                                        |

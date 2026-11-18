@@ -65,7 +65,8 @@ export const COMMANDS: Record<string, CommandDef> = {
 		run: initCommand,
 	},
 	sync: {
-		summary: 'Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern',
+		summary:
+			'Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern, fehlende Skills wiederherstellen',
 		usage: 'dealsystem sync [--offline] [--fix-config]',
 		options: { offline: { type: 'boolean' }, 'fix-config': { type: 'boolean' } },
 		flags: [
