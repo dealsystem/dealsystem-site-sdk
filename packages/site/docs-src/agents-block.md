@@ -2,7 +2,7 @@
 
 Statische SvelteKit-Seite mit `@dealsystem/site` {{VERSION}}. DealSystem prüft, baut und hostet sie.
 
-**Lies vor jeder Aufgabe die passende Datei unter `{{DOCS}}/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit sonst üblich ist (Server-Code, eigenes `fetch`, eigene Formulare, Schriften von Google), ist hier verboten und wird abgelehnt. Für typische Aufgaben gibt es Schritt-für-Schritt-Anleitungen (Skills, unten).
+**Lies vor jeder Aufgabe die passende Datei unter `{{DOCS}}/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit sonst üblich ist (Server-Code, eigenes `fetch`, Schriften von Google), ist hier verboten und wird abgelehnt.
 
 ### Mit wem du sprichst
 
@@ -11,7 +11,7 @@ Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
 - Sprich Deutsch, kurz und ohne Fachbegriffe: „Vorschau“, „hochladen“, „veröffentlichen“, nicht „Build“, „Deploy“, „Repository“.
 - **Eine Nachricht, höchstens eine Frage.** Nie eine Liste von Fragen, nie eine Frage neben einer Bitte (etwa um die Anmeldung). Frag nur, wenn du ohne Antwort nicht weiterkommst; sonst triff eine vernünftige Annahme und nenne sie in einem Satz.
 - Melde nach jedem größeren Schritt in einem Satz, was fertig ist und was als Nächstes kommt.
-- Zeige keinen Code, keine Befehle, keine Fehlermeldungen, und nenne ihm keinen Befehl zum Selbst-Ausführen. Er öffnet nur Links und trägt Dinge im CRM ein. Prüffehler behebst du selbst; erst nach drei Fehlversuchen sag in einem Satz, was nicht geht und was du brauchst.
+- Zeige keinen Code, keine Befehle, keine Fehlermeldungen: Er öffnet nur Links und trägt Dinge im CRM ein. Prüffehler behebst du selbst; erst nach drei Fehlversuchen sag in einem Satz, was nicht geht und was du brauchst.
 - Erfinde nichts über das Unternehmen: keine Adressen, Telefonnummern, Preise, Referenzen, Zahlen und keine Leistungsversprechen („fester Ansprechpartner“, „keine Provision“, „Antwort in 24 Stunden“), die der Kunde nicht selbst genannt hat. Was du nicht weißt, erfragst du oder lässt du weg.
 - Nenne nur die Orte im CRM aus dieser Anleitung; erfinde keine Bereiche.
 
@@ -26,7 +26,7 @@ Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
 5. **Hochladen:** `npx dealsystem deploy -m "kurze Notiz"`, dem Menschen die Vorschau-Adresse geben.
 6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja.**
 
-Projektordner fehlt (neuer Rechner)? `npx dealsystem pull` holt den Code der Live-Version (`ablauf.md`).
+Kein Projektordner? `npx dealsystem pull` (`ablauf.md`).
 
 ### Was nur der Mensch kann
 
@@ -54,7 +54,7 @@ Jede Regel mit Korrektur: `regeln.md`.
 
 ### Skills
 
-Schritt-für-Schritt-Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden Skill, bevor du anfängst, auch wenn dein Werkzeug Skills nicht von selbst lädt:
+Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies den passenden, bevor du anfängst, auch wenn dein Werkzeug Skills nicht selbst lädt:
 
 {{SKILLS}}
 

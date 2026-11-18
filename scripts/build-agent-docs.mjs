@@ -57,14 +57,14 @@ const COMPONENT_GROUPS = [
 
 /** Skills des Starters in der Reihenfolge, in der sie meist gebraucht werden. */
 const SKILLS = [
-	['neue-seite', 'neue Seite oder neuer Abschnitt, Texte und austauschbare Fotos'],
-	['bild-einbauen', 'Foto des Kunden ins Projekt holen (ohne Standort) und tauschbar einbauen'],
+	['neue-seite', 'neue Seite oder Abschnitt, Texte, tauschbare Fotos'],
+	['bild-einbauen', 'Foto des Kunden einbauen (ohne Standort)'],
 	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
 	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
 	['extern-einbinden', 'Video, Karte, Termin, Chat, fremdes Skript'],
-	['angebote-einbauen', 'Angebote, Referenzen und andere Sammlungen aus dem CRM'],
+	['angebote-einbauen', 'Angebote, Referenzen, andere Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
-	['veroeffentlichen', 'hochladen, Vorschau zeigen, nach dem Ja veröffentlichen'],
+	['veroeffentlichen', 'hochladen, Vorschau, nach dem Ja veröffentlichen'],
 	['domain-verbinden', 'eigene Domain des Kunden'],
 ];
 
@@ -430,16 +430,16 @@ async function build() {
 		throw new Error(`SKILLS passt nicht zu den Skills des Starters: ${skillDirs.join(', ')}.`);
 	}
 	const docsIndex = [
-		['ablauf.md', 'der ganze Weg bis zur veröffentlichten Seite'],
-		['komponenten.md', 'alle Bausteine mit Pflichtangaben und Beispielen'],
+		['ablauf.md', 'Weg bis zur veröffentlichten Seite'],
+		['komponenten.md', 'Bausteine mit Pflichtangaben und Beispielen'],
 		['inhalte.md', 'Angebote und andere Sammlungen laden'],
 		['konfiguration.md', 'Formulare und Sammlungen in dealsystem.config.ts'],
 		['gestaltung.md', 'Farben, Schrift, Bilder, Barrierefreiheit'],
 		['rechtstexte.md', 'Impressum, Datenschutz, Cookie-Hinweis'],
 		['extern.md', 'fremde Dienste: Videos, Widgets, Skripte'],
-		['seo.md', 'Titel, Beschreibung, Vorschaubild, Favicon, nicht bei Google'],
-		['regeln.md', 'alle Prüfregeln mit Korrektur'],
-		['befehle.md', 'alle Befehle mit Optionen'],
+		['seo.md', 'Titel, Beschreibung, Vorschaubild, Favicon, noindex'],
+		['regeln.md', 'Prüfregeln mit Korrektur'],
+		['befehle.md', 'Befehle mit Optionen'],
 	];
 	for (const [file] of docsIndex) {
 		if (!files.has(join(DOCS_OUT, file)))
