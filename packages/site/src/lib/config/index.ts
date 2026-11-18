@@ -236,7 +236,18 @@ function checkHidden(field: Record<string, unknown>, path: string, problems: Con
 	}
 }
 
-/** Höchstzahl der Felder eines Formulars. Mehr nimmt die Site-API nicht an. */
+/**
+ * So viele Felder eines Formulars übernimmt der Core aus dem Manifest (`normalizeFieldDefs` in
+ * `src/lib/domain/selfSite.ts`, Vertrag `contract/funnel-code-config.md`). Weitere Felder kommen mit der Anfrage
+ * zwar an, werden aber nicht geprüft und lassen sich keinem Feld im CRM zuordnen; sie landen nur in der Notiz.
+ * Versteckte Felder zählen mit. `dealsystem check` warnt darüber (`QUA-010`).
+ */
+export const FUNNEL_MANIFEST_MAX_FIELDS = 50;
+
+/**
+ * Höchstzahl der Werte einer Anfrage (`SITE_LEAD_MAX_FIELDS` im Core, `data` in `site-api.v1.json`). Mehr nimmt
+ * die Site-API nicht an (422). Darüber ist die Konfiguration ein Fehler (`STR-005`).
+ */
 export const MAX_FUNNEL_FIELDS = 60;
 
 /** Ein Fehler in `dealsystem.config.ts`. */

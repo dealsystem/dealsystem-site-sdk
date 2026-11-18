@@ -3,6 +3,15 @@
 Das SDK meldet je Formular im Manifest (`.dealsystem/manifest.json`, `funnels[]`, `manifestVersion` bleibt `1`)
 zusätzlich zu `key`, `label` und `fields`:
 
+## Grenze: höchstens **50 Felder** je Formular
+
+Der Core übernimmt aus dem Manifest je Formular nur die ersten 50 Felder (`normalizeFieldDefs` in
+`src/lib/domain/selfSite.ts`, `if (out.length >= 50) break`). Weitere Felder nimmt `POST …/leads` zwar an (bis
+`SITE_LEAD_MAX_FIELDS = 60` Werte in `data`, `src/lib/server/validation/schemas/siteApi.ts`), aber ungeprüft und
+ohne Zuordnung, nur als Notiz. Versteckte Felder zählen mit. Im SDK: `FUNNEL_MANIFEST_MAX_FIELDS` (50, Warnung
+`QUA-010`) und `MAX_FUNNEL_FIELDS` (60, Fehler `STR-005`). Bitte im Core die 50 als benannte Konstante
+ausweisen, dann prüft ein Vertragstest beide Seiten gegen sie.
+
 ## `fields[]`: neuer Typ `hidden`
 
 ```json
