@@ -718,7 +718,7 @@ describe('dev-Middleware', () => {
 			expect(out).toContain('  - Kontakt: schon vorhanden');
 			expect(out).toContain('  - Terminart: Beratung (aus eventType in dealsystem.config.ts)');
 			expect(out).toContain('  - Geht erst, wenn die Website live ist.');
-			expect(out).toContain('im CRM unter Eigene Website → Testläufe');
+			expect(out).toContain('im CRM unter Eigene Website → Formulare, Abschnitt Testläufe');
 
 			// Antworten vor der Zeitwahl (contact_first) prüft der Core; nichts wird geschrieben.
 			server.state.qualifyAnswer = { qualified: false, headline: 'Leider nicht', message: 'Nur Verkauf.' };
@@ -991,5 +991,66 @@ describe('dev: Zusammenfassung eines Testlaufs', () => {
 		expect(booking).toContain('  - Nicht passend: Passt besser hier Mietanfrage');
 		expect(booking).toContain('  - Weiterleitung an https://kunde.de/miete');
 		expect(booking).toContain('  - Keine Bestätigungsmail (disabled)');
+	});
+});
+
+describe('älterer Core meldet unbekannte Pfade mit 401 (wie der echte Core mit CLI-Token)', () => {
+	beforeEach(async () => {
+		server.state.unknownPathsAs401 = true;
+		await loggedIn();
+	});
+
+	it('status: Workspace unbekannt, Rest wird gezeigt, kein „nicht angemeldet“', async () => {
+		server.state.whoami = null;
+		const r = await runCli(io, 'status');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain(
+			'Workspace: unbekannt, dieser DealSystem-Server nennt den Workspace noch nicht',
+		);
+		expect(r.stdout).toContain('Seite: Muster Immobilien (muster)');
+	});
+
+	it('status: wirklich abgelaufene Anmeldung bleibt Exit-Code 3', async () => {
+		server.state.whoami = null;
+		server.state.validTokens.clear();
+		// Auch der Refresh-Token gilt nicht mehr (z. B. widerrufen).
+		server.state.refreshToken = 'widerrufen';
+		const r = await runCli(io, 'status', '--json');
+		expect(r.code).toBe(3);
+	});
+
+	it('dev: Termine mit Beispieldaten, Einsendung über dev/leads, Hinweis einmal', async () => {
+		server.state.testRunsSupported = false;
+		const store = new CredentialStore(io.env);
+		const api = new HttpDeployApi(server.url, {
+			getToken: async () => store.get(server.url)!.accessToken,
+			refresh: async () => null,
+		});
+		const log: string[] = [];
+		const middleware = createDevMiddleware({
+			api,
+			siteId: SITE_ID,
+			mediaOrigin: null,
+			fetch,
+			log: (m) => log.push(m),
+			live: { eventTypes: {} },
+		});
+		const vite = createServer((req, res) => middleware(req, res, () => res.end('vite')));
+		await new Promise<void>((r) => vite.listen(0, '127.0.0.1', r));
+		const url = `http://127.0.0.1:${(vite.address() as AddressInfo).port}`;
+		try {
+			expect(await (await fetch(`${url}/api/site/v1/s/dev/booking/erstgespraech`)).text()).toBe('vite');
+			expect(await (await fetch(`${url}/api/site/v1/s/dev/booking/erstgespraech/slots`)).text()).toBe('vite');
+			const lead = await fetch(`${url}/api/site/v1/s/dev/leads`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ funnelKey: 'kontakt', data: { email: 'a@b.de' } }),
+			});
+			expect(lead.status).toBe(201);
+			expect(log.filter((l) => l.includes('Beispieldaten'))).toHaveLength(1);
+			expect(log.join('\n')).not.toContain('abgelaufen');
+		} finally {
+			await new Promise((r) => vite.close(r));
+		}
 	});
 });

@@ -239,6 +239,16 @@ export class HttpDeployApi implements DeployApi {
 		throw new ApiError(status, code, message, fix);
 	}
 
+	/** Gilt die Anmeldung? Prüft mit einem Pfad, den jeder Core kennt. */
+	async tokenWorks(): Promise<boolean> {
+		try {
+			await this.call('GET', '/websites');
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async whoami(): Promise<WhoAmI | null> {
 		let raw: unknown;
 		try {
@@ -246,6 +256,9 @@ export class HttpDeployApi implements DeployApi {
 		} catch (e) {
 			// Älterer Core ohne den Endpunkt: fail-open, der Aufrufer zeigt den Rest.
 			if (e instanceof ApiError && [404, 405, 501].includes(e.status)) return null;
+			// Ein Core ohne den Pfad antwortet mit dem CLI-Token 401 („Invalid API key format“) statt 404. Gilt die
+			// Anmeldung sonst, fehlt nur der Endpunkt.
+			if (e instanceof ApiError && e.status === 401 && (await this.tokenWorks())) return null;
 			throw e;
 		}
 		const o = obj(raw);

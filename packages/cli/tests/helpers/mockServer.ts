@@ -72,6 +72,11 @@ export interface MockState {
 	whoamiStatus: number | null;
 	/** `false`: Core ohne Testläufe und ohne `dev/booking` (404 `not_found`). */
 	testRunsSupported: boolean;
+	/**
+	 * Wie der echte Core: Unbekannte Pfade beantwortet er mit einem CLI-Token (OAuth) als 401 „Invalid API key
+	 * format“ statt 404. Gilt für fehlende Endpunkte (`whoami: null`, `testRunsSupported: false`).
+	 */
+	unknownPathsAs401: boolean;
 	/** Angenommene Testläufe (Body wie gesendet). */
 	testRuns: Record<string, unknown>[];
 	/** Antwort statt 201, z. B. 422 bei falschem Body. */
@@ -178,6 +183,7 @@ export async function startMockServer(): Promise<MockServer> {
 		},
 		whoamiStatus: null,
 		testRunsSupported: true,
+		unknownPathsAs401: false,
 		testRuns: [],
 		testRunError: null,
 		testRunRejection: null,
@@ -311,9 +317,13 @@ export async function startMockServer(): Promise<MockServer> {
 			if (!auth.startsWith('Bearer ') || !state.validTokens.has(auth.slice(7)))
 				return error(401, 'invalid_token', 'Token ungültig');
 			const parts = url.pathname.slice('/api/v1/'.length).split('/');
+			const unknownPath = (): void =>
+				state.unknownPathsAs401
+					? reply(401, { error: 'Unauthorized', message: 'Invalid API key format', status: 401 })
+					: error(404, 'not_found', 'Nicht gefunden');
 			if (url.pathname === '/api/v1/meta/whoami' && req.method === 'GET') {
 				if (state.whoamiStatus) return error(state.whoamiStatus, 'server_error', 'Fehler');
-				if (!state.whoami) return error(404, 'not_found', 'Nicht gefunden');
+				if (!state.whoami) return unknownPath();
 				return reply(200, { data: state.whoami });
 			}
 			if (parts[0] !== 'websites') return error(404, 'not_found', 'Nicht gefunden');
@@ -602,7 +612,7 @@ export async function startMockServer(): Promise<MockServer> {
 			if (rest[0] === 'dev' && rest[1] === 'leads' && req.method === 'POST') {
 				return reply(201, { data: { accepted: true, dryRun: true } });
 			}
-			return error(404, 'not_found', 'Nicht gefunden');
+			return unknownPath();
 		});
 	});
 

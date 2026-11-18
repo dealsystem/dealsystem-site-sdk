@@ -129,7 +129,7 @@ Buchung legt nichts an, keinen Kontakt, keinen Termin, keine Mail. DealSystem h�
   nichts angelegt und keine Mail verschickt.“
 - Danach zeigt die Konsole von `npm run dev` eine kurze Zusammenfassung. Lies sie; fällt etwas auf (eine Frage
   fehlt, falsche Pipeline), sag es in einem Satz.
-- Dann zeigst du ihm, wo er es nachsieht: „Unter Eigene Website → Testläufe sehen Sie, wie die Anfrage
+- Dann zeigst du ihm, wo er es nachsieht: „Unter Eigene Website → Formulare, Abschnitt Testläufe sehen Sie, wie die Anfrage
   angekommen wäre.“
 - Vor dem ersten Hochladen nimmt der Testlauf die Terminart aus `booking.<schlüssel>.eventType` in
   `dealsystem.config.ts`.

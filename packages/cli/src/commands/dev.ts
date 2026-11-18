@@ -175,7 +175,7 @@ export function testRunSummary(body: unknown): string {
 	return [
 		`[dealsystem] Testlauf: nichts angelegt, keine Mail verschickt. ${text(run.summary) ?? ''}`.trimEnd(),
 		...lines.map((l) => `  - ${l}`),
-		'  So wäre es angekommen: im CRM unter Eigene Website → Testläufe',
+		'  So wäre es angekommen: im CRM unter Eigene Website → Formulare, Abschnitt Testläufe',
 	].join('\n');
 }
 
@@ -206,6 +206,25 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 					: `Die Terminbuchung \`${key}\` nimmt gerade nichts an${message}.`;
 		log(`[dealsystem] ${hint}`);
 	};
+	/**
+	 * Fehlt der Endpunkt im Core? 404/405/501 wie gewohnt; ein älterer Core meldet unbekannte Pfade mit dem
+	 * CLI-Token aber als 401. Dann einmal prüfen, ob die Anmeldung sonst gilt (Ergebnis gemerkt).
+	 */
+	let unknownPaths401: Promise<boolean> | null = null;
+	const missing = async (r: { status: number; body: unknown }): Promise<boolean> => {
+		if (endpointMissing(r.status, r.body)) return true;
+		if (r.status !== 401) return false;
+		unknownPaths401 ??= api.tokenWorks().then((works) => {
+			if (!works) {
+				unknownPaths401 = null;
+				log(
+					'[dealsystem] Die Anmeldung ist abgelaufen: `npx dealsystem login`, dann `npm run dev` neu starten.',
+				);
+			}
+			return works;
+		});
+		return unknownPaths401;
+	};
 	const relay = (res: ServerResponse, r: { status: number; body: unknown }): void =>
 		sendJson(res, r.status, r.body ?? { error: 'empty', message: 'Leere Antwort', status: r.status });
 
@@ -231,7 +250,7 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 								eventType,
 							)
 						: await api.devBooking(siteId, key, eventType);
-				if (endpointMissing(r.status, r.body))
+				if (await missing(r))
 					return fallBack(
 						'Terminbuchung',
 						'Dieser DealSystem-Server liefert noch keine echten Termine.',
@@ -259,7 +278,7 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 				if (!isRecord(body)) return apiError(res, 400, 'invalid_body', 'Ungültiger JSON-Body');
 				const r = await api.devBookingQualify(siteId, key, body, live.eventTypes[key] ?? null);
 				// Älterer Core: jede Antwort passt (wie die Beispieldaten).
-				if (endpointMissing(r.status, r.body)) return sendJson(res, 200, { data: { qualified: true } });
+				if (await missing(r)) return sendJson(res, 200, { data: { qualified: true } });
 				relay(res, r);
 			})().catch((e: unknown) => apiError(res, 502, 'dev_proxy_error', (e as Error).message));
 			return;
@@ -290,7 +309,7 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 					...(eventType ? { eventType } : {}),
 					payload: testRunPayload(body),
 				});
-				if (endpointMissing(r.status, r.body)) {
+				if (await missing(r)) {
 					if (kind === 'lead') {
 						// Älterer Core ohne Testläufe: Probe-Einsendung wie bisher (geprüft, nicht gespeichert).
 						const old = await api.devLead(siteId, body);
@@ -483,7 +502,7 @@ export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 	server.printUrls();
 	ctx.progress(
 		mode.live
-			? 'Echte Daten aus dem CRM: Terminart, Fragen und freie Zeiten. Formulare und Buchungen legen nichts an und verschicken keine Mail; DealSystem hält sie als Testlauf fest (Eigene Website → Testläufe). Beenden mit Strg+C.'
+			? 'Echte Daten aus dem CRM: Terminart, Fragen und freie Zeiten. Formulare und Buchungen legen nichts an und verschicken keine Mail; DealSystem hält sie als Testlauf fest (Eigene Website → Formulare, Abschnitt Testläufe). Beenden mit Strg+C.'
 			: `Beispieldaten: ${mode.reason} Formulare und Buchungen gehen nicht ans CRM. Beenden mit Strg+C.`,
 	);
 	await new Promise<void>((resolve) => {

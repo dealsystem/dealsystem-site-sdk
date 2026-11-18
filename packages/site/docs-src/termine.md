@@ -90,7 +90,7 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
   dem CRM. Vor dem ersten Hochladen gilt `eventType` (nur bei genau einer aktiven Terminart mit diesem Slug);
   kennt die Seite den Schlüssel schon, gilt ihre Zuordnung im CRM. Wäre die Buchung live abgelehnt worden
   (Zeit vergeben, Antworten passen nicht), zeigt die Seite denselben Fehler. Eine Buchung legt keinen Termin, keinen Kontakt und keine
-  Mail an; DealSystem hält sie als **Testlauf** fest, zu sehen unter Eigene Website → Testläufe („so wäre es
+  Mail an; DealSystem hält sie als **Testlauf** fest, zu sehen unter Eigene Website → Formulare, Abschnitt Testläufe („so wäre es
   angekommen“). Lass den Kunden nach dem Einbau einmal selbst buchen (`ablauf.md`, „Testlauf mit echten
   Daten“).
 - `npm run dev` ohne Anmeldung oder offline: Probe-Terminart mit Zeiten werktags 9 bis 16 Uhr (Berlin), nichts

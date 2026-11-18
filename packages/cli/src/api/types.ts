@@ -102,6 +102,8 @@ export interface WhoAmI {
 export interface DeployApi {
 	/** `null`, wenn der Server den Endpunkt noch nicht kennt (älterer Core). */
 	whoami(): Promise<WhoAmI | null>;
+	/** Gilt die Anmeldung? (Ein älterer Core meldet unbekannte Pfade mit 401 statt 404.) */
+	tokenWorks(): Promise<boolean>;
 	listWebsites(): Promise<Website[]>;
 	createWebsite(input: { name: string; slug: string }): Promise<Website>;
 	getWebsite(id: string): Promise<WebsiteDetails>;

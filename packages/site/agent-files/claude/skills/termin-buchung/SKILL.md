@@ -59,7 +59,7 @@ selbst Ausweichkontakt, `<LeadHoneypot client={termin} />` und `slot_taken` (Zei
 2. **Testlauf mit ihm:** Ist er angemeldet und die Seite verbunden, zeigt `npm run dev` die echte Terminart,
    ihre Fragen und freie Zeiten. Bitte ihn, einmal selbst zu buchen, mit seinen eigenen Angaben: Es entsteht
    kein Termin, kein Kontakt und keine Mail. Lies danach die Zusammenfassung in der Konsole von `npm run dev`.
-3. Sag ihm dann: „Unter Eigene Website → Testläufe sehen Sie, wie die Buchung angekommen wäre.“ Passt etwas
+3. Sag ihm dann: „Unter Eigene Website → Formulare, Abschnitt Testläufe sehen Sie, wie die Buchung angekommen wäre.“ Passt etwas
    nicht (Frage fehlt, falsche Reihenfolge), änderst du es an der Terminart und ihr testet noch einmal.
 4. Ohne Anmeldung zeigt `npm run dev` nur Probe-Zeiten (werktags 9 bis 16 Uhr), und nichts geht ans CRM.
 5. Erst auf der veröffentlichten Seite entsteht der Termin im Kalender, mit Kontakt im CRM und

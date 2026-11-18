@@ -26,7 +26,7 @@ LeadForm).
    die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 7. **Testlauf mit dem Kunden:** Ist er angemeldet und die Seite verbunden, bitte ihn unter `npm run dev`, das
    Formular einmal selbst auszufüllen. Es entsteht kein Kontakt und keine Mail; DealSystem hält einen Testlauf
-   fest. Lies die Zusammenfassung in der Konsole und sag ihm: „Unter Eigene Website → Testläufe sehen Sie, wie
+   fest. Lies die Zusammenfassung in der Konsole und sag ihm: „Unter Eigene Website → Formulare, Abschnitt Testläufe sehen Sie, wie
    die Anfrage angekommen wäre.“ Ohne Anmeldung wird die Einsendung nur lokal geprüft.
 8. **Leadmagnet** (Formular verspricht eine Datei, z. B. einen Ratgeber als PDF): im Code nur ankündigen,
    `leadmagnet: { label: 'Checkliste für Ihr Projekt' }` am Formular. Keine Datei ins Projekt, kein Link im

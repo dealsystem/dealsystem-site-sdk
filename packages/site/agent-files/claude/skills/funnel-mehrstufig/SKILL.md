@@ -39,7 +39,7 @@ mit `createLeadClient()` und `createFunnelState()`. Nie mit eigenem `fetch`, nie
      Code mit `lead.submit()` (`SEC-007`). Beispiel: Abschnitt „createLeadClient“ in `komponenten.md`.
 5. Danach eine Seite, die die Komponente zeigt, mit `<Seo>`, genau einer `h1` und Texten als `<Text>`. Dann
    den Testlauf mit dem Kunden wie im Skill `formular-anbinden` (Schritt 7): einmal selbst ausfüllen lassen, dann
-   auf Eigene Website → Testläufe zeigen.
+   auf Eigene Website → Formulare, Abschnitt Testläufe zeigen.
 6. Prüfen und hochladen wie im Skill `veroeffentlichen`. Nach dem Hochladen steht das Formular im CRM unter
    Eigene Website → Formulare.
 
