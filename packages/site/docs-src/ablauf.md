@@ -132,7 +132,9 @@ Buchung legt nichts an, keinen Kontakt, keinen Termin, keine Mail. DealSystem h�
 - Dann zeigst du ihm, wo er es nachsieht: „Unter Eigene Website → Formulare, Abschnitt Testläufe sehen Sie, wie die Anfrage
   angekommen wäre.“
 - Vor dem ersten Hochladen nimmt der Testlauf die Terminart aus `booking.<schlüssel>.eventType` in
-  `dealsystem.config.ts`.
+  `dealsystem.config.ts`. Ein Formular rechnet DealSystem bis dahin mit den Standard-Einstellungen eines neuen
+  Formulars: kein Deal, keine Eingangsbestätigung. Was unter `crm` steht, gilt erst nach dem Hochladen; sag ihm
+  das in einem Satz, wenn er im Testlauf einen Deal vermisst.
 - Ohne Anmeldung, ohne Netz oder ohne `siteId` laufen Beispieldaten (Probe-Termine werktags 9 bis 16 Uhr), und
   nichts geht ans CRM. Die Konsole sagt das. Für einen echten Testlauf erst anmelden und `init`.
 

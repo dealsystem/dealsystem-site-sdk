@@ -41,7 +41,7 @@ export interface SiteConfigData {
 	funnels: { key: string; fields: { name: string; standardField: string | null }[] }[];
 	collections: { key: string }[];
 	/** Terminbuchungen unter `booking`; `eventType` ist der Slug der Terminart, falls angegeben. */
-	bookings: { key: string; eventType: string | null }[];
+	bookings: { key: string; eventType: string | null; label: string | null }[];
 	/** Fremde Dienste mit aufgelöster Vorlage; nur die gültigen Einträge. */
 	external: ResolvedExternal[];
 }
@@ -196,6 +196,7 @@ export function readSiteConfig(code: string | null): SiteConfigResult {
 	const bookings = Object.entries(record(root.booking)).map(([key, def]) => ({
 		key,
 		eventType: typeof record(def).eventType === 'string' ? (record(def).eventType as string) : null,
+		label: typeof record(def).label === 'string' ? (record(def).label as string) : null,
 	}));
 	const siteId =
 		typeof root.siteId === 'string' && UUID_PATTERN.test(root.siteId) ? root.siteId.toLowerCase() : null;

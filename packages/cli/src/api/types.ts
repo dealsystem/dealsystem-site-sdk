@@ -140,7 +140,7 @@ export interface DeployApi {
 	 * Terminart für `dealsystem dev` mit echten Daten (`GET /websites/{id}/dev/booking/{key}`), vor dem ersten Build
 	 * über `eventType` (Slug). Antwort unverändert, in der Form der Site-API.
 	 */
-	devBooking(id: string, key: string, eventType: string | null): Promise<RawResponse>;
+	devBooking(id: string, key: string, eventType: string | null, label?: string | null): Promise<RawResponse>;
 	/** Freie Zeiten dazu (`…/dev/booking/{key}/slots?from=&to=`). */
 	devBookingSlots(
 		id: string,
@@ -166,6 +166,11 @@ export interface TestRunInput {
 	/** Formular- bzw. Buchungsschlüssel. */
 	key: string;
 	eventType?: string;
+	/**
+	 * Formular aus der Konfiguration (Felder wie im Manifest). Der Core nutzt es nur, solange die Seite das Formular
+	 * noch nicht kennt (vor dem ersten Hochladen), mit den Standard-Einstellungen eines neuen Formulars.
+	 */
+	funnel?: { label?: string; fields: unknown[] };
 	payload: Record<string, unknown>;
 }
 

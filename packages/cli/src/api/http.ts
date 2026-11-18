@@ -594,8 +594,20 @@ export class HttpDeployApi implements DeployApi {
 		return out;
 	}
 
-	async devBooking(id: string, key: string, eventType: string | null): Promise<RawResponse> {
-		const query = eventType ? `?eventType=${encodeURIComponent(eventType)}` : '';
+	async devBooking(
+		id: string,
+		key: string,
+		eventType: string | null,
+		label: string | null = null,
+	): Promise<RawResponse> {
+		// `label` gilt im Core nur zusammen mit `eventType` (vor dem ersten Build).
+		const params = new URLSearchParams();
+		if (eventType) {
+			params.set('eventType', eventType);
+			const oneLine = label?.replace(/\s+/g, ' ').trim().slice(0, 120);
+			if (oneLine) params.set('label', oneLine);
+		}
+		const query = params.size ? `?${params.toString()}` : '';
 		const { status, json } = await this.request(
 			'GET',
 			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}${query}`,

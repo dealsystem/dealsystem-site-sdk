@@ -8,7 +8,14 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { HttpDeployApi } from '../src/api/http.js';
 import { CredentialStore } from '../src/auth/credentials.js';
-import { createDevMiddleware, detectDevMode, devProxyPlugin, testRunSummary } from '../src/commands/dev.js';
+import {
+	createDevMiddleware,
+	detectDevMode,
+	devProxyPlugin,
+	manifestFunnel,
+	testRunsLink,
+	testRunSummary,
+} from '../src/commands/dev.js';
 import { readTarGz } from '../src/project/tar.js';
 import { BASE_SOURCE, cleanupFixtures, materialize } from './helpers/fixtures.js';
 import { runCli, testIO, type TestIO } from './helpers/io.js';
@@ -1052,5 +1059,98 @@ describe('älterer Core meldet unbekannte Pfade mit 401 (wie der echte Core mit 
 		} finally {
 			await new Promise((r) => vite.close(r));
 		}
+	});
+});
+
+describe('dev: Vertrag Stand 4 (Formular aus der Konfiguration, label, Link)', () => {
+	it('schickt label mit eventType, das Formular aus dem Manifest und nennt den festen Link', async () => {
+		await loggedIn();
+		const store = new CredentialStore(io.env);
+		const api = new HttpDeployApi(server.url, {
+			getToken: async () => store.get(server.url)!.accessToken,
+			refresh: async () => null,
+		});
+		const manifest = join(project, '.dealsystem/manifest.json');
+		mkdirSync(join(project, '.dealsystem'), { recursive: true });
+		writeFileSync(
+			manifest,
+			JSON.stringify({
+				funnels: [
+					{
+						key: 'kontakt',
+						label: 'Kontakt',
+						fields: [{ name: 'email', type: 'email', standardField: 'email', required: true }],
+						crm: { createDeal: true },
+					},
+				],
+			}),
+		);
+		const log: string[] = [];
+		const link = testRunsLink(server.url, 'ws_a', SITE_ID);
+		expect(link).toBe(`${server.url}/t/ws_a/website/${SITE_ID}/formulare#website-test-runs`);
+		const middleware = createDevMiddleware({
+			api,
+			siteId: SITE_ID,
+			mediaOrigin: null,
+			fetch,
+			log: (m) => log.push(m),
+			live: {
+				eventTypes: { erstgespraech: 'beratung-45' },
+				labels: { erstgespraech: 'Erstgespräch\nvor Ort' },
+				testRunsUrl: link,
+				funnel: (key) => manifestFunnel(manifest, key),
+			},
+		});
+		const vite = createServer((req, res) => middleware(req, res, () => res.end('vite')));
+		await new Promise<void>((r) => vite.listen(0, '127.0.0.1', r));
+		const url = `http://127.0.0.1:${(vite.address() as AddressInfo).port}`;
+		try {
+			await fetch(`${url}/api/site/v1/s/dev/booking/erstgespraech`);
+			const info = server.requests.find((q) => q.path.includes('/dev/booking/erstgespraech?'));
+			expect(info!.path).toContain('eventType=beratung-45');
+			expect(info!.path).toContain('label=Erstgespr%C3%A4ch+vor+Ort');
+
+			await fetch(`${url}/api/site/v1/s/dev/leads`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ funnelKey: 'kontakt', data: { email: 'a@b.de' } }),
+			});
+			expect(server.state.testRuns[0]).toMatchObject({
+				kind: 'lead',
+				key: 'kontakt',
+				funnel: {
+					label: 'Kontakt',
+					fields: [{ name: 'email', type: 'email', standardField: 'email', required: true }],
+				},
+			});
+			// Nur label und fields: Der Core nimmt am Formular nichts anderes an.
+			expect(Object.keys(server.state.testRuns[0]!.funnel as object).sort()).toEqual(['fields', 'label']);
+			expect(log.join('\n')).toContain(`So wäre es angekommen: ${link}`);
+		} finally {
+			await new Promise((r) => vite.close(r));
+		}
+		expect(manifestFunnel(manifest, 'gibt-es-nicht')).toBeNull();
+		expect(manifestFunnel(join(project, 'fehlt.json'), 'kontakt')).toBeNull();
+	});
+
+	it('Zusammenfassung: Formular noch nicht hochgeladen', () => {
+		const out = testRunSummary({
+			data: {
+				kind: 'lead',
+				outcome: 'accepted',
+				summary: 'Anfrage wäre angekommen.',
+				lead: {
+					funnel: { key: 'kontakt', label: 'Kontakt', source: 'config' },
+					contact: { match: 'new', fills: ['email'] },
+					deal: null,
+					tags: [],
+					confirmation: { wouldSend: false, blocker: 'disabled', to: null, note: null },
+				},
+				booking: null,
+			},
+		});
+		expect(out).toContain('gilt erst nach dem Hochladen');
+		expect(out).toContain('Keine Bestätigungsmail (disabled)');
+		expect(out).toContain('im CRM unter Eigene Website → Formulare, Abschnitt Testläufe');
 	});
 });

@@ -12,6 +12,7 @@ import { ApiError, CliError, EXIT } from '../api/errors.js';
 import type { FetchLike } from '../api/http.js';
 import type { DeployApi } from '../api/types.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
+import { lookupWorkspaceQuietly } from '../cli/workspace.js';
 import { readSiteConfig, SITE_CONFIG_FILE } from '../project/siteConfig.js';
 import { canonicalJson, CONTENT_FILE } from '../project/snapshot.js';
 
@@ -36,7 +37,15 @@ export interface DevMiddlewareOptions {
 	 * Echte Daten: Terminart und freie Zeiten aus dem CRM, Einsendungen und Buchungen als Testlauf. `null`: das
 	 * Vite-Plugin des SDK antwortet mit Beispieldaten, nichts geht ans CRM.
 	 */
-	live: { eventTypes: Record<string, string | null> } | null;
+	live: {
+		eventTypes: Record<string, string | null>;
+		/** `booking.<key>.label` aus der Konfiguration (geht vor dem ersten Build mit `eventType` an den Core). */
+		labels?: Record<string, string | null>;
+		/** Formular aus der Konfiguration für den Testlauf vor dem ersten Hochladen; `null`, wenn unbekannt. */
+		funnel?: (key: string) => { label?: string; fields: unknown[] } | null;
+		/** Fester Link auf die Testläufe im CRM, wenn der Workspace bekannt ist. */
+		testRunsUrl?: string | null;
+	} | null;
 }
 
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
@@ -117,7 +126,7 @@ const text = (v: unknown): string | null =>
 const named = (v: unknown): string | null => (isRecord(v) ? text(v.name) : null);
 
 /** Zusammenfassung eines Testlaufs für die Konsole, aus `data` von `POST …/test-runs`. */
-export function testRunSummary(body: unknown): string {
+export function testRunSummary(body: unknown, testRunsUrl: string | null = null): string {
 	const run = isRecord(body) && isRecord(body.data) ? body.data : {};
 	const lines: string[] = [];
 	const rejection = isRecord(run.rejection) ? run.rejection : null;
@@ -138,6 +147,9 @@ export function testRunSummary(body: unknown): string {
 			: null;
 	if (contact) lines.push(`Kontakt: ${contact.match === 'existing' ? 'schon vorhanden' : 'neu'}`);
 	if (lead) {
+		const funnel = isRecord(lead.funnel) ? lead.funnel : null;
+		if (funnel?.source === 'config')
+			lines.push('Was unter `crm` in dealsystem.config.ts steht, gilt erst nach dem Hochladen.');
 		const deal = isRecord(lead.deal) ? lead.deal : null;
 		if (deal)
 			lines.push(
@@ -175,7 +187,9 @@ export function testRunSummary(body: unknown): string {
 	return [
 		`[dealsystem] Testlauf: nichts angelegt, keine Mail verschickt. ${text(run.summary) ?? ''}`.trimEnd(),
 		...lines.map((l) => `  - ${l}`),
-		'  So wäre es angekommen: im CRM unter Eigene Website → Formulare, Abschnitt Testläufe',
+		testRunsUrl
+			? `  So wäre es angekommen: ${testRunsUrl}`
+			: '  So wäre es angekommen: im CRM unter Eigene Website → Formulare, Abschnitt Testläufe',
 	].join('\n');
 }
 
@@ -249,7 +263,7 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 								},
 								eventType,
 							)
-						: await api.devBooking(siteId, key, eventType);
+						: await api.devBooking(siteId, key, eventType, live.labels?.[key] ?? null);
 				if (await missing(r))
 					return fallBack(
 						'Terminbuchung',
@@ -303,10 +317,12 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 						? body.funnelKey
 						: '';
 				const eventType = isBooking ? (live.eventTypes[key] ?? null) : null;
+				const funnel = !isBooking && key ? (live.funnel?.(key) ?? null) : null;
 				const r = await api.createTestRun(siteId, {
 					kind,
 					key,
 					...(eventType ? { eventType } : {}),
+					...(funnel ? { funnel } : {}),
 					payload: testRunPayload(body),
 				});
 				if (await missing(r)) {
@@ -329,7 +345,7 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 					log(`[dealsystem] Testlauf abgelehnt (Status ${r.status}); die Seite zeigt die Meldung.`);
 					return relay(res, r);
 				}
-				log(testRunSummary(r.body));
+				log(testRunSummary(r.body, live.testRunsUrl ?? null));
 				const run = isRecord(r.body) && isRecord(r.body.data) ? r.body.data : {};
 				// Wäre es live abgelehnt worden, sieht die Seite denselben Fehler.
 				const rejection = isRecord(run.rejection) ? run.rejection : {};
@@ -463,6 +479,33 @@ export async function detectDevMode(ctx: CommandContext): Promise<DevMode> {
 	}
 }
 
+/** Manifest, das das Vite-Plugin auch unter `vite dev` schreibt (Formulare wie im Build). */
+const MANIFEST_FILE = '.dealsystem/manifest.json';
+
+/** Fester Link auf die Testläufe im CRM. */
+export function testRunsLink(apiUrl: string, workspaceId: string, siteId: string): string {
+	return `${apiUrl.replace(/\/+$/, '')}/t/${encodeURIComponent(workspaceId)}/website/${encodeURIComponent(siteId)}/formulare#website-test-runs`;
+}
+
+/**
+ * Formular `key` aus dem Manifest für den Testlauf vor dem ersten Hochladen: `{ label, fields }`, höchstens 50
+ * Felder. Bei jedem Abruf neu gelesen (der Dev-Server schreibt es nach jeder Änderung der Konfiguration neu).
+ */
+export function manifestFunnel(file: string, key: string): { label?: string; fields: unknown[] } | null {
+	try {
+		const manifest = JSON.parse(readFileSync(file, 'utf8')) as { funnels?: unknown };
+		const funnels = Array.isArray(manifest.funnels) ? manifest.funnels : [];
+		const funnel = funnels.find((f): f is Json => isRecord(f) && f.key === key);
+		if (!funnel || !Array.isArray(funnel.fields)) return null;
+		const fields = funnel.fields.filter(isRecord).slice(0, 50);
+		const label =
+			typeof funnel.label === 'string' && funnel.label.trim() ? funnel.label.trim().slice(0, 255) : undefined;
+		return { ...(label ? { label } : {}), fields };
+	} catch {
+		return null;
+	}
+}
+
 export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 	const mode = await detectDevMode(ctx);
 	const api = ctx.api();
@@ -479,13 +522,21 @@ export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 	const mediaOrigin = ctx.str('media-origin') ?? mediaOriginFrom(snapshot);
 	const config = readSiteConfig(ctx.readProjectFile(SITE_CONFIG_FILE)).data;
 	const eventTypes = Object.fromEntries((config?.bookings ?? []).map((b) => [b.key, b.eventType]));
+	const labels = Object.fromEntries((config?.bookings ?? []).map((b) => [b.key, b.label]));
+	let testRunsUrl: string | null = null;
+	if (mode.live) {
+		const lookup = await lookupWorkspaceQuietly(ctx);
+		if (lookup.state === 'known') testRunsUrl = testRunsLink(ctx.apiUrl, lookup.workspace.id, mode.siteId);
+	}
 	const middleware = createDevMiddleware({
 		api,
 		siteId: mode.siteId ?? '',
 		mediaOrigin,
 		fetch: ctx.io.fetch,
 		log: (m) => ctx.progress(m),
-		live: mode.live ? { eventTypes } : null,
+		live: mode.live
+			? { eventTypes, labels, testRunsUrl, funnel: (key) => manifestFunnel(ctx.path(MANIFEST_FILE), key) }
+			: null,
 	});
 
 	const vite = await loadProjectVite(ctx.projectDir);
