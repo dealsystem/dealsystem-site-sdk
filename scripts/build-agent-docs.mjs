@@ -47,7 +47,7 @@ const GENERATED = '<!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand
 const COMPONENT_GROUPS = [
 	['Text', ['Text', 'RichText', 'Link']],
 	['Bild und Video', ['MediaImage', 'MediaVideo']],
-	['Formular und Listen', ['LeadForm', 'CollectionList']],
+	['Formular und Listen', ['LeadForm', 'LeadHoneypot', 'CollectionList']],
 	['Fremde Dienste', ['MapEmbed', 'Embed', 'ExternalScript']],
 	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
 	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
@@ -60,6 +60,7 @@ const SKILLS = [
 	['neue-seite', 'neue Seite oder neuer Abschnitt, Texte und austauschbare Fotos'],
 	['bild-einbauen', 'Foto des Kunden ins Projekt holen (ohne Standort) und tauschbar einbauen'],
 	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
+	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
 	['extern-einbinden', 'Video, Karte, Termin, Chat, fremdes Skript'],
 	['angebote-einbauen', 'Angebote, Referenzen und andere Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
@@ -75,6 +76,7 @@ const COMPONENTS = [
 	'MediaImage',
 	'MediaVideo',
 	'LeadForm',
+	'LeadHoneypot',
 	'CollectionList',
 	'MapEmbed',
 	'Embed',
@@ -285,6 +287,21 @@ async function build() {
 				.join('\n') +
 			'\n## consent\n\n' +
 			(await pick('consent/consent.svelte.ts', ['consent', 'ConsentCategory'])).map(entry).join('\n') +
+			'\n## Eigene Formular-Oberfläche\n\n' +
+			'Für mehrstufige Funnels, Rechner und Quiz. Vorlage: Skill `funnel-mehrstufig`.\n\n' +
+			(
+				await pick('client/leadClient.svelte.ts', [
+					'createLeadClient',
+					'LeadResult',
+					'LeadFailureReason',
+					'LeadFallback',
+				])
+			)
+				.map(entry)
+				.join('\n') +
+			(await pick('client/funnelState.svelte.ts', ['createFunnelState', 'FunnelStep']))
+				.map(entry)
+				.join('\n') +
 			'\n## Kampagnen-Parameter\n\n' +
 			(await pick('client/attribution.ts', ['getCampaignParam'])).map(entry).join('\n') +
 			'\n## Inhalte im Browser nachladen\n\n' +
@@ -344,6 +361,8 @@ async function build() {
 					'FunnelDef',
 					'FunnelFieldDef',
 					'FieldType',
+					'HiddenFieldSource',
+					'FunnelCrmConfig',
 					'StandardFieldKey',
 					'CollectionDef',
 					'CollectionFieldDef',

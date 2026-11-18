@@ -5,6 +5,7 @@ import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import sharp from 'sharp';
 import { withPhoneExif } from '../../cli/tests/helpers/exif.js';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { runCheck, type CheckResult } from 'dealsystem/check';
 import { SVELTE_CONFIG_TEMPLATE, VITE_CONFIG_TEMPLATE } from '../../cli/dist/project/svelteConfig.js';
@@ -18,6 +19,8 @@ import {
 } from './helpers.js';
 
 const run = promisify(execFile);
+
+const TEMPLATE_SKILLS = fileURLToPath(new URL('../template/.claude/skills', import.meta.url));
 
 const problems = (result: CheckResult) =>
 	[...result.errors, ...result.warnings].map(
@@ -333,6 +336,78 @@ ${added.component}
 			schedule: string[];
 		};
 		expect(manifest.schedule).toEqual(['2099-12-31T17:00:00.000Z']);
+	});
+});
+
+describe('Beispiel-Funnel „Bewertung“ aus dem Skill im Starter', () => {
+	let project: StarterProject;
+	const skill = join(TEMPLATE_SKILLS, 'funnel-mehrstufig');
+
+	beforeAll(async () => {
+		project = await createStarter();
+		await simulateInstallAndInit(project.dir);
+		// Genau wie der Skill es sagt: Formular in die Konfiguration, Komponente nach src/lib, eine Seite dazu.
+		const text = await readFile(join(skill, 'SKILL.md'), 'utf8');
+		const blocks = [...text.matchAll(/```(ts|svelte)\n([\s\S]*?)```/g)];
+		const config = blocks.find((b) => b[1] === 'ts' && b[2]!.startsWith('bewertung: {'))![2]!;
+		const route = blocks.find((b) => b[1] === 'svelte' && b[2]!.includes('BewertungFunnel'))![2]!;
+		const configFile = join(project.dir, 'dealsystem.config.ts');
+		const original = await readFile(configFile, 'utf8');
+		const changed = original.replace('\tfunnels: {\n', `\tfunnels: {\n${config}\n`);
+		expect(changed).not.toBe(original);
+		await writeFile(configFile, changed);
+		await writeFile(
+			join(project.dir, 'src/lib/BewertungFunnel.svelte'),
+			await readFile(join(skill, 'BewertungFunnel.svelte')),
+		);
+		await mkdir(join(project.dir, 'src/routes/bewertung'), { recursive: true });
+		await writeFile(join(project.dir, 'src/routes/bewertung/+page.svelte'), route);
+		await build(project.dir);
+	});
+
+	afterAll(() => project.remove());
+
+	it('besteht alle Regeln an Quelltext und fertiger Seite, ohne Warnung', async () => {
+		const source = await runCheck({ projectDir: project.dir, stages: ['source'] });
+		const output = await runCheck({
+			outputDir: join(project.dir, 'build'),
+			stages: ['output'],
+			siteUrl: 'https://muster-immobilien.de',
+		});
+		expect([...problems(source), ...problems(output)]).toEqual([]);
+	});
+
+	it('ist typrein, auch mit den Feldnamen aus der Konfiguration', async () => {
+		const kit = join(packageDir('@sveltejs/kit', project.dir), 'svelte-kit.js');
+		const check = join(packageDir('svelte-check', project.dir), 'bin/svelte-check');
+		await run(process.execPath, [kit, 'sync'], { cwd: project.dir });
+		const { stdout } = await run(
+			process.execPath,
+			[check, '--tsconfig', './tsconfig.json', '--output', 'machine'],
+			{
+				cwd: project.dir,
+			},
+		).catch((error: { stdout: string }) => ({ stdout: error.stdout }));
+		expect(stdout).toMatch(/COMPLETED \d+ FILES 0 ERRORS 0 WARNINGS/);
+	});
+
+	it('meldet das Formular mit versteckten Feldern und crm im Manifest', async () => {
+		const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+			funnels: { key: string; fields: { name: string; type: string }[]; crm?: unknown }[];
+		};
+		const bewertung = manifest.funnels.find((f) => f.key === 'bewertung')!;
+		expect(bewertung.fields.filter((f) => f.type === 'hidden').map((f) => f.name)).toEqual([
+			'quelle',
+			'partner',
+		]);
+		expect(bewertung.crm).toEqual({
+			createDeal: true,
+			dealName: 'Bewertung {{lastName}}',
+			tags: ['Bewertung'],
+		});
+		const html = await page(project.dir, 'bewertung.html');
+		expect(html).toContain('Schritt 1 von 4');
+		expect(html).not.toMatch(/<form\b/);
 	});
 });
 

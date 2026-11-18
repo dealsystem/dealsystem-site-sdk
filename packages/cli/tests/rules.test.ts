@@ -3,7 +3,8 @@
 
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, describe, expect, it } from 'vitest';
 import { RULES } from '../src/check/catalog.js';
 import { runCheck } from '../src/check/run.js';
@@ -21,6 +22,16 @@ import {
 } from './helpers/fixtures.js';
 
 const baseText = (rel: string): string => readFileSync(join(BASE_SOURCE, ...rel.split('/')), 'utf8');
+
+/** dealsystem.config.ts der Basis mit einem Kontaktformular aus `n` Feldern (eines davon E-Mail). */
+const manyFields = (n: number): string =>
+	baseText('dealsystem.config.ts').replace(
+		/(kontakt: \{[\s\S]*?)fields: \[[\s\S]*?\n\t\t\t\],/,
+		`$1fields: [\n\t\t\t\t{ name: 'email', type: 'email', standardField: 'email', required: true },\n${Array.from(
+			{ length: n - 1 },
+			(_, i) => `\t\t\t\t{ name: 'f${i}', type: 'text' },`,
+		).join('\n')}\n\t\t\t],`,
+	);
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- JSON-Fixtures frei verändern
 type Json = Record<string, any>;
 const lock = (): Json => JSON.parse(baseText('package-lock.json'));
@@ -1315,6 +1326,36 @@ const CASES: Record<string, RuleCase[]> = {
 			],
 		},
 	],
+	'QUA-010': [
+		{
+			stage: S,
+			pass: [{ 'dealsystem.config.ts': manyFields(50) }],
+			fail: [{ 'dealsystem.config.ts': manyFields(51) }],
+		},
+	],
+	'QUA-008': [
+		{
+			stage: S,
+			pass: [
+				{
+					'src/lib/Funnel.svelte':
+						'<script lang="ts">\n\timport { createLeadClient, LeadHoneypot } from \'@dealsystem/site\';\n\tconst lead = createLeadClient(\'kontakt\');\n\tlet r = $state(null);\n\tconst send = async () => (r = await lead.submit({}));\n</script>\n<LeadHoneypot client={lead} />\n<button type="button" onclick={send}>Senden</button>\n{#if r && !r.ok && r.fallback}<p>{r.fallback.phone}</p>{/if}\n',
+				},
+			],
+			fail: [
+				// kein Ausweichkontakt
+				{
+					'src/lib/Funnel.svelte':
+						'<script lang="ts">\n\timport { createLeadClient, LeadHoneypot } from \'@dealsystem/site\';\n\tconst lead = createLeadClient(\'kontakt\');\n\tconst send = () => lead.submit({});\n</script>\n<LeadHoneypot client={lead} />\n<button type="button" onclick={send}>Senden</button>\n',
+				},
+				// keine Bot-Falle
+				{
+					'src/lib/Funnel.svelte':
+						'<script lang="ts">\n\timport { createLeadClient } from \'@dealsystem/site\';\n\tconst lead = createLeadClient(\'kontakt\');\n\tlet r = $state(null);\n\tconst send = async () => (r = await lead.submit({}));\n</script>\n<button type="button" onclick={send}>Senden</button>\n{#if r && !r.ok}<p>{r.fallback?.phone}</p>{/if}\n',
+				},
+			],
+		},
+	],
 	'QUA-009': [
 		{
 			stage: S,
@@ -1488,6 +1529,35 @@ describe('QUA-009: Zeitfenster', () => {
 		expect(found[0]).toMatchObject({ severity: 'warning', file: 'src/routes/+page.svelte', line: 8 });
 		expect(found[0]!.message).toContain('hat keine Zeitzone');
 		expect(found[0]!.message).toContain('+01:00');
+	});
+});
+
+describe('QUA-010: Feldgrenze des Core', () => {
+	it('51 Felder: Warnung mit Zeile; über 60 bleibt es ein Fehler (STR-005)', async () => {
+		const found = await findingsFor('source', { 'dealsystem.config.ts': manyFields(51) });
+		const own = found.filter((f) => f.rule === 'QUA-010');
+		expect(own).toHaveLength(1);
+		expect(own[0]).toMatchObject({
+			severity: 'warning',
+			file: 'dealsystem.config.ts',
+			line: expect.any(Number),
+		});
+		expect(own[0]!.message).toContain('51 Felder');
+		expect(found.filter((f) => f.severity === 'error')).toEqual([]);
+
+		const over = await findingsFor('source', { 'dealsystem.config.ts': manyFields(61) });
+		expect(over.filter((f) => f.severity === 'error').map((f) => f.rule)).toEqual(['STR-005']);
+	});
+
+	it('die Grenze ist die des Vertrags', async () => {
+		const { FUNNEL_MANIFEST_MAX_FIELDS, MAX_FUNNEL_FIELDS } = await import('@dealsystem/site/config');
+		expect(FUNNEL_MANIFEST_MAX_FIELDS).toBe(50);
+		expect(MAX_FUNNEL_FIELDS).toBe(60);
+		const contract = readFileSync(
+			join(dirname(fileURLToPath(import.meta.url)), '../../site/contract/funnel-code-config.md'),
+			'utf8',
+		);
+		expect(contract).toMatch(/höchstens \*\*50 Felder\*\*/);
 	});
 });
 

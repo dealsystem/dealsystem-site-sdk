@@ -15,8 +15,10 @@ export type {
 	ExternalPresetDef,
 	FieldType,
 	FunnelDef,
+	FunnelCrmConfig,
 	ResolvedExternal,
 	FunnelFieldDef,
+	HiddenFieldSource,
 	SiteConfig,
 	StandardFieldKey,
 } from '../types.js';
@@ -30,6 +32,7 @@ const FIELD_TYPES: readonly FieldType[] = [
 	'multiselect',
 	'checkbox',
 	'date',
+	'hidden',
 ];
 const COLLECTION_FIELD_TYPES: readonly CollectionFieldType[] = [
 	'text',
@@ -55,7 +58,205 @@ const STANDARD_FIELDS: readonly StandardFieldKey[] = [
 	'city',
 ];
 
-/** Höchstzahl der Felder eines Formulars. Mehr nimmt die Site-API nicht an. */
+/** Grenzen von `funnels.<schlüssel>.crm` (Vertrag mit dem Core, Paket C2). */
+export const FUNNEL_CRM_LIMITS = {
+	name: 100,
+	dealName: 200,
+	tags: 20,
+	tag: 50,
+	subject: 200,
+	body: 5000,
+	hiddenValue: 500,
+} as const;
+/** Platzhalter im Deal-Namen (wie `renderDealName` im Core). */
+export const DEAL_NAME_PLACEHOLDERS = ['firstName', 'lastName', 'email', 'phone', 'adresse'] as const;
+/** Platzhalter in der Eingangsbestätigung (wie `SELF_SITE_CONFIRMATION_PLACEHOLDERS` im Core). */
+export const CONFIRMATION_PLACEHOLDERS = ['firstName', 'lastName', 'formName'] as const;
+const CRM_KEYS = [
+	'createDeal',
+	'pipeline',
+	'stage',
+	'dealName',
+	'tags',
+	'leadSource',
+	'confirmation',
+] as const;
+const UTM_KEYS = ['source', 'medium', 'campaign', 'term', 'content'] as const;
+const PLACEHOLDER = /\{\{\s*([^{}]*?)\s*\}\}/g;
+
+function checkPlaceholders(
+	text: string,
+	allowed: readonly string[],
+	path: string,
+	problems: ConfigProblem[],
+): void {
+	for (const match of text.matchAll(PLACEHOLDER)) {
+		if (!allowed.includes(match[1]!)) {
+			problems.push({
+				path,
+				message: `Den Platzhalter {{${match[1]}}} gibt es nicht. Erlaubt: ${allowed.map((p) => `{{${p}}}`).join(', ')}.`,
+			});
+		}
+	}
+}
+
+function checkText(
+	value: unknown,
+	max: number,
+	path: string,
+	problems: ConfigProblem[],
+	allowEmpty = false,
+): boolean {
+	if (typeof value !== 'string' || (!allowEmpty && value.trim() === '')) {
+		problems.push({ path, message: 'Erwartet wird ein Text.' });
+		return false;
+	}
+	if (value.length > max) {
+		problems.push({ path, message: `Höchstens ${max} Zeichen (jetzt ${value.length}).` });
+		return false;
+	}
+	return true;
+}
+
+/** Prüft `funnels.<schlüssel>.crm`. Fail-closed: unbekannte Angaben sind ein Fehler, keine stillen Tippfehler. */
+function checkCrm(crm: unknown, path: string, problems: ConfigProblem[]): void {
+	if (crm === undefined) return;
+	if (!isRecord(crm)) {
+		problems.push({
+			path,
+			message: 'crm ist ein Objekt, z. B. crm: { createDeal: true, pipeline: "Verkäufer" }.',
+		});
+		return;
+	}
+	for (const key of Object.keys(crm)) {
+		if (!(CRM_KEYS as readonly string[]).includes(key)) {
+			problems.push({
+				path: `${path}.${key}`,
+				message: `Unbekannte Angabe "${key}". Erlaubt: ${CRM_KEYS.join(', ')}.`,
+			});
+		}
+	}
+	const L = FUNNEL_CRM_LIMITS;
+	if (crm.createDeal !== undefined && typeof crm.createDeal !== 'boolean') {
+		problems.push({ path: `${path}.createDeal`, message: 'createDeal ist true oder false.' });
+	}
+	for (const key of ['pipeline', 'stage', 'leadSource'] as const) {
+		if (crm[key] !== undefined) checkText(crm[key], L.name, `${path}.${key}`, problems);
+	}
+	if (crm.stage !== undefined && crm.pipeline === undefined) {
+		problems.push({
+			path: `${path}.stage`,
+			message: 'Eine Phase gehört zu einer Pipeline: Gib auch pipeline an.',
+		});
+	}
+	if ((crm.pipeline !== undefined || crm.dealName !== undefined) && crm.createDeal !== true) {
+		problems.push({
+			path: `${path}.createDeal`,
+			message: 'pipeline und dealName wirken nur mit createDeal: true.',
+		});
+	}
+	if (crm.dealName !== undefined && checkText(crm.dealName, L.dealName, `${path}.dealName`, problems)) {
+		checkPlaceholders(crm.dealName as string, DEAL_NAME_PLACEHOLDERS, `${path}.dealName`, problems);
+	}
+	if (crm.tags !== undefined) {
+		if (!Array.isArray(crm.tags))
+			problems.push({ path: `${path}.tags`, message: 'tags ist eine Liste: tags: ["Website"].' });
+		else {
+			if (crm.tags.length > L.tags)
+				problems.push({ path: `${path}.tags`, message: `Höchstens ${L.tags} Tags.` });
+			crm.tags.forEach((tag, i) => checkText(tag, L.tag, `${path}.tags[${i}]`, problems));
+		}
+	}
+	const confirmation = crm.confirmation;
+	if (confirmation !== undefined) {
+		const at = `${path}.confirmation`;
+		if (!isRecord(confirmation) || typeof confirmation.enabled !== 'boolean') {
+			problems.push({ path: at, message: 'confirmation ist ein Objekt mit enabled: true oder false.' });
+		} else {
+			for (const key of Object.keys(confirmation)) {
+				if (!['enabled', 'subject', 'body'].includes(key))
+					problems.push({
+						path: `${at}.${key}`,
+						message: `Unbekannte Angabe "${key}". Erlaubt: enabled, subject, body.`,
+					});
+			}
+			for (const [key, max] of [
+				['subject', L.subject],
+				['body', L.body],
+			] as const) {
+				const value = confirmation[key];
+				if (value === undefined) continue;
+				if (!checkText(value, max, `${at}.${key}`, problems)) continue;
+				checkPlaceholders(value as string, CONFIRMATION_PLACEHOLDERS, `${at}.${key}`, problems);
+				if (/https?:\/\/|www\.|<[a-z!/]/i.test(value as string)) {
+					problems.push({
+						path: `${at}.${key}`,
+						message: 'Die Bestätigung ist Klartext ohne Links und ohne HTML.',
+					});
+				}
+			}
+		}
+	}
+}
+
+/** Prüft `from` eines versteckten Feldes. */
+function checkHidden(field: Record<string, unknown>, path: string, problems: ConfigProblem[]): void {
+	const from = field.from;
+	const example =
+		'z. B. from: { query: "partner" }, from: { utm: "campaign" } oder from: { value: "Bewertungsrechner" }';
+	if (!isRecord(from) || Object.keys(from).length !== 1) {
+		problems.push({
+			path: `${path}.from`,
+			message: `Ein verstecktes Feld braucht genau eine Quelle, ${example}.`,
+		});
+		return;
+	}
+	const source = from as Partial<Record<'query' | 'utm' | 'value', unknown>>;
+	if ('query' in source) {
+		if (typeof source.query !== 'string' || !/^[A-Za-z0-9_.-]{1,64}$/.test(source.query))
+			problems.push({
+				path: `${path}.from.query`,
+				message: 'Der Name des URL-Parameters: Buchstaben, Ziffern, _ . -, höchstens 64 Zeichen.',
+			});
+		else if (/^utm_/.test(source.query))
+			problems.push({
+				path: `${path}.from.query`,
+				message: `UTM-Angaben holst du mit from: { utm: "${source.query.slice(4)}" }.`,
+			});
+	} else if ('utm' in source) {
+		if (!(UTM_KEYS as readonly unknown[]).includes(source.utm))
+			problems.push({ path: `${path}.from.utm`, message: `Erlaubt: ${UTM_KEYS.join(', ')}.` });
+	} else if ('value' in source) {
+		checkText(source.value, FUNNEL_CRM_LIMITS.hiddenValue, `${path}.from.value`, problems);
+	} else {
+		problems.push({ path: `${path}.from`, message: `Unbekannte Quelle. ${example}.` });
+	}
+	if (field.standardField !== undefined) {
+		problems.push({
+			path: `${path}.standardField`,
+			message: 'Ein verstecktes Feld füllt nie ein Kontaktfeld.',
+		});
+	}
+	if (field.required !== undefined) {
+		problems.push({
+			path: `${path}.required`,
+			message: 'Ein verstecktes Feld kann nicht Pflicht sein; der Besucher sieht es nicht.',
+		});
+	}
+}
+
+/**
+ * So viele Felder eines Formulars übernimmt der Core aus dem Manifest (`normalizeFieldDefs` in
+ * `src/lib/domain/selfSite.ts`, Vertrag `contract/funnel-code-config.md`). Weitere Felder kommen mit der Anfrage
+ * zwar an, werden aber nicht geprüft und lassen sich keinem Feld im CRM zuordnen; sie landen nur in der Notiz.
+ * Versteckte Felder zählen mit. `dealsystem check` warnt darüber (`QUA-010`).
+ */
+export const FUNNEL_MANIFEST_MAX_FIELDS = 50;
+
+/**
+ * Höchstzahl der Werte einer Anfrage (`SITE_LEAD_MAX_FIELDS` im Core, `data` in `site-api.v1.json`). Mehr nimmt
+ * die Site-API nicht an (422). Darüber ist die Konfiguration ein Fehler (`STR-005`).
+ */
 export const MAX_FUNNEL_FIELDS = 60;
 
 /** Ein Fehler in `dealsystem.config.ts`. */
@@ -160,6 +361,15 @@ export function validateSiteConfig(config: unknown): ConfigProblem[] {
 				problems.push({ path: `${path}.label`, message: 'label fehlt, z. B. label: "Kontakt".' });
 			}
 			const fields = checkFields(funnel.fields, FIELD_TYPES, `${path}.fields`, problems);
+			fields.forEach((field, index) => {
+				if (field.type === 'hidden') checkHidden(field, `${path}.fields[${index}]`, problems);
+				else if (field.from !== undefined)
+					problems.push({
+						path: `${path}.fields[${index}].from`,
+						message: 'from gibt es nur bei type: "hidden".',
+					});
+			});
+			checkCrm(funnel.crm, `${path}.crm`, problems);
 			for (const field of fields) {
 				const standard = field.standardField;
 				if (standard !== undefined && !STANDARD_FIELDS.includes(standard as StandardFieldKey)) {

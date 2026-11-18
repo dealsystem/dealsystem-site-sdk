@@ -1,6 +1,8 @@
 // QUA-*, CNT-*: Größe, Links, Pflichtdateien, Formular- und Slot-Schlüssel, Agenten-Anleitung, Content-Slots.
 
 import { gzipSync } from 'node:zlib';
+import { FUNNEL_MANIFEST_MAX_FIELDS } from '@dealsystem/site/config';
+import { findPathLine, SITE_CONFIG_FILE } from '../../project/siteConfig.js';
 import { mergeSlots, scanSlots, SlotScanError, type FoundSlot } from '@dealsystem/site/vite';
 import type { OutputContext, SourceContext } from '../context.js';
 import { routeOfPage, routeOfSource } from '../context.js';
@@ -473,5 +475,64 @@ const cnt004 = sourceRule('CNT-004', (ctx) => {
 	return out;
 });
 
-export const qualitySourceRules: SourceRule[] = [qua005, qua006, qua007, cnt001, cnt002, cnt003, cnt004];
+// ------------------------------------------------------------------ QUA-008
+
+const LEAD_CLIENT_IMPORT = /import\s*\{[^}]*\bcreateLeadClient\b[^}]*\}\s*from\s*['"]@dealsystem\/site['"]/;
+
+const qua008 = sourceRule('QUA-008', (ctx) => {
+	const out: RawFinding[] = [];
+	for (const path of ctx.codeFiles()) {
+		const code = ctx.code(path);
+		const imported = LEAD_CLIENT_IMPORT.exec(code);
+		if (!imported) continue;
+		if (/\.submit\s*\(/.test(code) && !/\bfallback\b/.test(code)) {
+			out.push(
+				ctx.at(
+					path,
+					imported.index,
+					`\`${path}\` sendet mit \`createLeadClient\`, zeigt aber keinen Ausweichkontakt (\`fallback\`). Scheitert der Versand, kann der Besucher nicht anfragen.`,
+				),
+			);
+		}
+		if (path.endsWith('.svelte') && !/<LeadHoneypot\b/.test(code)) {
+			out.push(
+				ctx.at(
+					path,
+					imported.index,
+					`\`${path}\` nutzt \`createLeadClient\` ohne \`<LeadHoneypot>\`. Ohne Bot-Falle kommen mehr Spam-Anfragen an.`,
+				),
+			);
+		}
+	}
+	return out;
+});
+
+// ------------------------------------------------------------------ QUA-010
+
+const qua010 = sourceRule('QUA-010', (ctx) => {
+	const config = ctx.siteConfig();
+	const mod = ctx.module(SITE_CONFIG_FILE);
+	const out: RawFinding[] = [];
+	for (const funnel of config.data?.funnels ?? []) {
+		if (funnel.fields.length <= FUNNEL_MANIFEST_MAX_FIELDS) continue;
+		out.push({
+			file: SITE_CONFIG_FILE,
+			line: mod ? findPathLine(mod, `funnels.${funnel.key}.fields`) : null,
+			message: `Das Formular "${funnel.key}" hat ${funnel.fields.length} Felder. Das CRM übernimmt nur die ersten ${FUNNEL_MANIFEST_MAX_FIELDS}; die übrigen kommen nur als Notiz an, ohne Prüfung und ohne Zuordnung.`,
+		});
+	}
+	return out;
+});
+
+export const qualitySourceRules: SourceRule[] = [
+	qua010,
+	qua008,
+	qua005,
+	qua006,
+	qua007,
+	cnt001,
+	cnt002,
+	cnt003,
+	cnt004,
+];
 export const qualityOutputRules: OutputRule[] = [qua001, qua002, qua003, qua004];

@@ -28,7 +28,21 @@
 		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
 			"source": "claude/skills/formular-anbinden/SKILL.md",
-			"sha256": "0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
+			"sha256": "dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71",
+			"previous": [
+				"0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20"
+			]
+		},
+		{
+			"target": ".claude/skills/funnel-mehrstufig/BewertungFunnel.svelte",
+			"source": "claude/skills/funnel-mehrstufig/BewertungFunnel.svelte",
+			"sha256": "78416fb75e8b06a9472e1c8b0b3449ca34c6683131c7ae8f7b7b95ab4b557f17",
+			"previous": []
+		},
+		{
+			"target": ".claude/skills/funnel-mehrstufig/SKILL.md",
+			"source": "claude/skills/funnel-mehrstufig/SKILL.md",
+			"sha256": "7e9eb7ff564bd2089065fd891d76f9eb645e0455b31317e94eb3af8d121409b1",
 			"previous": []
 		},
 		{

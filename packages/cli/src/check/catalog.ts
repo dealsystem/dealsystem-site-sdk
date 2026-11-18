@@ -352,6 +352,21 @@ export const RULES: readonly RuleMeta[] = [
 		title: '`<Zeitfenster>`: `ab`/`bis` als feste Zeitpunkte mit Zeitzone, `ab` vor `bis`',
 		fix: 'Schreibe den Zeitpunkt als feste Zeichenkette mit Zeitzone, z. B. `bis="2026-12-01T18:00:00+01:00"` (Winterzeit, Sommerzeit `+02:00`). Keine Variable, sonst kann DealSystem zur Grenze nicht neu bauen.',
 	},
+	{
+		id: 'QUA-008',
+		severity: 'warning',
+		stages: ['source'],
+		title:
+			'eigene Oberfläche mit `createLeadClient`: Ausweichkontakt (`fallback`) und Bot-Falle (`<LeadHoneypot>`)',
+		fix: 'Zeig bei jedem Fehler außer `validation` `result.message` und den Ausweichkontakt `result.fallback` (Telefon, E-Mail) und setz `<LeadHoneypot client={lead} />` in die Oberfläche. Vorlage: Skill `funnel-mehrstufig`.',
+	},
+	{
+		id: 'QUA-010',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'höchstens 50 Felder je Formular (mehr übernimmt das CRM nicht)',
+		fix: 'Teile das Formular auf oder streiche Felder. Felder ab dem 51. kommen nur als Notiz an, ohne Prüfung und ohne Zuordnung im CRM. Versteckte Felder zählen mit.',
+	},
 	// ------------------------------------------------------------------ Inhalte
 	{
 		id: 'CNT-001',

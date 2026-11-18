@@ -43,7 +43,7 @@ Sag ihm klar, was er tun soll und wo. Umgehe es nie.
 Jede Regel mit Korrektur: `regeln.md`.
 
 - Kein Server-Code (`+server.ts`, `hooks.server.ts`, Form-Actions; Ausnahmen in `regeln.md`). Keine Zugangsdaten, keine `.env`, kein eigenes `fetch`, kein `{@html}`.
-- Formulare nur mit `<LeadForm>`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos des Kunden mit `npx dealsystem image add` (Skill `bild-einbauen`).
+- Formulare mit `<LeadForm>` oder `createLeadClient`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos des Kunden mit `npx dealsystem image add` (Skill `bild-einbauen`).
 - Jeder sichtbare Text als `<Text>`/`<RichText>` mit festem `key` und `default` (Schlüssel-Regeln: `komponenten.md`). Adresse, Telefon, E-Mail kommen als `data.site` aus dem CRM.
 - Schriften lokal, keine CDN-Links. Fremdes nur über `external` in `dealsystem.config.ts` und `<Embed>`/`<ExternalScript>` (Skill `extern-einbinden`).
 - Jede Seite: eine `h1`, Titel und Beschreibung über `<Seo>`, nicht als `<title>` in `<svelte:head>`. `<SiteHead />`, `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
@@ -59,6 +59,7 @@ Schritt-für-Schritt-Anleitungen unter `.claude/skills/<name>/SKILL.md`. Lies de
 - `neue-seite` – neue Seite oder neuer Abschnitt, Texte und austauschbare Fotos
 - `bild-einbauen` – Foto des Kunden ins Projekt holen (ohne Standort) und tauschbar einbauen
 - `formular-anbinden` – Kontakt- oder Anfrageformular
+- `funnel-mehrstufig` – eigenes Formular in Schritten (Funnel)
 - `extern-einbinden` – Video, Karte, Termin, Chat, fremdes Skript
 - `angebote-einbauen` – Angebote, Referenzen und andere Sammlungen aus dem CRM
 - `prueffehler-beheben` – Meldungen von `check` oder abgelehnte Version
@@ -71,7 +72,7 @@ Aus `@dealsystem/site`; Pflichtangaben und Beispiele in `komponenten.md`.
 
 - Text: `<Text>`, `<RichText>`, `<Link>`
 - Bild und Video: `<MediaImage>`, `<MediaVideo>`
-- Formular und Listen: `<LeadForm>`, `<CollectionList>`
+- Formular und Listen: `<LeadForm>`, `<LeadHoneypot>`, `<CollectionList>`
 - Fremde Dienste: `<MapEmbed>`, `<Embed>`, `<ExternalScript>`
 - Einwilligung: `<CookieBanner>`, `<ConsentGate>`, `<Tracking>`
 - Rechtliches: `<Impressum>`, `<Datenschutz>`, `<SiteFooterLegal>`
