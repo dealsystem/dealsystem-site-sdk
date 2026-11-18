@@ -397,9 +397,9 @@ export interface CollectionListProps<K extends CollectionKey> {
 
 ## MapEmbed
 
-Eine Karte von OpenStreetMap mit einer Markierung, z. B. für die Anfahrt. Das
-ist die eine freigegebene Karte: Andere Kartendienste lassen sich auf der Seite
-nicht einbetten. Die Karte lädt erst, wenn der Besucher zustimmt; vorher steht
+Eine Karte von OpenStreetMap mit einer Markierung, z. B. für die Anfahrt. Sie
+braucht keinen Eintrag unter `external`. Google Maps geht über `<Embed>` mit
+der Vorlage `google-maps`. Die Karte lädt erst, wenn der Besucher zustimmt; vorher steht
 dort ein Hinweis mit der Schaltfläche „Karte anzeigen“. Der Link „Karte in
 OpenStreetMap öffnen“ funktioniert immer.
 
@@ -423,6 +423,91 @@ export interface MapEmbedProps {
   /** Zoomstufe von 3 (Kontinent) bis 18 (Hausnummer). Standard 16. */
   zoom?: number;
   class?: string;
+}
+```
+
+## Embed
+
+Bettet einen fremden Dienst ein: YouTube, Vimeo, Google Maps, Calendly oder
+einen anderen Anbieter. Vor der Einwilligung steht dort ein Platzhalter mit
+Titel, Anbieter und „Video laden“; erst danach lädt der Rahmen. Der Link zum
+Anbieter funktioniert immer.
+
+`id` ist ein Schlüssel aus `external` in `dealsystem.config.ts`. Die Adresse
+darfst du so kopieren, wie der Kunde sie schickt, z. B.
+`https://www.youtube.com/watch?v=…`; das SDK macht daraus die Einbettung
+(YouTube ohne Cookies, Vimeo mit `dnt=1`). Vorschaubilder von YouTube lädt der
+Platzhalter nicht; für ein Bild davor nimm `poster` mit einem Bild aus
+`static/`. Anleitung: `extern.md`.
+
+```svelte
+<Embed id="video" src="https://www.youtube.com/watch?v=aqz-KE-bpKQ" title="Rundgang durch das Haus" />
+```
+
+```ts
+// dealsystem.config.ts
+external: { video: { preset: 'youtube' } },
+```
+
+Eigenschaften:
+
+```ts
+export interface EmbedProps {
+  /** Schlüssel aus `external` in `dealsystem.config.ts`, z. B. `video`. */
+  id: ExternalKey;
+  /** Adresse beim Anbieter, z. B. `https://www.youtube.com/watch?v=…` oder `https://vimeo.com/123456789`. */
+  src: string;
+  /** Was zu sehen ist, z. B. „Rundgang durch das Haus“. Für Vorleseprogramme und den Platzhalter. */
+  title: string;
+  /** Seitenverhältnis, z. B. `16 / 9` (Video) oder `4 / 3`. Standard aus der Vorlage. */
+  aspect?: string;
+  /** Feste Höhe statt Seitenverhältnis, z. B. `700px` (Terminbuchung). */
+  height?: string;
+  /** Bild im Platzhalter, ein Pfad der eigenen Seite (`/bilder/vorschau.jpg`). Nie ein Bild des Anbieters. */
+  poster?: string;
+  class?: string;
+}
+```
+
+## ExternalScript
+
+Lädt ein fremdes Skript (Chat, Tag-Manager, Widget) erst, wenn der Besucher der
+Kategorie aus der Deklaration zugestimmt hat. Je Seite höchstens einmal; nach
+einem Widerruf lädt die Seite neu, damit das Skript weg ist. Zeigt selbst nichts.
+
+`id` ist ein Schlüssel aus `external` in `dealsystem.config.ts`; `src` muss zu
+einem Host unter `script` passen oder ein Pfad der eigenen Seite sein
+(`/scripts/gtm.js` aus `static/`). Inline-Code gibt es nicht: Ein Snippet des
+Anbieters legst du als Datei unter `static/scripts/` ab. Anleitung: `extern.md`.
+
+```svelte
+<ExternalScript id="chat" src="https://js.hs-scripts.com/1234567.js" attrs={{ id: 'hs-script-loader', defer: true }} />
+```
+
+```ts
+// dealsystem.config.ts
+external: {
+	chat: {
+		category: 'marketing',
+		provider: 'HubSpot, Inc., USA',
+		purpose: 'Live-Chat mit dem Vertrieb',
+		privacyUrl: 'https://legal.hubspot.com/de/privacy-policy',
+		script: ['https://js.hs-scripts.com'],
+		connect: ['https://*.hubspot.com'],
+	},
+},
+```
+
+Eigenschaften:
+
+```ts
+export interface ExternalScriptProps {
+  /** Schlüssel aus `external` in `dealsystem.config.ts`, z. B. `chat`. */
+  id: ExternalKey;
+  /** Adresse des Skripts beim Anbieter oder Pfad der eigenen Seite (`/scripts/gtm.js`). */
+  src: string;
+  /** `async`, `defer`, `id`, `type`, `crossorigin`, `referrerpolicy` und `data-*`. Ohne Angabe: `async`. */
+  attrs?: ExternalScriptAttrs;
 }
 ```
 
@@ -462,17 +547,12 @@ export interface CookieBannerProps {
 Zeigt seinen Inhalt erst, wenn der Besucher dem Zweck zugestimmt hat. Vorher
 wird der Inhalt gar nicht erzeugt, auch nicht beim Build.
 
-Wichtig: `<ConsentGate>` allein macht einen fremden Dienst nicht erlaubt. Die
-Sicherheitsregeln der Seite (CSP in `svelte.config.js`) lassen nur wenige
-Anbieter zu; alles andere blockiert der Browser auch nach der Zustimmung, und
-`npx dealsystem check` meldet es (`SEC-008`). Freigegeben sind:
-
-- Tracking über `<Tracking />` (Google Tag, Meta Pixel)
-- die Karte über `<MapEmbed />` (OpenStreetMap; fragt selbst nach der Zustimmung)
-
-Jeden anderen fremden Inhalt (Google Maps, YouTube, Bewertungs-Widgets) ersetzt
-du durch einen gewöhnlichen Link zum Anbieter und sagst dem Kunden, dass sich
-dieser Dienst hier nicht einbetten lässt.
+Für fremde Dienste brauchst du `<ConsentGate>` meist nicht: Videos, Karten und
+Terminbuchung bindest du mit `<Embed>` ein, fremde Skripte mit
+`<ExternalScript>`, Tracking mit `<Tracking />`. Diese Bausteine fragen selbst
+nach der Einwilligung. Jeder fremde Host muss unter `external` in
+`dealsystem.config.ts` stehen, sonst blockiert ihn der Browser
+(`npx dealsystem check` meldet es, `SEC-008`). Anleitung: `extern.md`.
 
 ```svelte
 <ConsentGate category="marketing">
@@ -484,10 +564,10 @@ Eigener Inhalt, der erst nach der Zustimmung erscheinen soll, mit Ersatz davor:
 
 ```svelte
 <ConsentGate category="media">
-	<iframe title="Anfahrt" src="https://www.openstreetmap.org/export/embed.html?bbox=…"></iframe>
+	<Embed id="video" src="https://www.youtube.com/watch?v=…" title="Rundgang" />
 	{#snippet fallback({ accept })}
-		<p>Die Karte kommt von OpenStreetMap. Beim Laden werden Daten dorthin übertragen.</p>
-		<button type="button" onclick={accept}>Karte anzeigen</button>
+		<p>Hier steht nach Ihrer Zustimmung ein Video von YouTube.</p>
+		<button type="button" onclick={accept}>Video anzeigen</button>
 	{/snippet}
 </ConsentGate>
 ```

@@ -60,13 +60,15 @@ Eigene Website → Rechtliches einzutragen. Ein Feld, das dort leer ist, lässt 
 - „Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Ändere das nicht.
 - Tracking: nur `<ConsentGate category="marketing"><Tracking /></ConsentGate>`. Keine eigenen Pixel-Snippets.
 - Karte: `<MapEmbed lat={…} lon={…} title="…" />` (OpenStreetMap). Sie fragt selbst nach der Zustimmung.
-- Andere fremde Dienste (Google Maps, YouTube, Bewertungs-Widgets) lassen sich nicht einbetten, auch nicht
-  hinter der Einwilligung: Verlinke sie.
+- Andere fremde Dienste (YouTube, Vimeo, Google Maps, Widgets, Chat) stehen unter `external` in
+  `dealsystem.config.ts` und kommen über `<Embed>` oder `<ExternalScript>` auf die Seite (`extern.md`). Der
+  Hinweis nennt sie je Zweck mit Anbieter und Datenschutz-Link. Der Kunde muss sie in seiner
+  Datenschutzerklärung aufführen; sag ihm das, den Text schreibst du nicht.
 - Der Hinweis erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht: Tracking-Kennungen im
-  CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters. Sonst bleibt er unsichtbar, und
+  CRM, einen Dienst unter `external`, `<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters. Sonst bleibt er unsichtbar, und
   „Cookie-Einstellungen“ fehlt ebenfalls; es gibt dann nichts einzuwilligen. `<CookieBanner />` und
   `<SiteFooterLegal />` bleiben trotzdem im Layout. Ein `<ConsentGate category="marketing">` zählt nur mit
-  Tracking-Kennung, denn andere Werbe-Dienste erlauben die Sicherheitsregeln nicht.
+  Tracking-Kennung oder einem Dienst mit `category: 'marketing'` unter `external`.
 - Gefragt wird nur nach den Zwecken, die die Seite braucht. Fest vorgeben: `<CookieBanner categories={['marketing']} />`.
 - Das Formular schützt eine Rechenaufgabe im Hintergrund (ALTCHA) vor Missbrauch. Sie kommt von
   DealSystem selbst, setzt kein Cookie und braucht keine Einwilligung.

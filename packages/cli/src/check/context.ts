@@ -1,5 +1,6 @@
 // Gemeinsamer, zwischengespeicherter Zugriff der Regeln auf Quelle und Ausgabe.
 
+import { buildCspDirectives, type ResolvedExternal } from '@dealsystem/site/config';
 import { readSiteConfig, SITE_CONFIG_FILE, type SiteConfigResult } from '../project/siteConfig.js';
 import { codeWithoutComments, isScriptFile, isSvelteFile } from './util/code.js';
 import { parseHtml, type HtmlDoc } from './util/html.js';
@@ -184,6 +185,18 @@ export class SourceContext extends BaseContext {
 
 export class OutputContext extends BaseContext {
 	private readonly docs = new Map<string, HtmlDoc>();
+
+	/**
+	 * Deklaration für die erwartete CSP: aus `options.external` (Build-Host, aus dem Manifest) oder aus der Quelle
+	 * desselben Laufs. `strict`: Abweichungen sind Fehler (neues SDK), sonst Warnungen. `null`: unbekannt.
+	 */
+	declared: { external: readonly ResolvedExternal[]; strict: boolean } | null = null;
+
+	/** Erwartete CSP der fertigen Seiten; `null`, wenn die Deklaration unbekannt ist. */
+	expectedCsp(apiOrigin: string): { csp: Record<string, string[]>; strict: boolean } | null {
+		if (!this.declared) return null;
+		return { csp: buildCspDirectives(this.declared.external, apiOrigin), strict: this.declared.strict };
+	}
 
 	html(path: string): HtmlDoc {
 		let doc = this.docs.get(path);

@@ -1,5 +1,7 @@
 // Öffentliche Typen des Regelkatalogs. CLI und Build-Host benutzen dieselben.
 
+import type { ResolvedExternal } from '@dealsystem/site/config';
+
 /** `source` prüft den Quellcode (Q), `output` die gebaute Seite (A). `browser` ist für Phase 2 (axe, Lighthouse) reserviert. */
 export type CheckStage = 'source' | 'output' | 'browser';
 
@@ -86,6 +88,18 @@ export interface CheckOptions {
 	siteUrl?: string;
 	/** Adresse der Site-API, für die die Seite gebaut wurde (`PUBLIC_DEALSYSTEM_API`). Nur für die Ausgabe-Prüfung der CSP. */
 	apiUrl?: string;
+	/**
+	 * Fremde Dienste der Seite (`external` aus dem Manifest, schon aufgelöst). Nur für die Ausgabe-Prüfung der CSP
+	 * (SEC-008), wenn die Quelle nicht im selben Lauf geprüft wird (Build-Host). Fehlt die Angabe und gibt es keine
+	 * Quelle, prüft SEC-008 nur die harten Verbote und meldet Abweichungen als Warnung (Seite mit älterem SDK).
+	 */
+	external?: readonly ResolvedExternal[];
+	/**
+	 * Wo die Seite läuft. Nur der Build-Host kennt das (SEC-011). `standardHostOnly`: Die Seite hat keine eigene
+	 * Domain, nur `<name>.dealsystem.site`. `sitesDomainOnPsl`: `dealsystem.site` steht auf der Public Suffix List
+	 * (Env `SITES_DOMAIN_ON_PSL` im Core).
+	 */
+	hosting?: { standardHostOnly: boolean; sitesDomainOnPsl: boolean };
 	/** Schweregrad je Regel überschreiben (neue Regeln kommen erst als Warnung). */
 	severityOverrides?: Record<string, Severity>;
 	/** Regeln abschalten. Nur für Tests und Werkzeuge, nie für den Build-Host. */

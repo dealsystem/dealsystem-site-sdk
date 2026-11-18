@@ -13,6 +13,7 @@ Beginne mit agents-block.md. Die übrigen Seiten sind Nachschlagewerke zu je ein
 - [konfiguration.md](konfiguration.md): Formulare und Sammlungen in dealsystem.config.ts
 - [gestaltung.md](gestaltung.md): Farben, Schrift, Bilder, Barrierefreiheit
 - [rechtstexte.md](rechtstexte.md): Impressum, Datenschutz, Cookie-Hinweis
+- [extern.md](extern.md): fremde Dienste: Videos, Widgets, Skripte
 - [seo.md](seo.md): Titel, Beschreibung, Vorschaubild, Favicon, nicht bei Google
 - [regeln.md](regeln.md): alle Prüfregeln mit Korrektur
 - [befehle.md](befehle.md): alle Befehle mit Optionen

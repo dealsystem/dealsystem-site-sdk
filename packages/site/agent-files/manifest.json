@@ -14,6 +14,12 @@
 			"previous": []
 		},
 		{
+			"target": ".claude/skills/extern-einbinden/SKILL.md",
+			"source": "claude/skills/extern-einbinden/SKILL.md",
+			"sha256": "56f645ed5d8e550c034549e3b6b101b48f145f3373c77fbf209753b4231cd337",
+			"previous": []
+		},
+		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
 			"source": "claude/skills/formular-anbinden/SKILL.md",
 			"sha256": "0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
@@ -22,14 +28,18 @@
 		{
 			"target": ".claude/skills/neue-seite/SKILL.md",
 			"source": "claude/skills/neue-seite/SKILL.md",
-			"sha256": "9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af",
-			"previous": []
+			"sha256": "31391653877cd0a4c66aea93ac8680915d481ba3bbc512757181abb040c73811",
+			"previous": [
+				"9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af"
+			]
 		},
 		{
 			"target": ".claude/skills/prueffehler-beheben/SKILL.md",
 			"source": "claude/skills/prueffehler-beheben/SKILL.md",
-			"sha256": "02269e1c8bca746ad74f49928ca4711c08ce55040102284406e0c8753cbeca71",
-			"previous": []
+			"sha256": "739a83f8e0c587f6f0eabd6f6b09fc9f7659a87a2506207af490deb19d7c6723",
+			"previous": [
+				"02269e1c8bca746ad74f49928ca4711c08ce55040102284406e0c8753cbeca71"
+			]
 		},
 		{
 			"target": ".claude/skills/veroeffentlichen/SKILL.md",

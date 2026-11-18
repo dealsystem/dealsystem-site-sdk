@@ -12,6 +12,8 @@ export const COMPONENT = {
 	mediaVideo: 'MediaVideo',
 	collectionList: 'CollectionList',
 	map: 'MapEmbed',
+	embed: 'Embed',
+	externalScript: 'ExternalScript',
 	cookieBanner: 'CookieBanner',
 	consentGate: 'ConsentGate',
 	tracking: 'Tracking',
@@ -36,12 +38,20 @@ export const MARKER = {
 	collection: 'data-ds-collection',
 	map: 'data-ds-map',
 	slot: 'data-ds-slot',
+	/** `<Embed>`: Schlüssel; dazu `data-ds-src` mit der Adresse des Rahmens (lädt nichts). */
+	embed: 'data-ds-embed',
+	/** `<ExternalScript>`: Schlüssel; dazu `data-ds-src` mit der Adresse des Skripts (lädt nichts). */
+	externalScript: 'data-ds-external-script',
+	src: 'data-ds-src',
 } as const;
 
 /** Build-Helfer aus `@dealsystem/site/content`; laufen nur in `+page.server.ts`/`+layout.server.ts` mit `prerender = true`. */
 export const CONTENT_MODULE = '@dealsystem/site/content';
 export const CONFIG_MODULE = '@dealsystem/site/config';
 export const VITE_MODULE = '@dealsystem/site/vite';
+/** `dealsystemCsp()` aus diesem Modul erzeugt `kit.csp` aus `external` in dealsystem.config.ts (Regelsatz 3). */
+export const CSP_MODULE = '@dealsystem/site/csp';
+export const DEALSYSTEM_CSP_FN = 'dealsystemCsp';
 /** Helfer aus `@dealsystem/site/config`, der in `connect-src` die Adresse der Site-API einsetzt. */
 export const SITE_API_ORIGIN_FN = 'siteApiOrigin';
 

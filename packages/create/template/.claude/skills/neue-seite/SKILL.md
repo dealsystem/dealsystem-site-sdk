@@ -37,7 +37,7 @@ label="…" group="…" />`, alles außer `default` als feste Zeichenkette (`ges
 
 Adresse, Telefon und E-Mail des Unternehmens kommen aus dem CRM: `{data.site.address}`,
 `{data.site.phone}`, `{data.site.email}`. Schreib sie nie fest in den Code. Eine Karte gibt es mit
-`<MapEmbed>` (siehe `gestaltung.md`); Google Maps und andere fremde Dienste lassen sich nicht einbetten.
+`<MapEmbed>` (siehe `gestaltung.md`); Videos, Google Maps und andere fremde Dienste: Skill `extern-einbinden`.
 
 Soll eine Seite weg, lösch ihren Ordner unter `src/routes/`, nicht nur den Eintrag im Menü. Sonst bleibt sie
 erreichbar und steht in der Sitemap.

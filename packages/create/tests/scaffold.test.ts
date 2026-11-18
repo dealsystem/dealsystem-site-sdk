@@ -78,6 +78,7 @@ describe('Dateien für KI-Agenten', () => {
 		expect(skills).toEqual([
 			'angebote-einbauen',
 			'domain-verbinden',
+			'extern-einbinden',
 			'formular-anbinden',
 			'neue-seite',
 			'prueffehler-beheben',

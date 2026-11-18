@@ -258,7 +258,7 @@ describe('sync', () => {
 		writeFileSync(join(project, 'vite.config.ts'), 'export default { plugins: [] };\n');
 		const r = await runCli(io, 'sync', '--offline', '--fix-config', '--json');
 		expect(r.json.data.fixedConfig).toEqual(['svelte.config.js', 'vite.config.ts']);
-		expect(readFileSync(join(project, 'svelte.config.js'), 'utf8')).toContain("mode: 'hash'");
+		expect(readFileSync(join(project, 'svelte.config.js'), 'utf8')).toContain('csp: dealsystemCsp()');
 		expect(existsSync(join(project, 'svelte.config.js.bak'))).toBe(true);
 		const check = await runCli(io, 'check', '--json');
 		const rules = ['STR-001', 'SEC-005', 'STR-008', 'STR-009'];
