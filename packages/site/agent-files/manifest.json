@@ -22,6 +22,12 @@
 			"previous": []
 		},
 		{
+			"target": ".claude/skills/erster-entwurf/SKILL.md",
+			"source": "claude/skills/erster-entwurf/SKILL.md",
+			"sha256": "8e6b2b2a0454746d7932fc5be531024bfbe94ff29f13b9f34573c488ca7d170b",
+			"previous": []
+		},
+		{
 			"target": ".claude/skills/extern-einbinden/SKILL.md",
 			"source": "claude/skills/extern-einbinden/SKILL.md",
 			"sha256": "f8fb8f8e61dd9d9a756e8d6229960f5f919618930627194be1a3a5bb8394b851",
@@ -80,8 +86,10 @@
 		{
 			"target": ".claude/skills/veroeffentlichen/SKILL.md",
 			"source": "claude/skills/veroeffentlichen/SKILL.md",
-			"sha256": "899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694",
-			"previous": []
+			"sha256": "bf0cafe73c95bf5851fff8f510a89b1968740c6d34108385eabfb82d157fe417",
+			"previous": [
+				"899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694"
+			]
 		},
 		{
 			"target": ".cursor/rules/dealsystem.mdc",

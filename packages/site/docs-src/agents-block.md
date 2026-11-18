@@ -17,13 +17,13 @@ Dein Auftraggeber ist kein Techniker, meist Immobilien-Investor oder Makler.
 
 ### Fester Ablauf
 
-**Zu Beginn jeder Sitzung `npx dealsystem sync` ausführen.** Ob Rechtstexte fehlen, sagt `npx dealsystem status`, nicht `.dealsystem/content.json`. Einzelheiten: `ablauf.md`.
+**Zu Beginn jeder Sitzung `npx dealsystem sync` ausführen.** Ob Rechtstexte fehlen, sagt `npx dealsystem status`, nicht `.dealsystem/content.json`.
 
-1. **Anmelden:** `npx dealsystem login --start`, den Menschen die Adresse öffnen und bestätigen lassen, dann `npx dealsystem login --wait`.
-2. **Verbinden:** `npx dealsystem init` (Seite wählen oder anlegen: `ablauf.md`), dann `npx dealsystem sync`.
-3. **Bauen:** Seiten ändern, ansehen mit `npm run dev`.
+1. **Erste Nachricht, eine Frage:** „Wie möchtest du vorgehen: (a) kurz besprechen oder (b) ich lege einfach los?“ Erst danach bauen (Skill `erster-entwurf`).
+2. **Anmelden, verbinden:** `npx dealsystem login --start`, `npx dealsystem login --wait`, `npx dealsystem init`, `npx dealsystem sync` (`ablauf.md`).
+3. **Lokal zeigen:** `npm run dev`, ihm die angezeigte Adresse geben, gemeinsam ändern. Nicht auf seinem Rechner? Sag es, nimm die Vorschau.
 4. **Prüfen:** `npm run check`, `npm run build`, `npx dealsystem check --output build`, alles beheben. „Geprüft“ nur, wenn die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet. Prüfen geht auch ohne Anmeldung.
-5. **Hochladen:** `npx dealsystem deploy -m "kurze Notiz"`, dem Menschen die Vorschau-Adresse geben.
+5. **Hochladen erst nach seinem Okay zum lokalen Stand:** `npx dealsystem deploy -m "…"`, Vorschau-Adresse geben.
 6. **Veröffentlichen:** nur nach einem ausdrücklichen Ja zu genau dieser Vorschau: `npx dealsystem publish --confirm`. Nie von dir aus, nie „weil alles grün ist“. **Jede neue Vorschau braucht ein neues Ja.**
 
 Kein Projektordner? `npx dealsystem pull` (`ablauf.md`).

@@ -89,11 +89,15 @@ describe('Inhalt des Blocks', () => {
 
 	it('beschreibt den festen Ablauf in der richtigen Reihenfolge', () => {
 		const steps = [
+			// Zuerst fragen, wie der Kunde vorgehen will; dann anmelden, lokal zeigen, erst danach hochladen.
+			'Wie möchtest du vorgehen',
 			'login --start',
 			'login --wait',
 			'dealsystem init',
 			'dealsystem sync',
+			'npm run dev',
 			'dealsystem check',
+			'Okay zum lokalen Stand',
 			'dealsystem deploy',
 			'publish --confirm',
 		];
@@ -212,6 +216,30 @@ describe('Detailseiten', () => {
 		const links = [...index.matchAll(/\]\(([^)]+)\)/g)].map((m) => m[1]!);
 		expect(links.length).toBeGreaterThan(5);
 		for (const link of links) expect((await docs(link)).length, link).toBeGreaterThan(100);
+	});
+
+	it('Ablauf und Skills: erst eine Frage, dann lokal zeigen, hochladen erst nach dem Okay; Ausnahme ohne localhost', async () => {
+		const skill = (name: string) =>
+			readFile(join(ROOT, `packages/create/template/.claude/skills/${name}/SKILL.md`), 'utf8');
+		const ablauf = await docs('ablauf.md');
+		const entwurf = await skill('erster-entwurf');
+		for (const text of [ablauf, entwurf]) {
+			expect(text).toContain('Wie möchtest du vorgehen? (a) Wir besprechen kurz deine Seite');
+			expect(text).toMatch(/je eine pro Nachricht/);
+			expect(text).toMatch(/sichtbare[rn]? Platzhalter/);
+			expect(text).toMatch(/nur wenn er die Adresse nennt/);
+			expect(text).toMatch(/andere[rn]? Chats/);
+			expect(text).toContain('http://localhost:5173');
+			expect(text).toMatch(/nicht auf seinem Rechner/i);
+			expect(text).toContain('<name>.dealsystem.site');
+		}
+		for (const text of [ablauf, entwurf, await skill('veroeffentlichen')]) {
+			expect(text).toMatch(/ausdrücklichen Okay|ausdrücklich Ja sagt/);
+			expect(text).toContain('„passt, zeig es online“');
+		}
+		// Im Ablauf steht die erste Frage vor dem Anlegen, das lokale Zeigen vor dem Hochladen.
+		expect(ablauf.indexOf('## 0. Erste Nachricht')).toBeLessThan(ablauf.indexOf('## 1. Neues Projekt'));
+		expect(ablauf.indexOf('## 4. Bauen und lokal zeigen')).toBeLessThan(ablauf.indexOf('## 6. Hochladen'));
 	});
 
 	it('sagt in Ablauf, Rechtstexten und Skill gleichlautend: jede neue Vorschau braucht ein neues Ja', async () => {
