@@ -16,6 +16,7 @@ import { resolveTextSlot } from '../slots.js';
 import { WEB_MANIFEST_PATH, webManifest } from '../internal/seo.js';
 import type { ContentSlotDef, ContentSnapshot, SiteConfig, SiteData, SiteManifest } from '../types.js';
 import { SDK_VERSION } from '../version.js';
+import { CONTENT_BLOCK_VERSION } from '../contentBlock.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
 
 export { scanSlots, mergeSlots, SlotScanError, type FoundSlot } from './scan.js';
@@ -49,23 +50,99 @@ async function svelteFiles(dir: string): Promise<string[]> {
 	return files.sort();
 }
 
+/** Ergebnis von `collectSlots`. */
+export interface CollectedSlots {
+	slots: ContentSlotDef[];
+	routes: string[];
+	/** `<SiteHead>` steht im Haupt-Layout: jede Seite bekommt den Inhaltsblock. */
+	siteHeadInRootLayout: boolean;
+	/** Der Code liest Slot-Werte selbst (`getSlots()`): sie können überall stehen. */
+	readsSlotsInCode: boolean;
+}
+
+/** `<SiteHead>` aus dem SDK wird in dieser Datei benutzt. */
+export function usesSiteHead(code: string): boolean {
+	return (
+		/import\s*\{[^}]*\bSiteHead\b[^}]*\}\s*from\s*['"]@dealsystem\/site['"]/.test(code) &&
+		/<SiteHead\b/.test(code)
+	);
+}
+
 /** Sammelt die Slots aller `.svelte`-Dateien unter `src/`. */
-export async function collectSlots(root: string): Promise<{ slots: ContentSlotDef[]; routes: string[] }> {
+export async function collectSlots(root: string): Promise<CollectedSlots> {
 	const found: FoundSlot[] = [];
 	const routes = new Set<string>();
+	let siteHeadInRootLayout = false;
 	for (const file of await svelteFiles(resolve(root, 'src'))) {
 		const shown = relative(root, file).replace(/\\/g, '/');
 		if (/\/\+page(?:@[^.]*)?\.svelte$/.test(shown)) {
 			const route = routeOfFile(shown);
 			if (route) routes.add(route);
 		}
-		found.push(...scanSlots(await readFile(file, 'utf8'), shown));
+		const code = await readFile(file, 'utf8');
+		if (shown === 'src/routes/+layout.svelte' && usesSiteHead(code)) siteHeadInRootLayout = true;
+		found.push(...scanSlots(code, shown));
 	}
-	return { slots: mergeSlots(found), routes: [...routes].sort() };
+	return {
+		slots: mergeSlots(found),
+		routes: [...routes].sort(),
+		siteHeadInRootLayout,
+		readsSlotsInCode: await mentionsGetSlots(resolve(root, 'src')),
+	};
+}
+
+/** Irgendeine Quelldatei unter `src/` nennt `getSlots`. Grob, aber auf der sicheren Seite. */
+async function mentionsGetSlots(dir: string): Promise<boolean> {
+	let entries;
+	try {
+		entries = await readdir(dir, { withFileTypes: true });
+	} catch {
+		return false;
+	}
+	for (const entry of entries) {
+		const path = join(dir, entry.name);
+		if (entry.isDirectory()) {
+			if (entry.name !== 'node_modules' && !entry.name.startsWith('.') && (await mentionsGetSlots(path)))
+				return true;
+		} else if (/\.(svelte|[cm]?[jt]s)$/.test(entry.name)) {
+			if (/\bgetSlots\b/.test(await readFile(path, 'utf8'))) return true;
+		}
+	}
+	return false;
+}
+
+/**
+ * Angaben für „Patchen statt Bauen“: Darf der Core neue Slot-Werte in die
+ * fertige Seite schreiben, statt neu zu bauen? Und was braucht er dafür?
+ */
+export function buildContentPatchInfo(
+	collected: Pick<CollectedSlots, 'siteHeadInRootLayout' | 'readsSlotsInCode'>,
+	slots: readonly ContentSlotDef[],
+): NonNullable<SiteManifest['contentPatch']> {
+	const blockers: string[] = [];
+	if (!collected.siteHeadInRootLayout) blockers.push('site-head-missing');
+	if (collected.readsSlotsInCode) blockers.push('get-slots');
+	// Standard-HTML der Richtext-Slots: braucht der Core, wenn der Kunde einen Text zurücksetzt.
+	const richtextDefaults: Record<string, string> = {};
+	for (const slot of slots) {
+		if (slot.type !== 'richtext' || typeof slot.default !== 'string') continue;
+		richtextDefaults[slot.key] = defaultRichtextToHtml(slot.default);
+	}
+	return {
+		version: CONTENT_BLOCK_VERSION,
+		delivery: blockers.includes('site-head-missing') ? 'embedded' : 'dom',
+		blockers,
+		richtextDefaults,
+	};
 }
 
 /** Baut das Manifest aus Konfiguration, Slots und Routen. */
-export function buildManifest(config: SiteConfig, slots: ContentSlotDef[], routes: string[]): SiteManifest {
+export function buildManifest(
+	config: SiteConfig,
+	slots: ContentSlotDef[],
+	routes: string[],
+	contentPatch?: SiteManifest['contentPatch'],
+): SiteManifest {
 	return {
 		manifestVersion: 1,
 		sdkVersion: SDK_VERSION,
@@ -78,7 +155,24 @@ export function buildManifest(config: SiteConfig, slots: ContentSlotDef[], route
 			source: 'cms' as const,
 		})),
 		funnels: Object.entries(config.funnels ?? {}).map(([key, funnel]) => ({ ...funnel, key })),
+		...(contentPatch ? { contentPatch } : {}),
 	};
+}
+
+/**
+ * Quelltext des Moduls `dealsystem-site-data` für den Browser, wenn die Seite
+ * den Inhaltsblock trägt: alles außer Slots und Richtext steht im Bundle, die
+ * Texte liest der Browser aus `<script id="ds-content">`. Fehlt der Block,
+ * gelten die Standardwerte aus dem Code.
+ */
+export function clientSiteDataModule(data: SiteData): string {
+	const base = { ...data, slots: {}, richtext: {} };
+	return [
+		"import { CONTENT_BLOCK_ID, parseContentBlock } from '../contentBlock.js';",
+		`const base = ${JSON.stringify(base)};`,
+		"const block = typeof document === 'undefined' ? null : parseContentBlock(document.getElementById(CONTENT_BLOCK_ID)?.textContent);",
+		'export default block ? { ...base, slots: block.slots, richtext: block.richtext } : base;',
+	].join('\n');
 }
 
 /** Baut die Daten, die in die Seite eingebettet werden. Nur Öffentliches. */
@@ -265,20 +359,26 @@ export function dealsystem(config: SiteConfig): Plugin {
 
 	let root = process.cwd();
 	let code: Record<string, string> | null = null;
+	let clientSiteData: string | null = null;
 	let snapshot: ContentSnapshot | null = null;
 	const loadedIds = new Set<string>();
 
 	async function refresh(): Promise<SiteManifest> {
 		snapshot = await readSnapshot(root);
-		const { slots, routes } = await collectSlots(root);
+		const collected = await collectSlots(root);
+		const { slots, routes } = collected;
 		const module = (value: unknown) => `export default ${JSON.stringify(value)};`;
+		const siteData = buildSiteData(config, snapshot, slots, process.env);
+		const contentPatch = buildContentPatchInfo(collected, slots);
+		// Mit `<SiteHead>` im Haupt-Layout stehen die Texte nur im HTML, nicht im Bundle.
+		clientSiteData = contentPatch.delivery === 'dom' ? clientSiteDataModule(siteData) : null;
 		code = {
-			'site-data': module(buildSiteData(config, snapshot, slots, process.env)),
+			'site-data': module(siteData),
 			// Rechtstexte des Kunden: im Core bereinigt, hier noch einmal gegen die Positiv-Liste geprüft.
 			'legal-imprint': module(sanitizeRichtextHtml(snapshot.legal.imprintHtml)),
 			'legal-privacy': module(sanitizeRichtextHtml(snapshot.legal.privacyHtml)),
 		};
-		return buildManifest(config, slots, routes);
+		return buildManifest(config, slots, routes, contentPatch);
 	}
 
 	async function writeManifest(manifest: SiteManifest): Promise<void> {
@@ -314,11 +414,13 @@ export function dealsystem(config: SiteConfig): Plugin {
 			if (source) this.emitFile({ type: 'asset', fileName: WEB_MANIFEST_PATH.slice(1), source });
 		},
 
-		async load(id) {
+		async load(id, options) {
 			const match = EMBEDDED_MODULE.exec(id);
 			if (!match) return null;
 			loadedIds.add(id);
 			if (code === null) await refresh();
+			const ssr = options?.ssr ?? this.environment?.name === 'ssr';
+			if (match[1] === 'site-data' && !ssr && clientSiteData !== null) return clientSiteData;
 			return code![match[1]!] ?? null;
 		},
 
@@ -339,14 +441,14 @@ export function dealsystem(config: SiteConfig): Plugin {
 				const isContent = resolve(file) === contentFile;
 				const isSource = file.endsWith('.svelte') && !file.includes('node_modules');
 				if (!isContent && !isSource) return;
-				const before = JSON.stringify(code);
+				const before = JSON.stringify(code) + String(clientSiteData);
 				try {
 					await writeManifest(await refresh());
 				} catch (error) {
 					server.config.logger.error(error instanceof Error ? error.message : String(error));
 					return;
 				}
-				if (JSON.stringify(code) === before) return;
+				if (JSON.stringify(code) + String(clientSiteData) === before) return;
 				for (const environment of Object.values(server.environments)) {
 					for (const id of loadedIds) {
 						const module = environment.moduleGraph.getModuleById(id);
