@@ -84,6 +84,7 @@ describe('Dateien für KI-Agenten', () => {
 			'funnel-mehrstufig',
 			'neue-seite',
 			'prueffehler-beheben',
+			'termin-buchung',
 			'veroeffentlichen',
 		]);
 		for (const skill of skills) {
