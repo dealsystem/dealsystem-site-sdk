@@ -1,7 +1,9 @@
 // Der Starter, so wie ein Kunde ihn bekommt: Er muss ohne jede Änderung
 // `dealsystem check` bestehen, sich bauen lassen und typrein sein.
 import { execFile } from 'node:child_process';
-import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import sharp from 'sharp';
+import { withPhoneExif } from '../../cli/tests/helpers/exif.js';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { runCheck, type CheckResult } from 'dealsystem/check';
@@ -213,8 +215,9 @@ describe('Karte auf der Kontaktseite', () => {
 	});
 });
 
-describe('Standardbilder der Bild-Slots im Manifest', () => {
+describe('Standardbilder der Bild-Slots im Manifest, Handyfoto über image add, Zeitfenster', () => {
 	let project: StarterProject;
+	let added: { import: string; component: string; path: string };
 
 	beforeAll(async () => {
 		project = await createStarter();
@@ -226,12 +229,42 @@ describe('Standardbilder der Bild-Slots im Manifest', () => {
 		await writeFile(join(project.dir, 'src/lib/bilder/inhaber.jpg'), Buffer.alloc(9000, 2));
 		await writeFile(join(project.dir, 'src/lib/bilder/logo.png'), Buffer.alloc(500, 3));
 		await mkdir(join(project.dir, 'src/routes/team'), { recursive: true });
+		// Ein Handyfoto mit Standort, eingebaut so, wie der Skill `bild-einbauen` es sagt.
+		const foto = join(project.dir, '..', `handy-${Date.now()}.jpg`);
+		await writeFile(
+			foto,
+			withPhoneExif(
+				await sharp({ create: { width: 3000, height: 2000, channels: 3, background: '#468' } })
+					.jpeg()
+					.toBuffer(),
+			),
+		);
+		const cli = join(packageDir('dealsystem', project.dir), 'dist/bin.js');
+		const { stdout } = await run(process.execPath, [
+			cli,
+			'image',
+			'add',
+			foto,
+			'--dir',
+			project.dir,
+			'--name',
+			'portrait',
+			'--key',
+			'team.portrait.foto',
+			'--alt',
+			'Porträt des Inhabers',
+			'--json',
+		]);
+		await rm(foto);
+		added = JSON.parse(stdout).data;
 		await writeFile(
 			join(project.dir, 'src/routes/team/+page.svelte'),
 			`<script lang="ts">
 	import { MediaImage, Seo, Text } from '@dealsystem/site';
+	import { Zeitfenster } from '@dealsystem/site';
 	import inhaber from '$lib/bilder/inhaber.jpg';
 	import logo from '../../lib/bilder/logo.png';
+	${added.import}
 	const variabel = '/bilder/buero.jpg';
 </script>
 
@@ -241,6 +274,10 @@ describe('Standardbilder der Bild-Slots im Manifest', () => {
 <MediaImage key="team.inhaber.foto" default={inhaber} width={1200} height={1500} alt="Der Inhaber" />
 <MediaImage key="team.logo.bild" default={logo} alt="Logo" />
 <MediaImage key="team.variabel.bild" default={variabel} alt="Büro" />
+${added.component}
+<Zeitfenster bis="2000-01-01T00:00:00+01:00"><p>Längst vorbei</p></Zeitfenster>
+<Zeitfenster ab="2000-01-01T00:00:00Z" bis="2099-12-31T18:00:00+01:00"><p>Läuft gerade</p></Zeitfenster>
+<Zeitfenster ab="2099-12-31T18:00:00+01:00"><p>Noch nicht</p></Zeitfenster>
 `,
 		);
 		await build(project.dir);
@@ -270,6 +307,32 @@ describe('Standardbilder der Bild-Slots im Manifest', () => {
 		expect(await readdir(join(project.dir, 'build/bilder'))).toContain('buero.jpg');
 		// Andere Slots tragen das Feld nicht.
 		expect(manifest.slots.find((s) => s.key === 'team.titel')).not.toHaveProperty('defaultImage');
+	});
+
+	it('image add: Foto ohne Metadaten, eingebaut und im Artefakt, Slot mit Standardbild', async () => {
+		const local = await readFile(join(project.dir, added.path));
+		expect((await sharp(local).metadata()).exif).toBeUndefined();
+		const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+			slots: { key: string; defaultImage?: { path: string } | null }[];
+		};
+		const slot = manifest.slots.find((s) => s.key === 'team.portrait.foto');
+		expect(slot?.defaultImage?.path).toMatch(/^\/_app\/immutable\/assets\/portrait\.[\w-]+\.jpg$/);
+		const built = await readFile(join(project.dir, 'build', slot!.defaultImage!.path));
+		expect((await sharp(built).metadata()).exif).toBeUndefined();
+		const team = await page(project.dir, 'team.html');
+		expect(team).toContain(slot!.defaultImage!.path);
+		expect(team).toContain('alt="Porträt des Inhabers"');
+	});
+
+	it('Zeitfenster: HTML nach der Zeit des Builds, Manifest nur mit künftigen Grenzen in UTC', async () => {
+		const team = await page(project.dir, 'team.html');
+		expect(team).toContain('Läuft gerade');
+		expect(team).not.toContain('Längst vorbei');
+		expect(team).not.toContain('Noch nicht');
+		const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+			schedule: string[];
+		};
+		expect(manifest.schedule).toEqual(['2099-12-31T17:00:00.000Z']);
 	});
 });
 

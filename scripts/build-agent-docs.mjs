@@ -52,11 +52,13 @@ const COMPONENT_GROUPS = [
 	['Einwilligung', ['CookieBanner', 'ConsentGate', 'Tracking']],
 	['Rechtliches', ['Impressum', 'Datenschutz', 'SiteFooterLegal']],
 	['Google und Teilen', ['Seo', 'SiteHead']],
+	['Zeitgesteuert', ['Zeitfenster']],
 ];
 
 /** Skills des Starters in der Reihenfolge, in der sie meist gebraucht werden. */
 const SKILLS = [
 	['neue-seite', 'neue Seite oder neuer Abschnitt, Texte und austauschbare Fotos'],
+	['bild-einbauen', 'Foto des Kunden ins Projekt holen (ohne Standort) und tauschbar einbauen'],
 	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
 	['angebote-einbauen', 'Angebote, Referenzen und andere Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check` oder abgelehnte Version'],
@@ -82,6 +84,7 @@ const COMPONENTS = [
 	'SiteFooterLegal',
 	'Seo',
 	'SiteHead',
+	'Zeitfenster',
 ];
 
 const read = (file) => readFile(file, 'utf8');

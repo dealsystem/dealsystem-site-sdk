@@ -77,6 +77,7 @@ describe('Dateien für KI-Agenten', () => {
 		const skills = (await readdir(root)).sort();
 		expect(skills).toEqual([
 			'angebote-einbauen',
+			'bild-einbauen',
 			'domain-verbinden',
 			'formular-anbinden',
 			'neue-seite',

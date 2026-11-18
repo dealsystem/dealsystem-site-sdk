@@ -183,7 +183,7 @@ Lokales Bild (`width` und `height` sind die echten Maße der Datei):
 ```svelte
 <script lang="ts">
 	import { MediaImage } from '@dealsystem/site';
-	import heroBild from '$lib/bilder/hero.jpg';
+	import heroBild from '$lib/assets/bilder/hero.jpg';
 </script>
 
 <MediaImage src={heroBild} alt="Sanierter Altbau in Leipzig" width={1600} height={1067} sizes="100vw" priority />
@@ -206,7 +206,7 @@ Dann zeigt das CRM es als Vorschau; bei `?enhanced` oder einer Variablen nicht.
 ```svelte
 <script lang="ts">
 	import { MediaImage } from '@dealsystem/site';
-	import portrait from '$lib/bilder/inhaber.jpg';
+	import portrait from '$lib/assets/bilder/inhaber.jpg';
 </script>
 
 <MediaImage
@@ -671,6 +671,42 @@ Eigenschaften:
 export interface SiteHeadProps {
   /** Favicon aus dem Projekt (Pfad unter `static/`), solange im CRM keins hochgeladen ist. */
   favicon?: string;
+}
+```
+
+## Zeitfenster
+
+Zeigt seinen Inhalt nur in einem Zeitraum, z. B. eine Anmeldung bis zum Beginn
+eines Webinars. `ab` gehört dazu, `bis` nicht mehr. Eine Grenze reicht.
+
+Zeitpunkte immer mit Zeitzone: `+01:00` im Winter, `+02:00` im Sommer (deutsche
+Zeit), oder `Z` für UTC. Ohne Zeitzone bricht der Build ab (`QUA-009`).
+
+```svelte
+<Zeitfenster bis="2026-12-01T18:00:00+01:00">
+	<Text key="start.webinar.anmeldung" default="Jetzt anmelden: Webinar am 1. Dezember" />
+</Zeitfenster>
+<Zeitfenster ab="2026-12-01T18:00:00+01:00" bis="2026-12-01T19:30:00+01:00">
+	<Text key="start.webinar.live" default="Das Webinar läuft gerade" />
+</Zeitfenster>
+```
+
+So wirkt es: Beim Bauen entscheidet die Uhrzeit des Builds, was im HTML steht.
+Im Browser schaltet der Baustein sofort um, wenn eine Grenze erreicht ist.
+DealSystem baut die Seite zu jeder Grenze neu, damit auch das HTML (Google,
+Vorschauen) nach wenigen Minuten stimmt. Dafür müssen `ab` und `bis` feste
+Zeichenketten sein, keine Variablen.
+
+Eigenschaften:
+
+```ts
+export interface ZeitfensterProps {
+  /** Ab diesem Zeitpunkt sichtbar, mit Zeitzone, z. B. `2026-12-01T18:00:00+01:00`. */
+  ab?: string;
+  /** Bis zu diesem Zeitpunkt sichtbar (ausschließlich), mit Zeitzone. */
+  bis?: string;
+  /** Inhalt im Zeitraum. */
+  children: Snippet;
 }
 ```
 

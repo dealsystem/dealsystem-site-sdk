@@ -233,7 +233,7 @@ describe('austauschbares Bild (Beispiel aus komponenten.md)', () => {
 				route: '/ueber-uns',
 				file: 'src/routes/ueber-uns/+page.svelte',
 				line: expect.any(Number),
-				imageSource: { kind: 'module', path: 'src/lib/bilder/inhaber.jpg', width: 1200, height: 1500 },
+				imageSource: { kind: 'module', path: 'src/lib/assets/bilder/inhaber.jpg', width: 1200, height: 1500 },
 			},
 		]);
 	});

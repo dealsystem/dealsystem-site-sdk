@@ -28,6 +28,7 @@ Quelltext: [github.com/dealsystem/dealsystem-site-sdk](https://github.com/dealsy
 | `deploy [-m …] [--publish [--confirm]] [--no-wait] [--timeout <s>]` | check → lokal bauen → packen → hochladen → Build abwarten → Vorschau-URL                                          |
 | `publish [--version <id\|nummer>] [--confirm]`                      | fertige Version live schalten                                                                                     |
 | `rollback [--version <id\|nummer>] [--confirm]`                     | auf eine frühere Version zurück                                                                                   |
+| `image add <datei> [--name …] [--key …] [--alt …]`                  | Foto ins Projekt: verkleinern, EXIF/GPS entfernen, Baustein ausgeben                                              |
 | `status`                                                            | Seite, Live-Version, Rechtstexte, letzte Versionen, Domains                                                       |
 
 Allgemein: `--json`, `--dir <ordner>`, `--site <id>`, `--api-url <url>` (oder `DEALSYSTEM_API_URL`),

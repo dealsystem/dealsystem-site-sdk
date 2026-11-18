@@ -10,7 +10,7 @@ Lokales Bild (`width` und `height` sind die echten Maße der Datei):
 ```svelte
 <script lang="ts">
 	import { MediaImage } from '@dealsystem/site';
-	import heroBild from '$lib/bilder/hero.jpg';
+	import heroBild from '$lib/assets/bilder/hero.jpg';
 </script>
 
 <MediaImage src={heroBild} alt="Sanierter Altbau in Leipzig" width={1600} height={1067} sizes="100vw" priority />
@@ -33,7 +33,7 @@ Dann zeigt das CRM es als Vorschau; bei `?enhanced` oder einer Variablen nicht.
 ```svelte
 <script lang="ts">
 	import { MediaImage } from '@dealsystem/site';
-	import portrait from '$lib/bilder/inhaber.jpg';
+	import portrait from '$lib/assets/bilder/inhaber.jpg';
 </script>
 
 <MediaImage

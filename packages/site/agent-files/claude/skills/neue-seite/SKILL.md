@@ -28,6 +28,7 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/komponenten.md`, `gestaltung.m
    (Porträt, Team, Titelbild), baust du als Bild-Slot ein: `<MediaImage key="…" default={bild} alt="…"
 label="…" group="…" />`, alles außer `default` als feste Zeichenkette (`gestaltung.md`, „Bilder“). Sag ihm:
    erst baust du den Platz, dann lädst du hoch, danach tauscht er das Bild unter Eigene Website → Inhalte.
+   Schickt er ein Foto: Skill `bild-einbauen` (`npx dealsystem image add`).
 7. Trag die Seite im Menü in `src/routes/+layout.svelte` ein: `<a href={resolve('/ueber-uns')}>…</a>`,
    so wie die vorhandenen Einträge.
 8. Prüfen: `npm run check`, `npm run build`, `npx dealsystem check --output build`. Alles beheben, bis die

@@ -9,6 +9,7 @@ import { checkCommand } from '../commands/check.js';
 import { deployCommand, publishCommand, rollbackCommand } from '../commands/deploy.js';
 import { devCommand } from '../commands/dev.js';
 import { loginCommand, logoutCommand } from '../commands/login.js';
+import { imageCommand } from '../commands/image.js';
 import { pullCommand } from '../commands/pull.js';
 import { initCommand, statusCommand } from '../commands/site.js';
 import { syncCommand } from '../commands/sync.js';
@@ -143,6 +144,25 @@ export const COMMANDS: Record<string, CommandDef> = {
 			'--version <nummer|id>  diese Version statt der Live-Version',
 		],
 		run: pullCommand,
+		positionals: true,
+	},
+	image: {
+		summary: 'Foto ins Projekt holen: verkleinern, Standort und Metadaten entfernen, Baustein ausgeben',
+		usage: 'dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"] [--force]',
+		options: {
+			name: { type: 'string' },
+			key: { type: 'string' },
+			alt: { type: 'string' },
+			force: { type: 'boolean' },
+		},
+		flags: [
+			'<datei>  JPEG, PNG, WebP oder AVIF, höchstens 15 MB; wird auf 2560 px verkleinert, EXIF und GPS werden entfernt',
+			'--name <name>  Dateiname im Projekt (Standard: aus dem Dateinamen), landet in src/lib/assets/bilder/',
+			'--key <schlüssel>  Schlüssel des Bild-Slots im ausgegebenen Baustein (Standard: bilder.<name>)',
+			'--alt "…"  Beschreibung des Bildes für den ausgegebenen Baustein',
+			'--force  ein Bild gleichen Namens überschreiben',
+		],
+		run: imageCommand,
 		positionals: true,
 	},
 	status: {
