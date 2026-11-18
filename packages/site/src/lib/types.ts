@@ -370,6 +370,19 @@ export interface SiteManifest {
 	slots: ContentSlotDef[];
 	collections: (CollectionDef & { key: string; source: 'cms' })[];
 	funnels: (FunnelDef & { key: string })[];
+	/**
+	 * „Patchen statt Bauen“: Kann der Core neue Slot-Werte in die fertige Seite
+	 * schreiben? `delivery: 'dom'` heißt: Die Texte stehen im Inhaltsblock je
+	 * Seite, nicht im JS-Bundle. `blockers` nennt, was ein Patchen verhindert.
+	 */
+	contentPatch?: {
+		/** Fassung des Inhaltsblocks (`contract/ds-content.v1.json`). Unbekannte Fassung: Der Core baut. */
+		format: number;
+		delivery: 'dom' | 'embedded';
+		blockers: string[];
+		/** Geprüftes Standard-HTML je Richtext-Slot (zum Zurücksetzen). */
+		richtextDefaults: Record<string, string>;
+	};
 }
 
 // ------------------------------------------------------------------- Intern

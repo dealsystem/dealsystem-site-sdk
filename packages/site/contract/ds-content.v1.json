@@ -1,0 +1,2355 @@
+{
+	"$comment": "Vertrag ds-content Fassung 1 (Konzept Phase 2, 8.1). Quelle: SDK, erzeugt von packages/site/tests/contentBlockContract.test.ts (UPDATE_CONTRACT=1). Der Core hält eine byte-gleiche Kopie und prüft, dass sein Patcher aus before + slots genau after erzeugt bzw. bei blockers neu baut.",
+	"format": 1,
+	"element": {
+		"pattern": "<script type=\"application/json\" id=\"ds-content\">([^<]*)</script>",
+		"rules": [
+			"Genau ein Element je vorgerenderter Seite, im <head>, geschrieben von <SiteHead>. Die Rückfall-Seite (404.html) bekommt es beim Packen auf dem Build-Host.",
+			"Inhalt ist JSON.stringify({ v, slots, richtext }) in dieser Schlüsselreihenfolge; danach <, >, &, U+2028, U+2029 als \\u003c, \\u003e, \\u0026, \\u2028, \\u2029. Das Element kann deshalb kein < enthalten.",
+			"slots: die Überschreibungen aus dem CRM (snapshot.slots) in der Reihenfolge der Eingabe. richtext: fertiges HTML je Richtext-Slot in der Reihenfolge von manifest.slots; Wert aus dem CRM durch die Positiv-Liste, sonst contentPatch.richtextDefaults[key].",
+			"Vor dem Element steht in Produktions-Builds <!---->; es bleibt stehen."
+		],
+		"schema": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"v",
+				"slots",
+				"richtext"
+			],
+			"properties": {
+				"v": {
+					"const": 1
+				},
+				"slots": {
+					"type": "object",
+					"propertyNames": {
+						"not": {
+							"const": "__proto__"
+						}
+					},
+					"additionalProperties": {
+						"type": "object",
+						"required": [
+							"type"
+						],
+						"properties": {
+							"type": {
+								"enum": [
+									"text",
+									"textarea",
+									"richtext",
+									"link",
+									"image"
+								]
+							},
+							"value": true
+						}
+					}
+				},
+				"richtext": {
+					"type": "object",
+					"propertyNames": {
+						"not": {
+							"const": "__proto__"
+						}
+					},
+					"additionalProperties": {
+						"type": "string"
+					}
+				}
+			}
+		},
+		"examples": [
+			{
+				"block": {
+					"v": 1,
+					"slots": {},
+					"richtext": {}
+				},
+				"element": "<script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{}}</script>"
+			},
+			{
+				"block": {
+					"v": 1,
+					"slots": {
+						"start.titel": {
+							"type": "text",
+							"value": "Wir kaufen Ihr Haus in Leipzig"
+						},
+						"start.ueber": {
+							"type": "richtext",
+							"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+						},
+						"start.bild": {
+							"type": "image",
+							"value": {
+								"id": "a1",
+								"kind": "image",
+								"alt": "Büro von außen",
+								"width": 1600,
+								"height": 1067,
+								"variants": [
+									{
+										"url": "/_ds/media/s1/a1/480.jpeg",
+										"width": 480,
+										"format": "jpeg"
+									},
+									{
+										"url": "/_ds/media/s1/a1/1600.jpeg",
+										"width": 1600,
+										"format": "jpeg"
+									},
+									{
+										"url": "/_ds/media/s1/a1/480.webp",
+										"width": 480,
+										"format": "webp"
+									},
+									{
+										"url": "/_ds/media/s1/a1/1600.webp",
+										"width": 1600,
+										"format": "webp"
+									},
+									{
+										"url": "/_ds/media/s1/a1/480.avif",
+										"width": 480,
+										"format": "avif"
+									},
+									{
+										"url": "/_ds/media/s1/a1/1600.avif",
+										"width": 1600,
+										"format": "avif"
+									}
+								]
+							}
+						}
+					},
+					"richtext": {
+						"start.ueber": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+					}
+				},
+				"element": "<script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script>"
+			},
+			{
+				"block": {
+					"v": 1,
+					"slots": {
+						"a.b": {
+							"type": "text",
+							"value": "</script><script>alert(1)</script><!-- \" onmouseover=\"alert(2) &amp; <img src=x onerror=alert(3)>   "
+						}
+					},
+					"richtext": {}
+				},
+				"element": "<script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"a.b\":{\"type\":\"text\",\"value\":\"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u003c!-- \\\" onmouseover=\\\"alert(2) \\u0026amp; \\u003cimg src=x onerror=alert(3)\\u003e \\u2028\\u2029\"}},\"richtext\":{}}</script>"
+			}
+		]
+	},
+	"markup": {
+		"text": "Element aus <Text as> (span, p, h1–h6, strong, em, small, div, li, blockquote, figcaption, dt, dd) mit data-ds-slot; Inhalt: Text maskiert wie Sveltes escape_html (& und <), danach <!---->.",
+		"richtext": "<div class=\"ds-richtext …\" data-ds-richtext=\"\" data-ds-slot=\"…\">; Inhalt: <!----> HTML <!---->. Leerer Richtext gibt kein Element aus (Blocker richtext-empty).",
+		"image": "<picture class=\"ds-image …\" data-ds-slot=\"…\">; Inhalt: <!--[--> <source type srcset sizes/>… <!--]--> <img class src srcset sizes width height alt loading fetchpriority decoding data-ds-image/>. Attribute maskiert (&, \", <). sizes, class, loading, fetchpriority, decoding kommen aus dem alten <img>. Leerer alt heißt dekorativ und bleibt leer.",
+		"pages": "Ein fehlender Block wird nur in SvelteKit-Seiten (mit kit.start( im Text) vor </head> eingefügt; eigene HTML-Dateien aus static/ bleiben unverändert."
+	},
+	"contentPatch": {
+		"description": "Feld contentPatch im Manifest. delivery \"dom\" ohne blockers und bekannte format-Fassung heißt patchbar; sonst bauen. Unbekannte blockers annehmen (Liste wächst), sie heißen ebenfalls bauen.",
+		"limits": {
+			"richtextDefaultsTotalBytes": 2097152,
+			"richtextDefaultMaxLength": 100000,
+			"richtextDefaultsMaxEntries": 2000,
+			"blockersMaxItems": 20,
+			"blockerMaxLength": 40
+		},
+		"schema": {
+			"$schema": "https://json-schema.org/draft/2020-12/schema",
+			"type": "object",
+			"additionalProperties": false,
+			"required": [
+				"format",
+				"delivery",
+				"blockers",
+				"richtextDefaults"
+			],
+			"properties": {
+				"format": {
+					"type": "integer",
+					"minimum": 1
+				},
+				"delivery": {
+					"enum": [
+						"dom",
+						"embedded"
+					]
+				},
+				"blockers": {
+					"type": "array",
+					"maxItems": 20,
+					"items": {
+						"type": "string",
+						"maxLength": 40
+					}
+				},
+				"richtextDefaults": {
+					"type": "object",
+					"maxProperties": 2000,
+					"propertyNames": {
+						"not": {
+							"const": "__proto__"
+						}
+					},
+					"additionalProperties": {
+						"type": "string",
+						"maxLength": 100000
+					},
+					"$comment": "Alle Schlüssel und Werte zusammen höchstens 2097152 Bytes (UTF-8); das SDK setzt sonst den Blocker richtext-defaults-too-large und lässt das Objekt leer."
+				}
+			}
+		},
+		"blockers": {
+			"site-head-missing": "<SiteHead> steht nicht im Haupt-Layout (delivery embedded)",
+			"get-slots": "Code liest Slot-Werte selbst (getSlots, readSnapshot, content.json)",
+			"richtext-defaults-too-large": "richtextDefaults über den Grenzen"
+		}
+	},
+	"patchBlockers": {
+		"not-patchable": "contentPatch fehlt, unbekannte format-Fassung, delivery embedded oder blockers",
+		"richtext-empty": "Richtext wechselt zwischen leer und gefüllt",
+		"image-reset": "Bild-Slot zurück auf das Bild aus dem Code",
+		"link-changed": "Link-Slot geändert (Fassung 1 patcht keine Links)",
+		"value-elsewhere": "alter Wert steht zusätzlich außerhalb eines Slots",
+		"blocks-duplicate": "mehr als ein Block in einer Seite",
+		"markup-unknown": "Slot-Element nicht im erwarteten Aufbau oder nicht von einem SDK-Baustein",
+		"bad-path": "Pfad im Artefakt unzulässig"
+	},
+	"cases": [
+		{
+			"name": "Standard → CRM: Text, Richtext, Bild",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "a1",
+						"kind": "image",
+						"alt": "Büro von außen",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/a1/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n<!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/bild.jpg\" sizes=\"50vw\" width=\"800\" height=\"600\" alt=\"Bild aus dem Code\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "CRM → anderer CRM-Wert, mehrzeilig, Bild nur JPEG und WebP",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig und Umgebung\"},\"start.text\":{\"type\":\"textarea\",\"value\":\"Erste Zeile\\nZweite \\u0026 dritte \\u003cZeile\\u003e\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"b2\",\"kind\":\"image\",\"alt\":\"Team im Büro\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/b2/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/b2/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig und Umgebung\"},\"start.text\":{\"type\":\"textarea\",\"value\":\"Erste Zeile\\nZweite \\u0026 dritte \\u003cZeile\\u003e\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"b2\",\"kind\":\"image\",\"alt\":\"Team im Büro\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/b2/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/b2/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig und Umgebung<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Erste Zeile\nZweite &amp; dritte &lt;Zeile><!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/webp\" srcset=\"/_ds/media/s1/b2/480.webp 480w, /_ds/media/s1/b2/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/b2/1600.jpeg\" srcset=\"/_ds/media/s1/b2/480.jpeg 480w, /_ds/media/s1/b2/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Team im Büro\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig und Umgebung<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "Text und Richtext zurück auf den Standard aus dem Code",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig und Umgebung\"},\"start.text\":{\"type\":\"textarea\",\"value\":\"Erste Zeile\\nZweite \\u0026 dritte \\u003cZeile\\u003e\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"b2\",\"kind\":\"image\",\"alt\":\"Team im Büro\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/b2/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/b2/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig und Umgebung\"},\"start.text\":{\"type\":\"textarea\",\"value\":\"Erste Zeile\\nZweite \\u0026 dritte \\u003cZeile\\u003e\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"b2\",\"kind\":\"image\",\"alt\":\"Team im Büro\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/b2/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/b2/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003ch2\\u003eÜber uns\\u003c/h2\\u003e\\u003cul\\u003e\\u003cli\\u003eeins\\u003c/li\\u003e\\u003cli\\u003ezwei\\u003c/li\\u003e\\u003c/ul\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig und Umgebung<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Erste Zeile\nZweite &amp; dritte &lt;Zeile><!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/webp\" srcset=\"/_ds/media/s1/b2/480.webp 480w, /_ds/media/s1/b2/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/b2/1600.jpeg\" srcset=\"/_ds/media/s1/b2/480.jpeg 480w, /_ds/media/s1/b2/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Team im Büro\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig und Umgebung<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"b2\",\"kind\":\"image\",\"alt\":\"Team im Büro\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/b2/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/b2/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"b2\",\"kind\":\"image\",\"alt\":\"Team im Büro\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/b2/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/b2/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/b2/1600.webp\",\"width\":1600,\"format\":\"webp\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n<!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/webp\" srcset=\"/_ds/media/s1/b2/480.webp 480w, /_ds/media/s1/b2/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/b2/1600.jpeg\" srcset=\"/_ds/media/s1/b2/480.jpeg 480w, /_ds/media/s1/b2/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Team im Büro\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "dekoratives Bild bleibt ohne Alternativtext",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.deko": {
+					"type": "image",
+					"value": {
+						"id": "e5",
+						"kind": "image",
+						"alt": "wird ignoriert",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/e5/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/e5/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/e5/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/e5/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/e5/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/e5/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n<!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/bild.jpg\" sizes=\"50vw\" width=\"800\" height=\"600\" alt=\"Bild aus dem Code\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.deko\":{\"type\":\"image\",\"value\":{\"id\":\"e5\",\"kind\":\"image\",\"alt\":\"wird ignoriert\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/e5/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/e5/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/e5/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/e5/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/e5/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/e5/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.deko\":{\"type\":\"image\",\"value\":{\"id\":\"e5\",\"kind\":\"image\",\"alt\":\"wird ignoriert\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/e5/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/e5/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/e5/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/e5/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/e5/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/e5/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n<!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/bild.jpg\" sizes=\"50vw\" width=\"800\" height=\"600\" alt=\"Bild aus dem Code\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/e5/480.avif 480w, /_ds/media/s1/e5/1600.avif 1600w\" sizes=\"100vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/e5/480.webp 480w, /_ds/media/s1/e5/1600.webp 1600w\" sizes=\"100vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/e5/1600.jpeg\" srcset=\"/_ds/media/s1/e5/480.jpeg 480w, /_ds/media/s1/e5/1600.jpeg 1600w\" sizes=\"100vw\" width=\"1600\" height=\"1067\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "Bild aus dem CRM ohne Alternativtext behält den aus dem Code",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "f6",
+						"kind": "image",
+						"alt": "",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/f6/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/f6/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/f6/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/f6/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/f6/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/f6/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n<!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/bild.jpg\" sizes=\"50vw\" width=\"800\" height=\"600\" alt=\"Bild aus dem Code\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"f6\",\"kind\":\"image\",\"alt\":\"\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/f6/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/f6/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/f6/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/f6/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/f6/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/f6/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"f6\",\"kind\":\"image\",\"alt\":\"\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/f6/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/f6/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/f6/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/f6/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/f6/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/f6/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eWir sind \\u003cstrong\\u003eseit 2010\\u003c/strong\\u003e in Leipzig tätig.\\u003c/p\\u003e\\n\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n<!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/f6/480.avif 480w, /_ds/media/s1/f6/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/f6/480.webp 480w, /_ds/media/s1/f6/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/f6/1600.jpeg\" srcset=\"/_ds/media/s1/f6/480.jpeg 480w, /_ds/media/s1/f6/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Bild aus dem Code\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Standard-Titel der Startseite<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "XSS im Text: </script>, <!--, Anführungszeichen, &, U+2028/U+2029",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "</script><script>alert(1)</script><!-- \" onmouseover=\"alert(2) &amp; <img src=x onerror=alert(3)>   "
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "a1",
+						"kind": "image",
+						"alt": "Büro von außen",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/a1/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u003c!-- \\\" onmouseover=\\\"alert(2) \\u0026amp; \\u003cimg src=x onerror=alert(3)\\u003e \\u2028\\u2029\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u003c!-- \\\" onmouseover=\\\"alert(2) \\u0026amp; \\u003cimg src=x onerror=alert(3)\\u003e \\u2028\\u2029\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">&lt;/script>&lt;script>alert(1)&lt;/script>&lt;!-- \" onmouseover=\"alert(2) &amp;amp; &lt;img src=x onerror=alert(3)>   <!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">&lt;/script>&lt;script>alert(1)&lt;/script>&lt;!-- \" onmouseover=\"alert(2) &amp;amp; &lt;img src=x onerror=alert(3)>   <!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "XSS in Alternativtext und Bild-Adresse",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "g7",
+						"kind": "image",
+						"alt": "\" onerror=\"alert(1)",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/g7/480.jpg?\" onload=\"alert(2)",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/g7/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/g7/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/g7/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/g7/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/g7/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"g7\",\"kind\":\"image\",\"alt\":\"\\\" onerror=\\\"alert(1)\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/g7/480.jpg?\\\" onload=\\\"alert(2)\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/g7/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/g7/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/g7/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/g7/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/g7/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"g7\",\"kind\":\"image\",\"alt\":\"\\\" onerror=\\\"alert(1)\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/g7/480.jpg?\\\" onload=\\\"alert(2)\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/g7/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/g7/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/g7/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/g7/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/g7/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/g7/480.avif 480w, /_ds/media/s1/g7/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/g7/480.webp 480w, /_ds/media/s1/g7/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/g7/1600.jpeg\" srcset=\"/_ds/media/s1/g7/480.jpg?&quot; onload=&quot;alert(2) 480w, /_ds/media/s1/g7/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"&quot; onerror=&quot;alert(1)\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "gleiche Werte: nichts ändert sich",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "a1",
+						"kind": "image",
+						"alt": "Büro von außen",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/a1/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"after": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			}
+		},
+		{
+			"name": "Manifest ohne contentPatch (SDK vor E1a)",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": []
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"not-patchable"
+			]
+		},
+		{
+			"name": "unbekannte format-Fassung",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 2,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"not-patchable"
+			]
+		},
+		{
+			"name": "Blocker im Manifest (getSlots im Code)",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [
+						"get-slots"
+					],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"not-patchable"
+			]
+		},
+		{
+			"name": "Richtext wird leer",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": ""
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "a1",
+						"kind": "image",
+						"alt": "Büro von außen",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/a1/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"richtext-empty"
+			]
+		},
+		{
+			"name": "Bild zurück auf das Bild aus dem Code",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": null
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"image-reset"
+			]
+		},
+		{
+			"name": "Link geändert",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<p>Seit <strong>2010</strong> vor Ort.</p>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "a1",
+						"kind": "image",
+						"alt": "Büro von außen",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/a1/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/a1/480.avif",
+								"width": 480,
+								"format": "avif"
+							},
+							{
+								"url": "/_ds/media/s1/a1/1600.avif",
+								"width": 1600,
+								"format": "avif"
+							}
+						]
+					}
+				},
+				"start.link": {
+					"type": "link",
+					"value": {
+						"href": "/x",
+						"label": "X"
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"link-changed"
+			]
+		},
+		{
+			"name": "alter Wert steht außerhalb des Slots (<title>)",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><title>Wir kaufen Ihr Haus in Leipzig</title><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"value-elsewhere"
+			]
+		},
+		{
+			"name": "zweiter Inhaltsblock in einer Seite",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"blocks-duplicate"
+			]
+		},
+		{
+			"name": "eigenes <script data-ds-slot> wird nie beschrieben",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer><script data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></script></main><!--]--></div></body></html>"
+			},
+			"blockers": [
+				"markup-unknown"
+			]
+		},
+		{
+			"name": "Pfad mit ..",
+			"manifest": {
+				"manifestVersion": 1,
+				"sdkVersion": "0.1.0",
+				"siteId": "11111111-1111-4111-8111-111111111111",
+				"routes": [
+					"/"
+				],
+				"slots": [
+					{
+						"key": "start.titel",
+						"type": "text",
+						"default": "Standard-Titel der Startseite"
+					},
+					{
+						"key": "start.text",
+						"type": "textarea",
+						"default": "Zeile eins\nZeile zwei"
+					},
+					{
+						"key": "start.knopf",
+						"type": "text",
+						"default": "Kontakt aufnehmen"
+					},
+					{
+						"key": "start.ueber",
+						"type": "richtext",
+						"default": "Wir sind **seit 2010** in Leipzig tätig."
+					},
+					{
+						"key": "start.bild",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.deko",
+						"type": "image",
+						"default": null
+					},
+					{
+						"key": "start.link",
+						"type": "link",
+						"default": {
+							"href": "/angebote",
+							"label": "Angebote"
+						}
+					}
+				],
+				"collections": [],
+				"funnels": [],
+				"contentPatch": {
+					"format": 1,
+					"delivery": "dom",
+					"blockers": [],
+					"richtextDefaults": {
+						"start.ueber": "<p>Wir sind <strong>seit 2010</strong> in Leipzig tätig.</p>\n"
+					}
+				}
+			},
+			"slots": {
+				"start.titel": {
+					"type": "text",
+					"value": "Wir kaufen Ihr Haus in Leipzig und Umgebung"
+				},
+				"start.text": {
+					"type": "textarea",
+					"value": "Erste Zeile\nZweite & dritte <Zeile>"
+				},
+				"start.ueber": {
+					"type": "richtext",
+					"value": "<h2>Über uns</h2><ul><li>eins</li><li>zwei</li></ul>"
+				},
+				"start.bild": {
+					"type": "image",
+					"value": {
+						"id": "b2",
+						"kind": "image",
+						"alt": "Team im Büro",
+						"width": 1600,
+						"height": 1067,
+						"variants": [
+							{
+								"url": "/_ds/media/s1/b2/480.jpeg",
+								"width": 480,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.jpeg",
+								"width": 1600,
+								"format": "jpeg"
+							},
+							{
+								"url": "/_ds/media/s1/b2/480.webp",
+								"width": 480,
+								"format": "webp"
+							},
+							{
+								"url": "/_ds/media/s1/b2/1600.webp",
+								"width": 1600,
+								"format": "webp"
+							}
+						]
+					}
+				}
+			},
+			"before": {
+				"404.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script></head><body><div class=\"app\"><script>{ const element = document.currentScript.parentElement; Promise.all([import(\"/_app/immutable/entry/start.js\"), import(\"/_app/immutable/entry/app.js\")]).then(([kit, app]) => { kit.start(app, element); }); }</script></div></body></html>",
+				"_app/immutable/chunks/a1b2c3.js": "import{t as e}from\"./x.js\";var n={key:`start.titel`,default:`Standard-Titel der Startseite`};export{n as t};",
+				"__data.json": "{\"type\":\"data\",\"nodes\":[]}",
+				"google1234.html": "<!doctype html><html><head></head><body>google-site-verification: google1234.html</body></html>",
+				"index.html": "<!doctype html><html lang=\"de\"><head><meta charset=\"utf-8\" /><!----><!----><script type=\"application/json\" id=\"ds-content\">{\"v\":1,\"slots\":{\"start.titel\":{\"type\":\"text\",\"value\":\"Wir kaufen Ihr Haus in Leipzig\"},\"start.ueber\":{\"type\":\"richtext\",\"value\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"},\"start.bild\":{\"type\":\"image\",\"value\":{\"id\":\"a1\",\"kind\":\"image\",\"alt\":\"Büro von außen\",\"width\":1600,\"height\":1067,\"variants\":[{\"url\":\"/_ds/media/s1/a1/480.jpeg\",\"width\":480,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/1600.jpeg\",\"width\":1600,\"format\":\"jpeg\"},{\"url\":\"/_ds/media/s1/a1/480.webp\",\"width\":480,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/1600.webp\",\"width\":1600,\"format\":\"webp\"},{\"url\":\"/_ds/media/s1/a1/480.avif\",\"width\":480,\"format\":\"avif\"},{\"url\":\"/_ds/media/s1/a1/1600.avif\",\"width\":1600,\"format\":\"avif\"}]}}},\"richtext\":{\"start.ueber\":\"\\u003cp\\u003eSeit \\u003cstrong\\u003e2010\\u003c/strong\\u003e vor Ort.\\u003c/p\\u003e\"}}</script><!----> <!--[-1--><!--]--> <!--[1--><link rel=\"icon\" href=\"/favicon.svg\" type=\"image/svg+xml\"/><!--]--><!----></head><body><div style=\"display: contents\"><!--[--><!----> <main><!----><h1 class=\"hero__titel svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></h1><!----><!----> <!----><p class=\"ds-text--multiline svelte-1v9hf3h\" data-ds-slot=\"start.text\">Zeile eins\nZeile zwei<!----></p><!----><!----> <a href=\"/kontakt\"><!----><span class=\"svelte-1v9hf3h\" data-ds-slot=\"start.knopf\">Kontakt aufnehmen<!----></span><!----><!----></a> <!--[0--><div class=\"ds-richtext svelte-140vbzz\" data-ds-richtext=\"\" data-ds-slot=\"start.ueber\"><!----><p>Seit <strong>2010</strong> vor Ort.</p><!----></div><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.bild\"><!--[--><source type=\"image/avif\" srcset=\"/_ds/media/s1/a1/480.avif 480w, /_ds/media/s1/a1/1600.avif 1600w\" sizes=\"50vw\"/><source type=\"image/webp\" srcset=\"/_ds/media/s1/a1/480.webp 480w, /_ds/media/s1/a1/1600.webp 1600w\" sizes=\"50vw\"/><!--]--> <img class=\"svelte-178kvkr\" src=\"/_ds/media/s1/a1/1600.jpeg\" srcset=\"/_ds/media/s1/a1/480.jpeg 480w, /_ds/media/s1/a1/1600.jpeg 1600w\" sizes=\"50vw\" width=\"1600\" height=\"1067\" alt=\"Büro von außen\" loading=\"eager\" fetchpriority=\"high\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <!--[0--><picture class=\"ds-image svelte-178kvkr\" data-ds-slot=\"start.deko\"><!--[--><!--]--> <img class=\"svelte-178kvkr\" src=\"/deko.svg\" sizes=\"100vw\" width=\"10\" height=\"10\" alt=\"\" loading=\"lazy\" decoding=\"async\" data-ds-image=\"\"/></picture><!--]--><!----> <a href=\"/angebote\" data-ds-slot=\"start.link\">Angebote</a><!----> <p>Fester Text, den nur der Code ändert.</p> <footer><!----><small class=\"svelte-1v9hf3h\" data-ds-slot=\"start.titel\">Wir kaufen Ihr Haus in Leipzig<!----></small><!----><!----></footer></main><!--]--></div></body></html>",
+				"../x.html": "<html></html>"
+			},
+			"blockers": [
+				"bad-path"
+			]
+		}
+	]
+}

@@ -1154,3 +1154,32 @@ for (const [id, cases] of Object.entries(CASES)) {
 		}
 	});
 }
+
+describe('SEC-006: Inhaltsblock ds-content gehört dem SDK', () => {
+	const sec006 = async (overlay: Overlay) =>
+		(await findingsFor('source', overlay))
+			.filter((f) => f.rule === 'SEC-006')
+			.map((f) => [f.severity, f.file, f.line]);
+
+	it('warnt bei eigenem Block und bei Code, der ihn nennt, nur als Warnung', async () => {
+		expect(
+			await sec006({
+				'src/routes/+page.svelte':
+					'<svelte:head>\n\t<script type="application/json" id="ds-content">{}</script>\n</svelte:head>\n<h1>Hallo</h1>\n',
+				'src/lib/lesen.ts': "export const block = () => document.getElementById('ds-content');\n",
+			}),
+		).toEqual([
+			['warning', 'src/lib/lesen.ts', 1],
+			['warning', 'src/routes/+page.svelte', 2],
+		]);
+	});
+
+	it('eigene JSON-Daten mit anderer id sind in Ordnung', async () => {
+		expect(
+			await sec006({
+				'src/routes/+page.svelte':
+					'<svelte:head>\n\t<script type="application/ld+json" id="firma">{}</script>\n</svelte:head>\n<h1>Hallo</h1>\n',
+			}),
+		).toEqual([]);
+	});
+});
