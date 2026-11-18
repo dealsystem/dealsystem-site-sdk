@@ -370,6 +370,12 @@ export interface SiteManifest {
 	slots: ContentSlotDef[];
 	collections: (CollectionDef & { key: string; source: 'cms' })[];
 	funnels: (FunnelDef & { key: string })[];
+	/**
+	 * Grenzen aller `<Zeitfenster>` mit festen Zeitpunkten, die nach dem Build liegen: UTC, ISO 8601 mit
+	 * Millisekunden (`2026-12-01T17:00:00.000Z`), aufsteigend, ohne doppelte, höchstens 50. Der Core baut zu
+	 * jeder Grenze neu (Grund `schedule`).
+	 */
+	schedule: string[];
 }
 
 // ------------------------------------------------------------------- Intern
@@ -391,4 +397,6 @@ export interface SiteData {
 	richtext: Record<string, string>;
 	/** „Google und Teilen“ aus dem CRM. */
 	seo: SeoConfig;
+	/** Zeitpunkt des Builds (ms seit 1970, UTC). `<Zeitfenster>` entscheidet damit, was im HTML steht. 0 = unbekannt. */
+	builtAt: number;
 }

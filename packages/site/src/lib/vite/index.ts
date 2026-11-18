@@ -25,8 +25,12 @@ import type {
 } from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
+import { scheduleFrom } from '../schedule.js';
+import { scanZeitfenster } from './zeitfenster.js';
 
 export { scanSlots, mergeSlots, SlotScanError, type FoundSlot } from './scan.js';
+export { scanZeitfenster, type FoundGrenze, type FoundZeitfenster } from './zeitfenster.js';
+export { parseZeitpunkt, scheduleFrom, SCHEDULE_MAX, zeitpunktFehlerText } from '../schedule.js';
 export type { SiteManifest } from '../types.js';
 
 export { LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
@@ -63,8 +67,9 @@ export type ImageSources = Map<string, NonNullable<FoundSlot['imageSource']>>;
 /** Sammelt die Slots aller `.svelte`-Dateien unter `src/`. */
 export async function collectSlots(
 	root: string,
-): Promise<{ slots: ContentSlotDef[]; routes: string[]; imageSources: ImageSources }> {
+): Promise<{ slots: ContentSlotDef[]; routes: string[]; imageSources: ImageSources; grenzen: number[] }> {
 	const found: FoundSlot[] = [];
+	const grenzen: number[] = [];
 	const routes = new Set<string>();
 	for (const file of await svelteFiles(resolve(root, 'src'))) {
 		const shown = relative(root, file).replace(/\\/g, '/');
@@ -72,13 +77,16 @@ export async function collectSlots(
 			const route = routeOfFile(shown);
 			if (route) routes.add(route);
 		}
-		found.push(...scanSlots(await readFile(file, 'utf8'), shown));
+		const code = await readFile(file, 'utf8');
+		found.push(...scanSlots(code, shown));
+		for (const fenster of scanZeitfenster(code))
+			for (const grenze of fenster.grenzen) if (grenze.ms !== null) grenzen.push(grenze.ms);
 	}
 	const imageSources: ImageSources = new Map();
 	for (const slot of found) {
 		if (slot.imageSource && !imageSources.has(slot.key)) imageSources.set(slot.key, slot.imageSource);
 	}
-	return { slots: mergeSlots(found), routes: [...routes].sort(), imageSources };
+	return { slots: mergeSlots(found), routes: [...routes].sort(), imageSources, grenzen };
 }
 
 /**
@@ -116,7 +124,12 @@ export function withDefaultImages(
 }
 
 /** Baut das Manifest aus Konfiguration, Slots und Routen. */
-export function buildManifest(config: SiteConfig, slots: ContentSlotDef[], routes: string[]): SiteManifest {
+export function buildManifest(
+	config: SiteConfig,
+	slots: ContentSlotDef[],
+	routes: string[],
+	schedule: string[] = [],
+): SiteManifest {
 	return {
 		manifestVersion: 1,
 		sdkVersion: SDK_VERSION,
@@ -129,6 +142,7 @@ export function buildManifest(config: SiteConfig, slots: ContentSlotDef[], route
 			source: 'cms' as const,
 		})),
 		funnels: Object.entries(config.funnels ?? {}).map(([key, funnel]) => ({ ...funnel, key })),
+		schedule,
 	};
 }
 
@@ -138,6 +152,7 @@ export function buildSiteData(
 	snapshot: ContentSnapshot,
 	slots: readonly ContentSlotDef[],
 	env: Record<string, string | undefined>,
+	builtAt = Date.now(),
 ): SiteData {
 	const active = new Map(snapshot.funnels.map((funnel) => [funnel.key, funnel.active]));
 	const richtext: Record<string, string> = {};
@@ -182,6 +197,7 @@ export function buildSiteData(
 		slots: snapshot.slots,
 		richtext,
 		seo: snapshot.seo,
+		builtAt,
 	};
 }
 
@@ -318,6 +334,12 @@ export function dealsystem(config: SiteConfig): Plugin {
 	let code: Record<string, string> | null = null;
 	let snapshot: ContentSnapshot | null = null;
 	let scanned: Awaited<ReturnType<typeof collectSlots>> | null = null;
+	/**
+	 * Zeitpunkt des Builds: entscheidet über `<Zeitfenster>` im HTML und welche Grenzen „künftig“ sind. Einmal je
+	 * Build, damit Server- und Client-Teil dieselbe Zeit sehen. In `vite dev` bleibt sie stehen (sonst lüde
+	 * jede Änderung die Seite ganz neu); dort schaltet der Baustein nach dem Laden mit der Uhr des Browsers.
+	 */
+	const builtAt = Date.now();
 	/** Datei im Projekt → Pfad im Artefakt, aus dem Client-Build. Bleibt für spätere Builds desselben Laufs. */
 	const assets = new Map<string, string>();
 	const loadedIds = new Set<string>();
@@ -325,7 +347,12 @@ export function dealsystem(config: SiteConfig): Plugin {
 	function currentManifest(): SiteManifest {
 		const { slots, routes, imageSources } = scanned!;
 		const staticExists = (path: string) => existsSync(resolve(root, 'static', `.${path}`));
-		return buildManifest(config, withDefaultImages(slots, imageSources, staticExists, assets), routes);
+		return buildManifest(
+			config,
+			withDefaultImages(slots, imageSources, staticExists, assets),
+			routes,
+			scheduleFrom(scanned!.grenzen, builtAt),
+		);
 	}
 
 	async function refresh(): Promise<SiteManifest> {
@@ -334,7 +361,7 @@ export function dealsystem(config: SiteConfig): Plugin {
 		const { slots } = scanned;
 		const module = (value: unknown) => `export default ${JSON.stringify(value)};`;
 		code = {
-			'site-data': module(buildSiteData(config, snapshot, slots, process.env)),
+			'site-data': module(buildSiteData(config, snapshot, slots, process.env, builtAt)),
 			// Rechtstexte des Kunden: im Core bereinigt, hier noch einmal gegen die Positiv-Liste geprüft.
 			'legal-imprint': module(sanitizeRichtextHtml(snapshot.legal.imprintHtml)),
 			'legal-privacy': module(sanitizeRichtextHtml(snapshot.legal.privacyHtml)),

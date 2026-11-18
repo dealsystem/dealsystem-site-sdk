@@ -17,6 +17,7 @@ export { default as Seo, type SeoProps } from './components/Seo.svelte';
 export { default as SiteFooterLegal, type SiteFooterLegalProps } from './components/SiteFooterLegal.svelte';
 export { default as SiteHead, type SiteHeadProps } from './components/SiteHead.svelte';
 export { default as Text, type TextElement, type TextProps } from './components/Text.svelte';
+export { default as Zeitfenster, type ZeitfensterProps } from './components/Zeitfenster.svelte';
 export { default as Tracking } from './components/Tracking.svelte';
 
 export { consent, type ConsentCategory } from './consent/consent.svelte.js';

@@ -39,5 +39,6 @@ export function emptySiteData(): SiteData {
 			pages: {},
 			favicon: null,
 		},
+		builtAt: 0,
 	};
 }
