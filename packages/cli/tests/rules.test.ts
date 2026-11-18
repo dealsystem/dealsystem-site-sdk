@@ -70,6 +70,13 @@ const embedPage = (body: string): Overlay => ({
 	'src/routes/+page.svelte': homePage(`<h1>A</h1>\n${body}`, IMPORT_EXTERNAL),
 });
 const YT = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+/** Startseite mit einem eigenen Formular; `senden` steht im Skript. */
+const form = (markup: string, script = ''): Overlay => ({
+	'src/routes/+page.svelte': homePage(
+		`<h1>A</h1>\n${markup}`,
+		`\tconst senden = (e: SubmitEvent) => e.preventDefault();\n${script}`,
+	),
+});
 
 /** Meta-Tag wie SvelteKit ihn schreibt: Schlüsselwörter in Anführungszeichen, Direktiven mit `;`. */
 function metaTag(directives: Record<string, string[]>): string {
@@ -524,43 +531,50 @@ const CASES: Record<string, RuleCase[]> = {
 			stage: S,
 			pass: [
 				{},
-				// Eigenes Formular ohne action: Absenden übernimmt der eigene Code (createLeadClient).
-				{
-					'src/routes/+page.svelte': homePage(
-						'<h1>A</h1>\n<form onsubmit={(e) => e.preventDefault()}><label>PLZ <input name="plz" /></label><button>Weiter</button></form>',
-					),
-				},
+				// Eigenes Formular: Enter, native Prüfung, Semantik. Absenden im Code (createLeadClient).
+				form(
+					'<form onsubmit={senden}><label>PLZ <input name="plz" required /></label><button>Weiter</button></form>',
+				),
+				form('<form action="#" onsubmit={senden}><button>Weiter</button></form>'),
+				form('<form action="" target="_self" onsubmit={senden}><button>Weiter</button></form>'),
+				// action auf dieselbe Seite (Startseite `/`).
+				form('<form action="/" method="get" onsubmit={senden}><button>Weiter</button></form>'),
+				form('<form onsubmit={senden}><button formaction="#">Weiter</button></form>'),
 				{
 					'src/routes/+page.svelte': homePage(
 						'<h1>A</h1>\n<dialog open><form method="dialog"><button>Schließen</button></form></dialog>',
 					),
 				},
+				{ 'static/suche.html': '<!doctype html><html lang="de"><form><input name="q"></form></html>\n' },
 			],
 			fail: [
-				{
-					'src/routes/+page.svelte': homePage(
-						'<h1>A</h1>\n<form action="/danke"><button>Senden</button></form>',
-					),
-				},
-				{
-					'src/routes/+page.svelte': homePage(
-						'<h1>A</h1>\n<form><button formaction="https://evil.example.com/x">Senden</button></form>',
-					),
-				},
-				{
-					'src/routes/+page.svelte': homePage(
-						'<h1>A</h1>\n<form {...rest}><button>Senden</button></form>',
-						'\tconst rest = {};\n',
-					),
-				},
+				// Andere Seite, fremde oder absolute Adresse, Ausdruck.
+				form('<form action="/danke" onsubmit={senden}><button>Senden</button></form>'),
+				form('<form action="https://formspree.io/f/abc" onsubmit={senden}><button>Senden</button></form>'),
+				form('<form action="https://muster-immobilien.de/" onsubmit={senden}><button>Senden</button></form>'),
+				form('<form action="//evil.example.com/x" onsubmit={senden}><button>Senden</button></form>'),
+				form('<form action={ziel} onsubmit={senden}><button>Senden</button></form>', '\tconst ziel = "/";\n'),
+				// POST mit action, auch auf dieselbe Seite.
+				form('<form action="#" method="post" onsubmit={senden}><button>Senden</button></form>'),
+				// Ergebnis in einem anderen Fenster.
+				form('<form target="_blank" onsubmit={senden}><button>Senden</button></form>'),
+				form('<form target="ergebnis" onsubmit={senden}><button>Senden</button></form>'),
+				// Ohne onsubmit lädt die Seite neu, die Eingaben stehen in der Adresse.
+				form('<form><label>E-Mail <input name="email" /></label><button>Senden</button></form>'),
+				// Knöpfe, die das Ziel überschreiben.
+				form(
+					'<form onsubmit={senden}><button formaction="https://evil.example.com/x">Senden</button></form>',
+				),
+				form('<form onsubmit={senden}><button formtarget="_blank">Senden</button></form>'),
+				form('<form {...rest}><button>Senden</button></form>', '\tconst rest = {};\n'),
 				{
 					'static/kontakt.html':
 						'<!doctype html><html lang="de"><form action="https://formspree.io/f/x"></form></html>\n',
 				},
+				{ 'static/kontakt.html': '<!doctype html><html lang="de"><form target="_blank"></form></html>\n' },
 				{
-					'src/routes/+page.svelte': homePage(
-						'<h1>Hallo</h1>\n<form action="https://formspree.io/f/abc" method="post"><label>E-Mail <input name="email" /></label></form>',
-					),
+					'static/kontakt.html':
+						'<!doctype html><html lang="de"><form><button formaction="https://evil.example.com">x</button></form></html>\n',
 				},
 			],
 		},
