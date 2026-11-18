@@ -145,8 +145,9 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'SEC-007',
 		severity: 'error',
 		stages: ['source'],
-		title: 'eigenes `<form>` nur ohne `action` (oder `method="dialog"`), kein `formaction`',
-		fix: 'Lass `action` weg und sende mit `createLeadClient()`, oder nimm `<LeadForm funnel="…" />` mit dem Formular unter `funnels` in dealsystem.config.ts.',
+		title:
+			'eigenes `<form>` mit `onsubmit`, ohne `action` oder nur auf dieselbe Seite/`#`; kein `method="post"` mit `action`, kein fremdes `target`',
+		fix: 'Lass `action` weg, schreib `<form onsubmit={senden}>` und sende in `senden` mit `createLeadClient()`; oder nimm `<LeadForm funnel="…" />` mit dem Formular unter `funnels` in dealsystem.config.ts.',
 	},
 	{
 		id: 'SEC-008',

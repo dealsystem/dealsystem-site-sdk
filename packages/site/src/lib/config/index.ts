@@ -559,5 +559,15 @@ export {
 	isLocalPath,
 	parseHostSource,
 } from '../external/hosts.js';
-export { PRESETS, PRESET_NAMES, isPreset, type EmbedSettings, type PresetDef } from '../external/presets.js';
+export {
+	EXTERNAL_PRESETS_CONTRACT_VERSION,
+	PRESETS,
+	PRESET_NAMES,
+	externalPresetsContract,
+	externalPresetsContractText,
+	isPreset,
+	type EmbedSettings,
+	type PresetContractEntry,
+	type PresetDef,
+} from '../external/presets.js';
 export { CSP_DIRECTIVE, MAP_EMBED_ORIGIN, TRACKING_CSP, buildCspDirectives } from '../external/csp.js';

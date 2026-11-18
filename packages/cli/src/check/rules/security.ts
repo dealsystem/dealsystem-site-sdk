@@ -1,7 +1,7 @@
 // SEC-*: Secrets, private Umgebungsvariablen, {@html}, API-Zugriffe, CSP, eval, eigene Formulare, Einbettungen.
 
 import ts from 'typescript';
-import type { OutputContext, SourceContext } from '../context.js';
+import { routeOfSource, type OutputContext, type SourceContext } from '../context.js';
 import { outputRule, sourceRule, type OutputRule, type SourceRule } from '../rule.js';
 import type { RawFinding } from '../types.js';
 import {
@@ -490,41 +490,110 @@ function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
 
 // ------------------------------------------------------------------ SEC-007
 
+// Regelsatz 3: Ein eigenes `<form>` ist erlaubt (Enter zum Absenden, native Validierung, Semantik für
+// Vorleseprogramme), solange es nichts selbst abschickt: Das Absenden läuft im Code über `createLeadClient()`.
+// Zweite Schranke: `form-action 'self'` in der CSP.
+
 const FORM_FIX =
-	'Ein eigenes `<form>` schickt nichts selbst ab: Lass `action` weg und sende die Daten mit `createLeadClient()` oder nimm `<LeadForm funnel="…" />`. Formulardaten gehen nur über DealSystem in dein CRM.';
+	'Lass `action` weg (oder `action="#"`), schreib `<form onsubmit={senden}>` und schick die Daten in `senden` mit `createLeadClient()` ab; oder nimm `<LeadForm funnel="…" />`. Formulardaten gehen nur über DealSystem in dein CRM.';
+
+/** Ob `action` auf dieselbe Seite zeigt: leer, `#…`, `.` oder der Pfad der Seite selbst. */
+export function isSamePageAction(value: string, route: string | null): boolean {
+	const v = value.trim();
+	if (v === '' || v.startsWith('#') || v === '.' || v === './') return true;
+	if (route === null || !v.startsWith('/') || v.startsWith('//')) return false;
+	const path = v.split(/[?#]/)[0]!.replace(/\/+$/, '') || '/';
+	return path === (route.replace(/\/+$/, '') || '/');
+}
+
+interface FormLike {
+	/** `undefined`: fehlt; `null`: Ausdruck; sonst der feste Wert. */
+	action: string | null | undefined;
+	method: string | null | undefined;
+	target: string | null | undefined;
+}
+
+/** Probleme eines `<form>` (oder eines Knopfs mit `formaction`). */
+function formProblems(form: FormLike, route: string | null, what: string): string[] {
+	const problems: string[] = [];
+	const method = typeof form.method === 'string' ? form.method.trim().toLowerCase() : form.method;
+	if (form.action !== undefined) {
+		if (form.action === null)
+			problems.push(
+				`${what}: \`action\` ist ein Ausdruck; wohin das Formular geht, lässt sich nicht prüfen.`,
+			);
+		else if (!isSamePageAction(form.action, route))
+			problems.push(`${what} schickt an \`${excerpt(form.action, 60)}\`, eine andere Adresse.`);
+		if (method === 'post' || method === null) problems.push(`${what} hat \`method="post"\` mit \`action\`.`);
+	}
+	if (form.target !== undefined) {
+		const t = typeof form.target === 'string' ? form.target.trim().toLowerCase() : null;
+		if (t !== '_self' && t !== '')
+			problems.push(`${what} öffnet das Ergebnis in einem anderen Fenster (\`target\`).`);
+	}
+	return problems;
+}
+
+const attrValue = (el: SvelteElement, name: string): string | null | undefined => {
+	const a = getAttr(el, name);
+	if (!a) return undefined;
+	return a.value === true ? '' : a.value;
+};
+
+/** `name="wert"` aus einem HTML-Tag; `undefined`, wenn das Attribut fehlt. */
+function htmlAttr(tag: string, name: string): string | undefined {
+	const m = new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
+	if (!m) return new RegExp(`\\s${name}(?=[\\s>/])`, 'i').test(tag) ? '' : undefined;
+	return m[1] ?? m[2] ?? m[3] ?? '';
+}
 
 const sec007 = sourceRule('SEC-007', (ctx) => {
 	const out: RawFinding[] = [];
 	for (const path of ctx.svelteFiles()) {
+		const route = /^src\/routes\/(?:.*\/)?\+page\.svelte$/.test(path) ? routeOfSource(path) : null;
 		for (const el of ctx.svelte(path)?.elements ?? []) {
 			if (el.kind !== 'element') continue;
-			const formaction = getAttr(el, 'formaction');
-			if (formaction) {
-				out.push(
-					ctx.at(
-						path,
-						formaction.start,
-						`\`<${el.name} formaction>\` in \`${path}\` schickt ein Formular an eine Adresse.`,
-						FORM_FIX,
-					),
+			// Knöpfe und Eingaben können das Ziel des Formulars überschreiben.
+			if (getAttr(el, 'formaction') || getAttr(el, 'formtarget') || getAttr(el, 'formmethod')) {
+				const problems = formProblems(
+					{
+						action: attrValue(el, 'formaction'),
+						method: attrValue(el, 'formmethod'),
+						target: attrValue(el, 'formtarget'),
+					},
+					route,
+					`\`<${el.name} formaction>\` in \`${path}\``,
 				);
+				for (const message of problems) out.push(ctx.at(path, el.start, message, FORM_FIX));
 			}
 			if (el.name !== 'form') continue;
-			const action = getAttr(el, 'action');
-			const method = getAttr(el, 'method')?.value;
-			if (typeof method === 'string' && method.trim().toLowerCase() === 'dialog') continue;
-			if (action) {
-				const target = typeof action.value === 'string' ? ` an \`${excerpt(action.value, 60)}\`` : '';
-				out.push(
-					ctx.at(path, el.start, `\`${path}\` enthält ein \`<form>\` mit \`action\`${target}.`, FORM_FIX),
-				);
-			} else if (getAttr(el, '...') || el.attributes.some((a) => a.kind === 'spread')) {
+			const what = `Das \`<form>\` in \`${path}\``;
+			if (el.attributes.some((a) => a.kind === 'spread')) {
 				out.push(
 					ctx.at(
 						path,
 						el.start,
-						`\`${path}\` enthält ein \`<form>\` mit \`{...}\`; ob es eine \`action\` bekommt, lässt sich nicht prüfen.`,
+						`${what} hat \`{...}\`; ob es eine \`action\` bekommt, lässt sich nicht prüfen.`,
 						'Schreibe die Attribute des `<form>` einzeln aus, ohne `{...}`.',
+					),
+				);
+				continue;
+			}
+			const method = attrValue(el, 'method');
+			if (typeof method === 'string' && method.trim().toLowerCase() === 'dialog') continue;
+			const problems = formProblems(
+				{ action: attrValue(el, 'action'), method, target: attrValue(el, 'target') },
+				route,
+				what,
+			);
+			for (const message of problems) out.push(ctx.at(path, el.start, message, FORM_FIX));
+			if (!getAttr(el, 'onsubmit')) {
+				out.push(
+					ctx.at(
+						path,
+						el.start,
+						`${what} hat kein \`onsubmit\`. Beim Absenden lädt die Seite neu, und die Eingaben stehen in der Adresse.`,
+						FORM_FIX,
 					),
 				);
 			}
@@ -532,16 +601,28 @@ const sec007 = sourceRule('SEC-007', (ctx) => {
 	}
 	for (const path of ctx.htmlFiles()) {
 		const code = ctx.code(path);
-		for (const m of code.matchAll(/<form\b([^>]*)>/gi)) {
-			const attrs = m[1] ?? '';
-			if (/\bmethod\s*=\s*["']?dialog\b/i.test(attrs) || !/\baction\s*=/i.test(attrs)) continue;
-			out.push({
-				...ctx.at(path, m.index, `\`${path}\` enthält ein \`<form>\` mit \`action\`.`),
-				fix: FORM_FIX,
-			});
+		for (const m of code.matchAll(/<form\b[^>]*>/gi)) {
+			const tag = m[0];
+			if ((htmlAttr(tag, 'method') ?? '').trim().toLowerCase() === 'dialog') continue;
+			const problems = formProblems(
+				{ action: htmlAttr(tag, 'action'), method: htmlAttr(tag, 'method'), target: htmlAttr(tag, 'target') },
+				null,
+				`Das \`<form>\` in \`${path}\``,
+			);
+			for (const message of problems) out.push({ ...ctx.at(path, m.index, message), fix: FORM_FIX });
 		}
-		for (const m of code.matchAll(/<[a-z]+\b[^>]*\bformaction\s*=/gi)) {
-			out.push({ ...ctx.at(path, m.index, `\`${path}\` enthält \`formaction\`.`), fix: FORM_FIX });
+		for (const m of code.matchAll(/<[a-z]+\b[^>]*\bform(?:action|target|method)\s*=[^>]*>/gi)) {
+			const tag = m[0];
+			const problems = formProblems(
+				{
+					action: htmlAttr(tag, 'formaction'),
+					method: htmlAttr(tag, 'formmethod'),
+					target: htmlAttr(tag, 'formtarget'),
+				},
+				null,
+				`\`formaction\` in \`${path}\``,
+			);
+			for (const message of problems) out.push({ ...ctx.at(path, m.index, message), fix: FORM_FIX });
 		}
 	}
 	return out;

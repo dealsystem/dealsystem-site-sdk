@@ -2,13 +2,17 @@
 
 Gegen diese Dateien ist der Client des Pakets getestet (`tests/contract.test.ts`).
 
-| Datei                | Herkunft                                                                                                | Inhalt                                                                                                                   |
-| -------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `site-api.v1.json`   | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern.                    | Leads, Captcha, Seitenaufrufe, Sammlungen                                                                                |
-| `ds-content.v1.json` | **SDK**, Quelle hier; erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/contentBlockContract.test.ts` | Inhaltsblock `ds-content`, Feld `contentPatch` samt Grenzen, Fälle „Artefakt vorher + Slot-Werte → nachher“ bzw. „bauen“ |
+| Datei                      | Herkunft                                                                                                                            | Inhalt                                                                                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `site-api.v1.json`         | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern.                                                | Leads, Captcha, Seitenaufrufe, Sammlungen                                                                                 |
+| `ds-content.v1.json`       | **SDK**, Quelle hier; erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/contentBlockContract.test.ts`                             | Inhaltsblock `ds-content`, Feld `contentPatch` samt Grenzen, Fälle „Artefakt vorher + Slot-Werte → nachher“ bzw. „bauen“  |
+| `external-presets.v1.json` | **SDK**, Quelle `src/lib/external/presets.ts`; erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/externalPresetsContract.test.ts` | Vorlagen für fremde Dienste (`external`): Kategorie, Anbieter, Hosts je Direktive. Der Core hält eine byte-gleiche Kopie. |
 
 `funnel-code-config.md` hält fest, was das SDK für Paket C2 im Manifest meldet (`hidden`, `crm`); der Core
 setzt es noch um.
+
+Neue oder geänderte Vorlage im SDK: Datei neu erzeugen und dem Core melden (`SELF_SITE_EXTERNAL_PRESETS`); bis
+dahin zählt sie dort als eigener Code (Plan-Schalter `website_custom_code`).
 
 Ändert sich die Site-API im Core, wird `site-api.v1.json` neu kopiert. Schlägt danach der Vertragstest fehl,
 passt der Client nicht mehr zum Server.

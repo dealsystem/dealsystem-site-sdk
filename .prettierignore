@@ -3,6 +3,7 @@ dist
 .svelte-kit
 package-lock.json
 packages/site/contract/site-api.v1.json
+packages/site/contract/external-presets.v1.json
 packages/site/docs
 # Erzeugt von scripts/build-agent-docs.mjs (JSON.stringify), wie docs/
 packages/site/agent-files/manifest.json
