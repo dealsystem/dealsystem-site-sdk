@@ -1,6 +1,7 @@
 // Client für die öffentliche Site-API (`/api/site/v1/s/{publishableKey}/…`).
 // Grundsatz: Fehler kommen als Daten zurück. Keine Funktion hier wirft, auch
 // nicht bei Netzfehlern oder kaputten Antworten.
+import { safeHttpUrl } from '../internal/navigate.js';
 import { getSiteData } from '../internal/siteData.js';
 import type { LeadAttributionV2, Touch } from './attribution.js';
 import { normalizeEntry } from '../snapshot.js';
@@ -124,7 +125,15 @@ export interface BookingInfo {
 	timezone: string;
 	locations: { type: BookingLocationType; label: string }[];
 	questions: BookingQuestion[];
+	/**
+	 * Reihenfolge im CRM: `calendar_first` (erst Zeit, dann Angaben) oder `contact_first` (erst Angaben und
+	 * Fragen, dann Zeit). Fehlt das Feld, gilt `calendar_first`.
+	 */
+	flow: BookingFlow;
 }
+
+/** Reihenfolge der Buchung, eingestellt an der Terminart im CRM. */
+export type BookingFlow = 'calendar_first' | 'contact_first';
 
 /** Ein freier Termin, Zeiten in UTC (`…Z`). */
 export interface BookingSlot {
@@ -167,6 +176,19 @@ export interface BookingConfirmed {
 	start: string | null;
 	end: string | null;
 }
+
+/** Antwort von `POST …/booking/{bookingKey}/qualify` (bei `contact_first` vor der Zeitwahl). */
+export type BookingQualification =
+	| { qualified: true }
+	| {
+			qualified: false;
+			/** Überschrift für Besucher aus der Regel im CRM. */
+			headline: string | null;
+			/** Text für Besucher aus der Regel im CRM. */
+			message: string | null;
+			/** Leitet die Regel weiter, die Adresse (nur http/https); dann dorthin statt zur Zeitwahl. */
+			redirectUrl: string | null;
+	  };
 
 const LOCATION_TYPES: readonly BookingLocationType[] = ['google_meet', 'in_person', 'phone', 'link'];
 
@@ -215,6 +237,7 @@ function normalizeBookingInfo(raw: unknown): BookingInfo | null {
 		timezone,
 		locations,
 		questions,
+		flow: raw.flow === 'contact_first' ? 'contact_first' : 'calendar_first',
 	};
 }
 
@@ -329,6 +352,11 @@ export interface SiteApi {
 		range: { from: string; to: string },
 	): Promise<SiteApiResult<BookingSlots>>;
 	createBooking(bookingKey: string, request: BookingRequest): Promise<SiteApiResult<BookingConfirmed>>;
+	/** Passen die Antworten zur Terminart? Schreibt nichts. */
+	qualifyBooking(
+		bookingKey: string,
+		request: { answers?: BookingRequest['answers'] },
+	): Promise<SiteApiResult<BookingQualification>>;
 }
 
 /**
@@ -467,6 +495,28 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 					to: str(data.to) ?? range.to,
 					slots,
 				},
+			};
+		},
+
+		async qualifyBooking(bookingKey, body) {
+			const result = await request(`/booking/${encodeURIComponent(bookingKey)}/qualify`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body.answers ? { answers: body.answers } : {}),
+			});
+			if (!result.ok) return result;
+			const data = result.data.data;
+			if (!isRecord(data) || typeof data.qualified !== 'boolean') return fail('invalid_response', 200);
+			return {
+				ok: true,
+				data: data.qualified
+					? { qualified: true }
+					: {
+							qualified: false,
+							headline: str(data.headline),
+							message: str(data.message),
+							redirectUrl: safeHttpUrl(data.redirectUrl),
+						},
 			};
 		},
 

@@ -478,6 +478,11 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 						},
 					});
 				}
+				if (slug === 'qualify' && req.method === 'POST') {
+					for await (const _chunk of req) void _chunk;
+					// Beispieldaten kennen keine Regel: jede Antwort passt.
+					return sendJson(res, 200, { data: { qualified: true } });
+				}
 				if (slug === 'bookings' && req.method === 'POST') {
 					let raw = '';
 					for await (const chunk of req) raw += chunk;

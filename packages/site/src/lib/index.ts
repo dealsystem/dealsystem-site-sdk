@@ -43,6 +43,7 @@ export {
 	type BookingFailure,
 	type BookingFailureReason,
 	type BookingInfoResult,
+	type BookingQualifyResult,
 	type BookingInput,
 	type BookingResult,
 	type BookingSlotsResult,
@@ -58,6 +59,8 @@ export {
 } from './client/bookingTime.js';
 export { createFunnelState, type FunnelState, type FunnelStep } from './client/funnelState.svelte.js';
 export type {
+	BookingFlow,
+	BookingQualification,
 	BookingInfo,
 	BookingLocationType,
 	BookingQuestion,

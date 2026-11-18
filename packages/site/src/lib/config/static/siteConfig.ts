@@ -40,6 +40,8 @@ export interface SiteConfigData {
 	siteId: string | null;
 	funnels: { key: string; fields: { name: string; standardField: string | null }[] }[];
 	collections: { key: string }[];
+	/** Terminbuchungen unter `booking`; `eventType` ist der Slug der Terminart, falls angegeben. */
+	bookings: { key: string; eventType: string | null; label: string | null }[];
 	/** Fremde Dienste mit aufgelöster Vorlage; nur die gültigen Einträge. */
 	external: ResolvedExternal[];
 }
@@ -191,6 +193,11 @@ export function readSiteConfig(code: string | null): SiteConfigResult {
 		})),
 	}));
 	const collections = Object.keys(record(root.collections)).map((key) => ({ key }));
+	const bookings = Object.entries(record(root.booking)).map(([key, def]) => ({
+		key,
+		eventType: typeof record(def).eventType === 'string' ? (record(def).eventType as string) : null,
+		label: typeof record(def).label === 'string' ? (record(def).label as string) : null,
+	}));
 	const siteId =
 		typeof root.siteId === 'string' && UUID_PATTERN.test(root.siteId) ? root.siteId.toLowerCase() : null;
 	// Nur Einträge ohne Problem und ohne nicht feste Werte: Was nicht sicher gelesen ist, kommt nicht in die CSP.
@@ -206,5 +213,5 @@ export function readSiteConfig(code: string | null): SiteConfigResult {
 				(o) => o === 'external' || o === `external.${e.id}` || o.startsWith(`external.${e.id}.`),
 			),
 	);
-	return { exists: true, data: { siteId, funnels, collections, external }, problems };
+	return { exists: true, data: { siteId, funnels, collections, bookings, external }, problems };
 }

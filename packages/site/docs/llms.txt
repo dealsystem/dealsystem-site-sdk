@@ -1,4 +1,4 @@
-# @dealsystem/site 0.2.3
+# @dealsystem/site 0.2.4
 
 > Bausteine, Lade-Helfer und Regeln für statische SvelteKit-Websites, die DealSystem baut und hostet. Geschrieben für KI-Agenten, die im Auftrag eines Kunden ohne technische Vorkenntnisse arbeiten. Sprache: Deutsch.
 

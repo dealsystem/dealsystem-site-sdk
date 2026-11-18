@@ -8,7 +8,9 @@ Buchungsfragen, der Spam-Schutz und die Buchung im CRM sind eingebaut. Kein ifra
 ```
 
 Den Schlüssel trägst du in `dealsystem.config.ts` unter `booking` ein. Die Terminart (Dauer, Arbeitszeiten,
-Fragen) richtet der Kunde im CRM unter Termine ein; erfinde keine. Zeiten erscheinen in der Zeitzone des
+Fragen, Reihenfolge) richtet der Kunde im CRM unter Termine ein; erfinde keine. Steht sie auf „erst Angaben,
+dann Termin“ (`contact_first`), fragt der Baustein zuerst Kontaktdaten und Fragen ab und zeigt danach die freien
+Zeiten; sonst umgekehrt. Zeiten erscheinen in der Zeitzone des
 Besuchers, die des Kalenders steht als Hinweis dabei. Farben und Rundungen wie bei `<LeadForm>` über
 CSS-Variablen, z. B. `--ds-color-primary`.
 -->
@@ -49,6 +51,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	} from '../client/bookingTime.js';
 	import type { BookingInfo, BookingLocationType, BookingSlot } from '../client/siteApi.js';
 	import { consent } from '../consent/consent.svelte.js';
+	import { navigateTo } from '../internal/navigate.js';
 	import LeadHoneypot from './LeadHoneypot.svelte';
 
 	let {
@@ -75,7 +78,8 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	/** Weiter als so viele Tage wird nicht nachgeladen. */
 	const HORIZON_DAYS = 180;
 
-	type Step = 'loading' | 'pick' | 'details' | 'done' | 'unavailable';
+	/** `confirm` nur bei `contact_first`: Angaben stehen, Zeit gewählt, jetzt buchen. */
+	type Step = 'loading' | 'pick' | 'details' | 'confirm' | 'not_qualified' | 'done' | 'unavailable';
 	let step = $state<Step>('loading');
 	let info = $state<BookingInfo | null>(null);
 	let calendarZone = $state<string | null>(null);
@@ -99,6 +103,9 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	let errors = $state<Record<string, string>>({});
 	let sending = $state(false);
 	let booked = $state<{ when: string; dryRun: boolean } | null>(null);
+	/** `contact_first`: Antworten werden geprüft (vor der Zeitwahl). */
+	let qualifying = $state(false);
+	let rejection = $state<{ headline: string; message: string; redirectUrl: string | null } | null>(null);
 
 	let heading = $state<HTMLElement | null>(null);
 	let form = $state<HTMLFormElement | null>(null);
@@ -116,6 +123,8 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			: `Zeiten in Ihrer Zeitzone: ${timeZoneLabel(zone)}${calendarZone ? ', wie der Kalender des Anbieters' : ''}.`,
 	);
 	const headingTag = $derived(`h${headingLevel}`);
+	/** Erst Angaben, dann Zeit (an der Terminart im CRM eingestellt). */
+	const contactFirst = $derived(info?.flow === 'contact_first');
 
 	async function focusHeading() {
 		await tick();
@@ -152,6 +161,11 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			return;
 		}
 		selectedDay = groups[0]?.date ?? null;
+		if (info.flow === 'contact_first') {
+			step = 'details';
+			notice = '';
+			return;
+		}
 		step = 'pick';
 		notice = groups.length > 0 ? '' : 'In diesem Zeitraum ist kein Termin frei.';
 	}
@@ -185,15 +199,30 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	async function chooseTime(slot: BookingSlotView) {
 		selected = slot;
 		problem = null;
-		errors = {};
 		client.prepare();
-		step = 'details';
+		if (contactFirst) {
+			step = 'confirm';
+		} else {
+			errors = {};
+			step = 'details';
+		}
 		await focusHeading();
 	}
 
 	async function backToPick() {
 		step = 'pick';
 		await focusHeading();
+	}
+
+	async function backToDetails() {
+		problem = null;
+		step = 'details';
+		await focusHeading();
+	}
+
+	async function focusFirstInvalid() {
+		await tick();
+		form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
 	}
 
 	function answerOf(key: string): string {
@@ -206,6 +235,38 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		answers[key] = on ? [...current, option] : current.filter((o) => o !== option);
 	}
 
+	/** `contact_first`: Angaben prüfen, dann zur Zeitwahl. */
+	async function toPick(event: SubmitEvent) {
+		event.preventDefault();
+		if (!info) return;
+		problem = null;
+		errors = client.validate({ ...person, answers }, info.questions);
+		if (errorCount > 0) return focusFirstInvalid();
+		if (qualifying) return;
+		// Die Sicherheitsprüfung läuft schon, während der Besucher die Zeit wählt.
+		client.prepare();
+		qualifying = true;
+		const check = await client.qualify(answers);
+		qualifying = false;
+		if (!check.ok) {
+			problem = check;
+			await tick();
+			problemElement?.focus();
+			return;
+		}
+		if (!check.qualified) {
+			rejection = { headline: check.headline, message: check.message, redirectUrl: check.redirectUrl };
+			step = 'not_qualified';
+			// Die Regel im CRM leitet weiter: dorthin statt zur Zeitwahl (der Link bleibt für alle Fälle stehen).
+			if (check.redirectUrl) return navigateTo(check.redirectUrl);
+			await focusHeading();
+			return;
+		}
+		step = 'pick';
+		notice = groups.length > 0 ? '' : 'In diesem Zeitraum ist kein Termin frei.';
+		await focusHeading();
+	}
+
 	async function onsubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (sending || !selected || !info) return;
@@ -213,9 +274,8 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		const input = { ...person, answers };
 		errors = client.validate(input, info.questions);
 		if (errorCount > 0) {
-			await tick();
-			form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-			return;
+			if (step === 'confirm') step = 'details';
+			return focusFirstInvalid();
 		}
 		sending = true;
 		const result = await client.book({
@@ -234,9 +294,12 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		}
 		if (result.reason === 'validation') {
 			errors = result.fields;
-			await tick();
-			form?.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
-			return;
+			if (contactFirst && !errors.start) {
+				// Die Angaben stehen im ersten Schritt: dorthin zurück, die gewählte Zeit bleibt.
+				step = 'details';
+				await focusHeading();
+			}
+			return focusFirstInvalid();
 		}
 		problem = result;
 		if (result.reason === 'slot_taken') {
@@ -258,19 +321,23 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	const live = $derived(
 		step === 'loading'
 			? 'Freie Termine werden geladen.'
-			: step === 'done' && booked
-				? booked.dryRun
-					? `Vorschau: Termin am ${booked.when} geprüft, nicht gebucht.`
-					: `Termin gebucht: ${booked.when}.`
-				: sending
-					? client.status === 'captcha'
-						? 'Die Sicherheitsprüfung läuft. Ihr Termin wird gleich gebucht.'
-						: 'Ihr Termin wird gebucht.'
-					: errorCount > 0
-						? errorCount === 1
-							? 'Bitte prüfen Sie das markierte Feld.'
-							: `Bitte prüfen Sie die ${errorCount} markierten Felder.`
-						: notice,
+			: step === 'not_qualified' && rejection
+				? rejection.headline
+				: qualifying
+					? 'Ihre Angaben werden geprüft.'
+					: step === 'done' && booked
+						? booked.dryRun
+							? `Vorschau: Termin am ${booked.when} geprüft, nicht gebucht.`
+							: `Termin gebucht: ${booked.when}.`
+						: sending
+							? client.status === 'captcha'
+								? 'Die Sicherheitsprüfung läuft. Ihr Termin wird gleich gebucht.'
+								: 'Ihr Termin wird gebucht.'
+							: errorCount > 0
+								? errorCount === 1
+									? 'Bitte prüfen Sie das markierte Feld.'
+									: `Bitte prüfen Sie die ${errorCount} markierten Felder.`
+								: notice,
 	);
 </script>
 
@@ -297,6 +364,28 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	</svelte:element>
 {/snippet}
 
+{#snippet privacy()}
+	<p class="ds-booker__privacy">
+		Ihre Angaben verwenden wir, um den Termin zu vereinbaren. Mehr dazu in der
+		<a href={privacyHref}>Datenschutzerklärung</a>.
+	</p>
+{/snippet}
+
+{#snippet failureBox()}
+	{#if problem}
+		<div class="ds-booker__failure" role="alert" tabindex="-1" bind:this={problemElement}>
+			<p><strong>Der Termin wurde nicht gebucht.</strong> {problem.message}</p>
+			{@render contactFallback()}
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet submitButton()}
+	<button type="submit" class="ds-booker__submit" aria-disabled={sending}>
+		{sending ? 'Wird gebucht …' : submitLabel}
+	</button>
+{/snippet}
+
 {#snippet fieldError(name: string, id: string)}
 	{#if errors[name]}
 		<p class="ds-booker__error" id="{id}-error">{errors[name]}</p>
@@ -312,6 +401,17 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		<div class="ds-booker__notice" role="alert" tabindex="-1" bind:this={problemElement}>
 			<p>{problem?.message ?? 'Die Terminbuchung ist zurzeit nicht verfügbar.'}</p>
 			{@render contactFallback()}
+		</div>
+	{:else if step === 'not_qualified' && rejection}
+		<div class="ds-booker__done">
+			{@render stepHeading(rejection.headline)}
+			<p>{rejection.message}</p>
+			{#if rejection.redirectUrl}
+				<p><a href={rejection.redirectUrl}>Weiter</a></p>
+			{:else}
+				{@render contactFallback()}
+			{/if}
+			<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
 		</div>
 	{:else if step === 'done' && booked}
 		<div class="ds-booker__done">
@@ -335,6 +435,13 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	{:else if step === 'pick' && info}
 		{@render stepHeading(`${info.label}: Tag und Uhrzeit wählen`)}
 		<p class="ds-booker__hint">{info.durationMinutes} Minuten. {zoneNote}</p>
+		{#if contactFirst}
+			<p class="ds-booker__chosen">
+				Ihre Angaben: {person.firstName}
+				{person.lastName}, {person.email}
+				<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
+			</p>
+		{/if}
 
 		{#if problem}
 			<div class="ds-booker__failure" role="alert">
@@ -389,14 +496,34 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 				{loadingMore ? 'Termine werden geladen …' : 'Weitere Termine'}
 			</button>
 		{/if}
-	{:else if step === 'details' && info && selected}
-		{@render stepHeading('Ihre Angaben')}
+	{:else if step === 'confirm' && info && selected}
+		{@render stepHeading('Termin bestätigen')}
 		<p class="ds-booker__chosen">
 			<strong>{selected.label}</strong>, {info.durationMinutes} Minuten
 			<button type="button" class="ds-booker__link" onclick={backToPick}>Andere Zeit wählen</button>
 		</p>
-
+		<p class="ds-booker__chosen">
+			Für {person.firstName}
+			{person.lastName}, {person.email}
+			<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
+		</p>
 		<form bind:this={form} novalidate {onsubmit} aria-busy={sending}>
+			{@render privacy()}
+			{@render failureBox()}
+			{@render submitButton()}
+		</form>
+	{:else if step === 'details' && info && (selected || contactFirst)}
+		{@render stepHeading(contactFirst ? `${info.label}: Ihre Angaben` : 'Ihre Angaben')}
+		{#if selected && !contactFirst}
+			<p class="ds-booker__chosen">
+				<strong>{selected.label}</strong>, {info.durationMinutes} Minuten
+				<button type="button" class="ds-booker__link" onclick={backToPick}>Andere Zeit wählen</button>
+			</p>
+		{:else}
+			<p class="ds-booker__hint">{info.durationMinutes} Minuten. Danach wählen Sie Tag und Uhrzeit.</p>
+		{/if}
+
+		<form bind:this={form} novalidate onsubmit={contactFirst ? toPick : onsubmit} aria-busy={sending}>
 			<p class="ds-booker__hint">Pflichtfelder sind mit <span aria-hidden="true">*</span> markiert.</p>
 
 			{#each PERSON_FIELDS as f (f.name)}
@@ -526,25 +653,27 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			{/each}
 
 			<LeadHoneypot {client} />
-			<div bind:this={captchaElement} hidden></div>
 
-			<p class="ds-booker__privacy">
-				Ihre Angaben verwenden wir, um den Termin zu vereinbaren. Mehr dazu in der
-				<a href={privacyHref}>Datenschutzerklärung</a>.
-			</p>
-
-			{#if problem}
-				<div class="ds-booker__failure" role="alert" tabindex="-1" bind:this={problemElement}>
-					<p><strong>Der Termin wurde nicht gebucht.</strong> {problem.message}</p>
-					{@render contactFallback()}
-				</div>
+			{@render privacy()}
+			{#if contactFirst}
+				{#if problem}
+					<div class="ds-booker__failure" role="alert" tabindex="-1" bind:this={problemElement}>
+						<p>{problem.message}</p>
+						{@render contactFallback()}
+					</div>
+				{/if}
+				<button type="submit" class="ds-booker__submit" aria-disabled={qualifying}>
+					{qualifying ? 'Wird geprüft …' : 'Weiter zur Terminwahl'}
+				</button>
+			{:else}
+				{@render failureBox()}
+				{@render submitButton()}
 			{/if}
-
-			<button type="submit" class="ds-booker__submit" aria-disabled={sending}>
-				{sending ? 'Wird gebucht …' : submitLabel}
-			</button>
 		</form>
 	{/if}
+
+	<!-- Außerhalb der Schritte: das Captcha läuft weiter, wenn der Besucher zwischen ihnen wechselt. -->
+	<div bind:this={captchaElement} hidden></div>
 
 	<noscript>
 		<p>Die Terminbuchung braucht JavaScript.</p>

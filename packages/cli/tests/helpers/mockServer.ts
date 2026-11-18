@@ -70,6 +70,21 @@ export interface MockState {
 	} | null;
 	/** Statt `whoami` mit diesem Status antworten (z. B. 500). */
 	whoamiStatus: number | null;
+	/** `false`: Core ohne Testläufe und ohne `dev/booking` (404 `not_found`). */
+	testRunsSupported: boolean;
+	/**
+	 * Wie der echte Core: Unbekannte Pfade beantwortet er mit einem CLI-Token (OAuth) als 401 „Invalid API key
+	 * format“ statt 404. Gilt für fehlende Endpunkte (`whoami: null`, `testRunsSupported: false`).
+	 */
+	unknownPathsAs401: boolean;
+	/** Angenommene Testläufe (Body wie gesendet). */
+	testRuns: Record<string, unknown>[];
+	/** Antwort statt 201, z. B. 422 bei falschem Body. */
+	testRunError: { status: number; body: unknown } | null;
+	/** `rejection` des Testlaufs (`outcome: "rejected"`); `null` = angenommen. */
+	testRunRejection: { code: string; message: string; details?: unknown } | null;
+	/** Antwort von `…/dev/booking/{key}/qualify`. */
+	qualifyAnswer: unknown;
 }
 
 export interface MockSource {
@@ -167,6 +182,12 @@ export async function startMockServer(): Promise<MockServer> {
 			user: { id: 'u_1', name: 'Max Muster', email: 'max@muster.example' },
 		},
 		whoamiStatus: null,
+		testRunsSupported: true,
+		unknownPathsAs401: false,
+		testRuns: [],
+		testRunError: null,
+		testRunRejection: null,
+		qualifyAnswer: { qualified: true },
 	};
 	let deviceIssued = false;
 
@@ -296,9 +317,13 @@ export async function startMockServer(): Promise<MockServer> {
 			if (!auth.startsWith('Bearer ') || !state.validTokens.has(auth.slice(7)))
 				return error(401, 'invalid_token', 'Token ungültig');
 			const parts = url.pathname.slice('/api/v1/'.length).split('/');
+			const unknownPath = (): void =>
+				state.unknownPathsAs401
+					? reply(401, { error: 'Unauthorized', message: 'Invalid API key format', status: 401 })
+					: error(404, 'not_found', 'Nicht gefunden');
 			if (url.pathname === '/api/v1/meta/whoami' && req.method === 'GET') {
 				if (state.whoamiStatus) return error(state.whoamiStatus, 'server_error', 'Fehler');
-				if (!state.whoami) return error(404, 'not_found', 'Nicht gefunden');
+				if (!state.whoami) return unknownPath();
 				return reply(200, { data: state.whoami });
 			}
 			if (parts[0] !== 'websites') return error(404, 'not_found', 'Nicht gefunden');
@@ -485,10 +510,109 @@ export async function startMockServer(): Promise<MockServer> {
 					},
 				});
 			}
+			if (state.testRunsSupported && rest[0] === 'dev' && rest[1] === 'booking' && req.method === 'GET') {
+				const key = rest[2] ?? '';
+				if (key !== 'erstgespraech') return error(404, 'booking_not_found', 'Buchung unbekannt');
+				if (url.searchParams.get('eventType') === 'gibt-es-nicht')
+					return error(404, 'event_type_not_found', 'Terminart unbekannt');
+				if (rest[3] === 'slots') {
+					return reply(200, {
+						data: {
+							timezone: 'Europe/Berlin',
+							from: url.searchParams.get('from'),
+							to: url.searchParams.get('to'),
+							slots: [{ start: '2026-12-01T08:00:00.000Z', end: '2026-12-01T08:30:00.000Z' }],
+						},
+					});
+				}
+				return reply(200, {
+					data: {
+						key,
+						label: 'Erstgespräch',
+						title: url.searchParams.get('eventType') ?? 'Echte Terminart',
+						description: null,
+						durationMinutes: 45,
+						timezone: 'Europe/Berlin',
+						locations: [{ type: 'phone', label: 'Telefon' }],
+						questions: [],
+						flow: 'contact_first',
+					},
+				});
+			}
+			if (state.testRunsSupported && rest[0] === 'dev' && rest[1] === 'booking' && rest[3] === 'qualify') {
+				return reply(200, { data: state.qualifyAnswer });
+			}
+			if (state.testRunsSupported && rest[0] === 'test-runs' && rest.length === 1 && req.method === 'POST') {
+				if (state.testRunError) {
+					const e = state.testRunError;
+					res.writeHead(e.status, { 'Content-Type': 'application/json' });
+					return res.end(JSON.stringify(e.body));
+				}
+				const b = jsonBody();
+				state.testRuns.push(b);
+				const booking = b.kind === 'booking';
+				return reply(201, {
+					data: {
+						id: `tr_${state.testRuns.length}`,
+						createdAt: '2026-11-17T10:00:00Z',
+						kind: b.kind,
+						key: b.key,
+						outcome: state.testRunRejection ? 'rejected' : 'accepted',
+						rejection: state.testRunRejection,
+						summary: booking
+							? 'Buchung „Erstgespräch“ wäre angekommen: Termin Di 1.12. 9:00.'
+							: 'Anfrage über „Kontakt“ wäre angekommen: Kontakt neu, Deal „Erika Muster“ in Verkauf → Erstkontakt.',
+						lead: booking
+							? null
+							: {
+									funnel: { key: b.key, label: 'Kontakt' },
+									fields: [],
+									contact: { match: 'new', fills: ['email'] },
+									deal: {
+										name: 'Erika Muster',
+										pipeline: { id: 'p1', name: 'Verkauf' },
+										stage: { id: 's1', name: 'Erstkontakt' },
+									},
+									tags: [{ id: 't1', name: 'website' }],
+									contactList: null,
+									leadSource: null,
+									assignee: null,
+									teamMail: { recipients: [] },
+									confirmation: {
+										wouldSend: true,
+										blocker: null,
+										to: 'erika@beispiel.de',
+										subject: 'Danke',
+										body: 'x',
+										note: null,
+									},
+								},
+						booking: booking
+							? {
+									eventType: { id: 'e1', slug: 'beratung-45', title: 'Beratung' },
+									source: 'event_type',
+									start: '2026-12-01T08:00:00.000Z',
+									end: '2026-12-01T08:45:00.000Z',
+									timezone: 'Europe/Berlin',
+									slotFree: true,
+									qualification: { qualified: true, headline: null, message: null },
+									hosts: { users: [], note: null },
+									contact: { match: 'existing', fills: [] },
+									confirmation: {
+										wouldSend: false,
+										blocker: null,
+										to: 'erika@beispiel.de',
+										note: 'Geht erst, wenn die Website live ist.',
+									},
+								}
+							: null,
+					},
+				});
+			}
 			if (rest[0] === 'dev' && rest[1] === 'leads' && req.method === 'POST') {
 				return reply(201, { data: { accepted: true, dryRun: true } });
 			}
-			return error(404, 'not_found', 'Nicht gefunden');
+			return unknownPath();
 		});
 	});
 

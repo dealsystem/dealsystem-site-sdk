@@ -24,7 +24,11 @@ LeadForm).
 6. Prüfen: `npm run check` (ein Tippfehler im Schlüssel ist ein Fehler), `npm run build`,
    `npx dealsystem check --output build`. Das geht ohne Anmeldung. „Geprüft“ sagst du dem Kunden nur, wenn
    die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
-7. Ausprobieren mit `npm run dev`: Die Einsendung wird geprüft, aber nicht gespeichert.
+7. **Testlauf mit dem Kunden:** Ist er angemeldet und die Seite verbunden, bitte ihn unter `npm run dev`, das
+   Formular einmal selbst auszufüllen. Es entsteht kein Kontakt und keine Mail; DealSystem hält einen Testlauf
+   fest. Lies die Zusammenfassung in der Konsole und sag ihm: „Unter Eigene Website → Formulare, Abschnitt Testläufe sehen Sie, wie
+   die Anfrage angekommen wäre.“ Vor dem ersten Hochladen rechnet DealSystem mit den Standard-Einstellungen eines neuen Formulars (kein Deal,
+   keine Eingangsbestätigung); `crm` gilt erst danach. Ohne Anmeldung wird die Einsendung nur lokal geprüft.
 8. **Leadmagnet** (Formular verspricht eine Datei, z. B. einen Ratgeber als PDF): im Code nur ankündigen,
    `leadmagnet: { label: 'Checkliste für Ihr Projekt' }` am Formular. Keine Datei ins Projekt, kein Link im
    Code. `<LeadForm>` kündigt die Datei nach dem Absenden selbst an. Sag dem Kunden in einem Satz: Er lädt die

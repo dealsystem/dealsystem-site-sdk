@@ -102,6 +102,8 @@ export interface WhoAmI {
 export interface DeployApi {
 	/** `null`, wenn der Server den Endpunkt noch nicht kennt (älterer Core). */
 	whoami(): Promise<WhoAmI | null>;
+	/** Gilt die Anmeldung? (Ein älterer Core meldet unbekannte Pfade mit 401 statt 404.) */
+	tokenWorks(): Promise<boolean>;
 	listWebsites(): Promise<Website[]>;
 	createWebsite(input: { name: string; slug: string }): Promise<Website>;
 	getWebsite(id: string): Promise<WebsiteDetails>;
@@ -134,6 +136,42 @@ export interface DeployApi {
 	): Promise<WebsiteSlot | null>;
 	/** Probe-Einsendung aus `dealsystem dev` (immer `dryRun` im Core). Antwort wird unverändert durchgereicht. */
 	devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }>;
+	/**
+	 * Terminart für `dealsystem dev` mit echten Daten (`GET /websites/{id}/dev/booking/{key}`), vor dem ersten Build
+	 * über `eventType` (Slug). Antwort unverändert, in der Form der Site-API.
+	 */
+	devBooking(id: string, key: string, eventType: string | null, label?: string | null): Promise<RawResponse>;
+	/** Freie Zeiten dazu (`…/dev/booking/{key}/slots?from=&to=`). */
+	devBookingSlots(
+		id: string,
+		key: string,
+		range: { from: string; to: string; tz?: string },
+		eventType: string | null,
+	): Promise<RawResponse>;
+	/** Passen die Antworten zur Terminart (`POST …/dev/booking/{key}/qualify`)? Schreibt nichts. */
+	devBookingQualify(id: string, key: string, body: unknown, eventType: string | null): Promise<RawResponse>;
+	/** Testlauf: Einsendung oder Buchung, die nichts anlegt, im CRM festhalten (`POST /websites/{id}/test-runs`). */
+	createTestRun(id: string, input: TestRunInput): Promise<RawResponse>;
+}
+
+/** Antwort der API ohne Deutung: Status und JSON-Body. */
+export interface RawResponse {
+	status: number;
+	body: unknown;
+}
+
+/** Was `dealsystem dev` als Testlauf schickt. `payload` ist der Body der Seite ohne Captcha und Bot-Falle. */
+export interface TestRunInput {
+	kind: 'lead' | 'booking';
+	/** Formular- bzw. Buchungsschlüssel. */
+	key: string;
+	eventType?: string;
+	/**
+	 * Formular aus der Konfiguration (Felder wie im Manifest). Der Core nutzt es nur, solange die Seite das Formular
+	 * noch nicht kennt (vor dem ersten Hochladen), mit den Standard-Einstellungen eines neuen Formulars.
+	 */
+	funnel?: { label?: string; fields: unknown[] };
+	payload: Record<string, unknown>;
 }
 
 /** Endzustände einer Version. */

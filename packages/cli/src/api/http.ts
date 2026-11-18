@@ -7,6 +7,8 @@ import type {
 	DeployApi,
 	PreparedUpload,
 	PreparedImageUpload,
+	RawResponse,
+	TestRunInput,
 	ReleaseResult,
 	SourceDownload,
 	Version,
@@ -237,6 +239,16 @@ export class HttpDeployApi implements DeployApi {
 		throw new ApiError(status, code, message, fix);
 	}
 
+	/** Gilt die Anmeldung? Prüft mit einem Pfad, den jeder Core kennt. */
+	async tokenWorks(): Promise<boolean> {
+		try {
+			await this.call('GET', '/websites');
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
 	async whoami(): Promise<WhoAmI | null> {
 		let raw: unknown;
 		try {
@@ -244,6 +256,9 @@ export class HttpDeployApi implements DeployApi {
 		} catch (e) {
 			// Älterer Core ohne den Endpunkt: fail-open, der Aufrufer zeigt den Rest.
 			if (e instanceof ApiError && [404, 405, 501].includes(e.status)) return null;
+			// Ein Core ohne den Pfad antwortet mit dem CLI-Token 401 („Invalid API key format“) statt 404. Gilt die
+			// Anmeldung sonst, fehlt nur der Endpunkt.
+			if (e instanceof ApiError && e.status === 401 && (await this.tokenWorks())) return null;
 			throw e;
 		}
 		const o = obj(raw);
@@ -577,6 +592,67 @@ export class HttpDeployApi implements DeployApi {
 			at += c.byteLength;
 		}
 		return out;
+	}
+
+	async devBooking(
+		id: string,
+		key: string,
+		eventType: string | null,
+		label: string | null = null,
+	): Promise<RawResponse> {
+		// `label` gilt im Core nur zusammen mit `eventType` (vor dem ersten Build).
+		const params = new URLSearchParams();
+		if (eventType) {
+			params.set('eventType', eventType);
+			const oneLine = label?.replace(/\s+/g, ' ').trim().slice(0, 120);
+			if (oneLine) params.set('label', oneLine);
+		}
+		const query = params.size ? `?${params.toString()}` : '';
+		const { status, json } = await this.request(
+			'GET',
+			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}${query}`,
+		);
+		return { status, body: json };
+	}
+
+	async devBookingSlots(
+		id: string,
+		key: string,
+		range: { from: string; to: string; tz?: string },
+		eventType: string | null,
+	): Promise<RawResponse> {
+		const query = new URLSearchParams({ from: range.from, to: range.to });
+		if (range.tz) query.set('tz', range.tz);
+		if (eventType) query.set('eventType', eventType);
+		const { status, json } = await this.request(
+			'GET',
+			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}/slots?${query.toString()}`,
+		);
+		return { status, body: json };
+	}
+
+	async devBookingQualify(
+		id: string,
+		key: string,
+		body: unknown,
+		eventType: string | null,
+	): Promise<RawResponse> {
+		const query = eventType ? `?eventType=${encodeURIComponent(eventType)}` : '';
+		const { status, json } = await this.request(
+			'POST',
+			`/websites/${encodeURIComponent(id)}/dev/booking/${encodeURIComponent(key)}/qualify${query}`,
+			body,
+		);
+		return { status, body: json };
+	}
+
+	async createTestRun(id: string, input: TestRunInput): Promise<RawResponse> {
+		const { status, json } = await this.request(
+			'POST',
+			`/websites/${encodeURIComponent(id)}/test-runs`,
+			input,
+		);
+		return { status, body: json };
 	}
 
 	async devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }> {

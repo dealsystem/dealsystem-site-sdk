@@ -8,8 +8,14 @@ Formular an die Site-API.
 ## Die Terminart kommt aus dem CRM
 
 Was gebucht werden kann, legt der Kunde im CRM unter Termine fest: Dauer, Arbeitszeiten, Buchungsfragen,
-Gastgeber, Ort (Telefon, Google Meet, vor Ort). **Erfinde keine Terminart, keine Dauer und keine
+Gastgeber, Ort (Telefon, Google Meet, vor Ort), Reihenfolge. **Erfinde keine Terminart, keine Dauer und keine
 Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
+
+**Reihenfolge:** Standard ist „erst Termin, dann Angaben“ (`calendar_first`). Steht die Terminart auf „erst
+Angaben, dann Termin“ (`contact_first`), fragt `<Booker>` zuerst Kontaktdaten und Fragen ab und zeigt danach
+die freien Zeiten. Das passt, wenn die Fragen entscheiden, ob ein Termin sinnvoll ist. Eingestellt wird das an
+der Terminart, nicht im Code: über den Konnektor mit `update_event_type` (`bookingFlow: 'contact_first'`),
+sonst im CRM unter Termine. `info().flow` nennt die Einstellung für eigene Oberflächen.
 
 Welche Terminarten wählbar sind, zeigt im DealSystem-Konnektor `list_website_bookings` mit der `websiteId` aus
 `npx dealsystem status`: Das Feld `eventTypes` (mit `slug`) enthält die aktiven Terminarten des Workspaces, zu
@@ -64,6 +70,11 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
 `slots(from, to)` (freie Zeiten in UTC) und `book({ start, firstName, email, … })`. Zum Anzeigen:
 `groupSlotsByDay(slots, visitorTimeZone())` gruppiert nach Tag in der Zeitzone des Besuchers.
 
+- `info().flow === 'contact_first'`: erst Angaben und Fragen, dann `qualify(answers)`, erst danach die
+  Zeitwahl. `qualify` schreibt nichts. Bei `{ ok: true, qualified: false }` führ den Besucher zu
+  `redirectUrl`, wenn die Regel im CRM weiterleitet; sonst zeig `headline`, `message` und den Ausweichkontakt
+  statt der Zeiten. `<Booker>` macht beides selbst. Ein technischer Fehler lässt den Besucher weiter (die Buchung prüft noch einmal).
+
 - Setz `<LeadHoneypot client={termin} />` in die Oberfläche (Bot-Falle) und ruf `termin.prepare()` auf,
   sobald eine Zeit gewählt ist (startet die Sicherheitsprüfung).
 - `book()` gibt nie eine Ausnahme, sondern `{ ok: false, reason, message, fallback }`:
@@ -75,6 +86,14 @@ Baustein den Ausweichkontakt (Telefon und E-Mail aus den Firmendaten).
 
 ## Ausprobieren
 
-- `npm run dev`: Probe-Terminart mit Zeiten werktags 9 bis 16 Uhr (Berlin), eine Buchung wird nur geprüft.
+- `npm run dev` mit Anmeldung und verbundener Seite: echte Terminart, Fragen, Reihenfolge und freie Zeiten aus
+  dem CRM. Vor dem ersten Hochladen gilt `eventType` (nur bei genau einer aktiven Terminart mit diesem Slug);
+  kennt die Seite den Schlüssel schon, gilt ihre Zuordnung im CRM. Wäre die Buchung live abgelehnt worden
+  (Zeit vergeben, Antworten passen nicht), zeigt die Seite denselben Fehler. Eine Buchung legt keinen Termin, keinen Kontakt und keine
+  Mail an; DealSystem hält sie als **Testlauf** fest, zu sehen unter Eigene Website → Formulare, Abschnitt Testläufe („so wäre es
+  angekommen“). Lass den Kunden nach dem Einbau einmal selbst buchen (`ablauf.md`, „Testlauf mit echten
+  Daten“).
+- `npm run dev` ohne Anmeldung oder offline: Probe-Terminart mit Zeiten werktags 9 bis 16 Uhr (Berlin), nichts
+  geht ans CRM.
 - Vorschau nach dem Hochladen: echte freie Zeiten; eine Buchung wird geprüft, aber nicht angelegt (`dryRun`).
 - Erst auf der veröffentlichten Seite entsteht der Termin.

@@ -1,6 +1,6 @@
 <!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand ändern. -->
 
-# Bausteine von @dealsystem/site 0.2.3
+# Bausteine von @dealsystem/site 0.2.4
 
 Alle Bausteine kommen aus einem Import: `import { … } from '@dealsystem/site'`.
 Pflichtangaben sind im Typ ohne `?` notiert; fehlt eine, meldet `npm run check` einen Fehler.
@@ -383,7 +383,9 @@ Buchungsfragen, der Spam-Schutz und die Buchung im CRM sind eingebaut. Kein ifra
 ```
 
 Den Schlüssel trägst du in `dealsystem.config.ts` unter `booking` ein. Die Terminart (Dauer, Arbeitszeiten,
-Fragen) richtet der Kunde im CRM unter Termine ein; erfinde keine. Zeiten erscheinen in der Zeitzone des
+Fragen, Reihenfolge) richtet der Kunde im CRM unter Termine ein; erfinde keine. Steht sie auf „erst Angaben,
+dann Termin“ (`contact_first`), fragt der Baustein zuerst Kontaktdaten und Fragen ab und zeigt danach die freien
+Zeiten; sonst umgekehrt. Zeiten erscheinen in der Zeitzone des
 Besuchers, die des Kalenders steht als Hinweis dabei. Farben und Rundungen wie bei `<LeadForm>` über
 CSS-Variablen, z. B. `--ds-color-primary`.
 

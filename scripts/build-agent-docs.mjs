@@ -61,11 +61,11 @@ const SKILLS = [
 	['erster-entwurf', 'erste Fragen, Entwurf lokal zeigen'],
 	['neue-seite', 'neue Seite oder Abschnitt'],
 	['bild-einbauen', 'Foto des Kunden'],
-	['formular-anbinden', 'Anfrageformular, Ratgeber zum Download'],
-	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
-	['termin-buchung', 'Terminbuchung (`termine.md`)'],
-	['extern-einbinden', 'Video, Karte, Chat, fremdes Skript'],
-	['angebote-einbauen', 'Angebote und Sammlungen aus dem CRM'],
+	['formular-anbinden', 'Anfrageformular, Ratgeber, Testlauf'],
+	['funnel-mehrstufig', 'Formular in Schritten'],
+	['termin-buchung', 'Terminbuchung, Testlauf'],
+	['extern-einbinden', 'Video, Karte, fremdes Skript'],
+	['angebote-einbauen', 'Angebote, Sammlungen aus dem CRM'],
 	['prueffehler-beheben', 'Meldungen von `check`'],
 	['veroeffentlichen', 'hochladen, Vorschau, veröffentlichen'],
 	['domain-verbinden', 'eigene Domain'],
@@ -486,7 +486,7 @@ async function build() {
 		.replace(
 			'{{BEFEHLE}}',
 			`\`npx dealsystem <befehl>\`: ${commands.map(([name]) => `\`${name}\``).join(', ')}. ` +
-				'Was sie tun, Optionen und Exit-Codes: `befehle.md`.',
+				'Optionen und Exit-Codes: `befehle.md`.',
 		)
 		.replace('{{SKILLS}}', SKILLS.map(([name, text]) => `- \`${name}\` – ${text}`).join('\n'))
 		.replace('{{NACHSCHLAGEN}}', docsIndex.map(([file, text]) => `- \`${file}\` – ${text}`).join('\n'))
