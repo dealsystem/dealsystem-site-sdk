@@ -1101,8 +1101,31 @@ const CASES: Record<string, RuleCase[]> = {
 		{
 			stage: O,
 			options: { external: DECLARED, apiUrl: API },
-			pass: [{ 'index.html': page({ head: expectedMeta(), body: EMBED_MARKER }) }],
+			pass: [
+				{ 'index.html': page({ head: expectedMeta(), body: EMBED_MARKER }) },
+				// Mit Google-Ads-Kennung im CRM erzeugt dealsystemCsp() die festen Ads-Hosts von Google.
+				{
+					'index.html': page({
+						head: metaTag({
+							...buildCspDirectives(DECLARED, API, { googleAds: true }),
+						}),
+						body: EMBED_MARKER,
+					}),
+				},
+			],
 			fail: [
+				// Ads-Hosts sind erlaubt, ein anderer Host daneben nicht.
+				{
+					'index.html': page({
+						head: metaTag(
+							(() => {
+								const d = buildCspDirectives(DECLARED, API, { googleAds: true });
+								d['connect-src']!.push('https://tracker.evil.example');
+								return d;
+							})(),
+						),
+					}),
+				},
 				// Meta-Tag lockerer als die Deklaration.
 				{
 					'index.html': page({
