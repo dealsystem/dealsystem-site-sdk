@@ -1,6 +1,9 @@
 {
 	"name": "dealsystem",
-	"version": "0.1.0",
+	"version": "0.2.0",
+	"publishConfig": {
+		"access": "public"
+	},
 	"description": "CLI für Self-Service-Websites auf DealSystem: Login, Sync, Prüfung und Deploy",
 	"license": "MIT",
 	"author": "DealSystem (https://dealsystem.io)",
@@ -47,7 +50,7 @@
 		"build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/postbuild.mjs"
 	},
 	"dependencies": {
-		"@dealsystem/site": "^0.1.0",
+		"@dealsystem/site": "^0.2.0",
 		"htmlparser2": "^12.0.0",
 		"semver": "^7.8.0",
 		"sharp": "^0.34.5",

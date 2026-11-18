@@ -1,6 +1,9 @@
 {
 	"name": "@dealsystem/site",
-	"version": "0.1.0",
+	"version": "0.2.0",
+	"publishConfig": {
+		"access": "public"
+	},
 	"description": "Komponenten, Lade-Helfer und Vite-Plugin für Self-Service-Websites auf DealSystem",
 	"license": "MIT",
 	"author": "DealSystem (https://dealsystem.io)",
