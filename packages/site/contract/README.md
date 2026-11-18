@@ -2,9 +2,9 @@
 
 Gegen diese Dateien ist der Client des Pakets getestet (`tests/contract.test.ts`).
 
-| Datei              | Herkunft                                                                             | Inhalt                     |
-| ------------------ | ------------------------------------------------------------------------------------ | -------------------------- |
-| `site-api.v1.json` | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern. | Leads, Captcha, Sammlungen |
+| Datei              | Herkunft                                                                             | Inhalt                                    |
+| ------------------ | ------------------------------------------------------------------------------------ | ----------------------------------------- |
+| `site-api.v1.json` | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern. | Leads, Captcha, Seitenaufrufe, Sammlungen |
 
 Ändert sich die Site-API im Core, wird `site-api.v1.json` neu kopiert. Schlägt danach der Vertragstest fehl,
 passt der Client nicht mehr zum Server.

@@ -3,7 +3,7 @@
   "info": {
     "title": "DealSystem Site-API (Self-Service-Websites)",
     "version": "1.0.0",
-    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen (Sammlungen), Captcha-Challenge holen, Formulare einreichen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`.\n\n## Medien\n\nBilder und Dateien aus dem CMS kommen als `MediaRef` mit **seitenrelativen, dauerhaften** URLs\n(`/_ds/media/<siteId>/<id>/<variante>.<endung>`). Sie werden vom selben Origin wie die Seite ausgeliefert (der\nEdge holt sie aus dem öffentlichen Medien-Speicher) — keine fremden Hosts, keine ablaufenden Links. Öffentlich wird\nnur, was im CMS veröffentlicht ist; nach dem Zurückziehen verschwinden die Dateien."
+    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen (Sammlungen), Captcha-Challenge holen, Formulare einreichen,\n  Seitenaufrufe zählen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`. `Retry-After` ist freigegeben (`Access-Control-Expose-Headers`); auch ein 429 des\n  IP-Limits vor der Schlüssel-Prüfung trägt den `Origin` zurück, damit der Browser es lesen kann.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`.\n\n## Medien\n\nBilder und Dateien aus dem CMS kommen als `MediaRef` mit **seitenrelativen, dauerhaften** URLs\n(`/_ds/media/<siteId>/<id>/<variante>.<endung>`). Sie werden vom selben Origin wie die Seite ausgeliefert (der\nEdge holt sie aus dem öffentlichen Medien-Speicher) — keine fremden Hosts, keine ablaufenden Links. Öffentlich wird\nnur, was im CMS veröffentlicht ist; nach dem Zurückziehen verschwinden die Dateien."
   },
   "servers": [
     {
@@ -142,7 +142,7 @@
       "post": {
         "operationId": "submitLead",
         "summary": "Formular einreichen",
-        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.",
+        "description": "Legt aus einer Formular-Einsendung einen Lead im CRM an (Kontakt, Notiz mit den Antworten, je nach Einstellung Deal, Liste, Tags, Benachrichtigung). Ein vorhandener Kontakt (gleiche E-Mail-Adresse) wird nicht überschrieben, nur Leerstellen werden gefüllt. Aus der Vorschau (`<slug>--<token>.<SITES_DOMAIN>`) wird alles geprüft, aber nichts gespeichert (`dryRun: true`, 200).\n\nAblauf: Rate-Limit → Body lesen (höchstens 64 KB) → Honeypot → Body-Form → Captcha → Formular → Felder → Doppel-Einsendung (`submissionId`, 24 h) → Anlage.\n\n`Content-Type: application/json` ist Pflicht (sonst 415); er löst im Browser einen Preflight aus, den nur die Domains der Seite bestehen. Ohne Cookies aufrufen (`credentials: \"omit\"`).\n\nBei 429, 5xx und jedem Netzfehler zeigt das Formular Telefon und E-Mail aus den Firmendaten an.\n\n**Attribution** (`attribution`, optional): Fassung 2 (`v: 2`) oder die flache Fassung 1. `clickIds` speichert der Core nur mit `consent.marketing: true`, `visitorId` nur mit `consent.statistics: true`; sonst verwirft er sie vor dem Speichern. Query und Fragment in `landingPath` entfernt der Core. Für Pixel und gtag gilt die Ereignis-ID `lead-<submissionId>` (Deduplizierung mit der serverseitigen Conversion).",
         "tags": [
           "Site-API"
         ],
@@ -215,39 +215,425 @@
                     "description": "Antworten je Feldname. Text, ja/nein (Checkbox) oder Liste (Mehrfachauswahl). Geprüft gegen die Felder, die der Build im Manifest gemeldet hat; unbekannte Felder landen nur in der Notiz, nie in Kontaktfeldern."
                   },
                   "attribution": {
-                    "type": "object",
-                    "properties": {
-                      "utmSource": {
-                        "type": "string",
-                        "maxLength": 200
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "v": {
+                            "type": "number",
+                            "const": 2
+                          },
+                          "first": {
+                            "description": "Erster Besuch (First Touch).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "medium": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "campaign": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "term": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "referrerHost": {
+                                    "description": "Nur der Host, ohne Schema und Pfad.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 255
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "landingPath": {
+                                    "description": "Einstiegsseite (Pfad). Query und Fragment entfernt der Core vor dem Speichern.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "description": "Zeitpunkt des Besuchs (ISO 8601).",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "last": {
+                            "description": "Letzter Besuch vor der Anfrage (Last Touch).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "source": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "medium": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "campaign": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "term": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "content": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 200
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "referrerHost": {
+                                    "description": "Nur der Host, ohne Schema und Pfad.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 255
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "landingPath": {
+                                    "description": "Einstiegsseite (Pfad). Query und Fragment entfernt der Core vor dem Speichern.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 2000
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "at": {
+                                    "description": "Zeitpunkt des Besuchs (ISO 8601).",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 64
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "touches": {
+                            "description": "Anzahl der Besuche bis zur Anfrage.",
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 1000
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "clickIds": {
+                            "description": "Klick-IDs der Werbenetze. Nur mit `consent.marketing: true` gespeichert.",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "properties": {
+                                  "gclid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "gbraid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "wbraid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fbc": {
+                                    "description": "Meta-Format `fb.1.<ms>.<fbclid>`.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "fbp": {
+                                    "description": "Wert des Pixel-Cookies `_fbp`.",
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  },
+                                  "msclkid": {
+                                    "anyOf": [
+                                      {
+                                        "type": "string",
+                                        "maxLength": 500
+                                      },
+                                      {
+                                        "type": "null"
+                                      }
+                                    ]
+                                  }
+                                },
+                                "additionalProperties": false
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "visitorId": {
+                            "description": "Zufalls-UUID des Browsers. Nur mit `consent.statistics: true` gespeichert.",
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid",
+                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "params": {
+                            "description": "Eigene URL-Parameter des aktuellen Besuchs (z. B. `partner`).",
+                            "anyOf": [
+                              {
+                                "type": "object",
+                                "propertyNames": {
+                                  "type": "string",
+                                  "pattern": "^[A-Za-z0-9_.-]{1,64}$"
+                                },
+                                "additionalProperties": {
+                                  "type": "string",
+                                  "maxLength": 500
+                                }
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "consent": {
+                            "type": "object",
+                            "properties": {
+                              "statistics": {
+                                "type": "boolean"
+                              },
+                              "marketing": {
+                                "type": "boolean"
+                              },
+                              "at": {
+                                "description": "Zeitpunkt der Einwilligung (ISO 8601).",
+                                "anyOf": [
+                                  {
+                                    "type": "string",
+                                    "maxLength": 64
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            },
+                            "required": [
+                              "statistics",
+                              "marketing"
+                            ],
+                            "additionalProperties": false,
+                            "description": "Einwilligung des Besuchers aus dem Cookie-Banner. `visitorId` zählt nur mit `statistics: true`, `clickIds` nur mit `marketing: true` — sonst verwirft der Core sie vor dem Speichern."
+                          }
+                        },
+                        "required": [
+                          "v",
+                          "consent"
+                        ],
+                        "additionalProperties": false,
+                        "description": "Fassung 2: First/Last Touch über Besuche, Klick-IDs, Besuchs-ID, Einwilligung."
                       },
-                      "utmMedium": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "utmCampaign": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "utmTerm": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "utmContent": {
-                        "type": "string",
-                        "maxLength": 200
-                      },
-                      "referrerHost": {
-                        "type": "string",
-                        "maxLength": 255
-                      },
-                      "capturedAt": {
-                        "type": "string",
-                        "maxLength": 64
+                      {
+                        "type": "object",
+                        "properties": {
+                          "utmSource": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmMedium": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmCampaign": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmTerm": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "utmContent": {
+                            "type": "string",
+                            "maxLength": 200
+                          },
+                          "referrerHost": {
+                            "type": "string",
+                            "maxLength": 255
+                          },
+                          "capturedAt": {
+                            "type": "string",
+                            "maxLength": 64
+                          }
+                        },
+                        "additionalProperties": false,
+                        "description": "Fassung 1 (flach, ältere SDKs): erster Kontaktpunkt des aktuellen Besuchs (UTM, Referrer). Wird weiter angenommen; gespeichert wie Fassung 2 ohne Einwilligung."
                       }
-                    },
-                    "additionalProperties": false,
-                    "description": "Erster Kontaktpunkt (UTM, Referrer). Optional. Das SDK hält ihn bis zur Einwilligung „Marketing“ nur im Arbeitsspeicher der Seite und legt ihn erst danach in `sessionStorage` ab (TDDDG § 25)."
+                    ],
+                    "description": "Herkunft des Leads. Optional. Fassung 2 (`v: 2`) oder die flache Fassung 1. Ohne Einwilligung hält das SDK nur den aktuellen Besuch im Arbeitsspeicher (TDDDG § 25)."
                   },
                   "captcha": {
                     "type": "string",
@@ -279,9 +665,37 @@
                   "nachricht": "Bitte um Rückruf."
                 },
                 "attribution": {
-                  "utmSource": "newsletter",
-                  "referrerHost": "www.google.com",
-                  "capturedAt": "2026-11-17T09:12:00.000Z"
+                  "v": 2,
+                  "first": {
+                    "source": "google",
+                    "medium": "cpc",
+                    "campaign": "herbst",
+                    "referrerHost": "www.google.com",
+                    "landingPath": "/verkaufen",
+                    "at": "2026-11-10T08:03:00.000Z"
+                  },
+                  "last": {
+                    "source": "newsletter",
+                    "medium": "email",
+                    "landingPath": "/",
+                    "at": "2026-11-17T09:12:00.000Z"
+                  },
+                  "touches": 3,
+                  "clickIds": {
+                    "gclid": "EAIaIQobChMI-example",
+                    "fbc": null,
+                    "fbp": null,
+                    "msclkid": null
+                  },
+                  "visitorId": "5b1d7c2e-8f4a-4e3b-9c6d-2a7f1e0b3c4d",
+                  "params": {
+                    "partner": "bank-west"
+                  },
+                  "consent": {
+                    "statistics": true,
+                    "marketing": true,
+                    "at": "2026-11-10T08:03:05.000Z"
+                  }
                 },
                 "captcha": "eyJhbGdvcml0aG0iOiJTSEEtMjU2IiwiY2hhbGxlbmdlIjoi4oCmIiwibnVtYmVyIjo0MjEzNywic2FsdCI6IuKApiIsInNpZ25hdHVyZSI6IuKApiJ9",
                 "website": ""
@@ -458,6 +872,366 @@
           },
           "503": {
             "description": "`captcha_unavailable`: Captcha auf unserer Seite nicht eingerichtet (kein Schlüssel).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/s/{key}/track": {
+      "post": {
+        "operationId": "trackPageview",
+        "summary": "Seitenaufruf zählen",
+        "description": "Zählt einen Seitenaufruf für die Statistik der Website (Besuche, Seiten, Kanäle). Das SDK ruft ihn bei jedem Seitenwechsel auf, mit `landing: true` beim ersten Aufruf eines Besuchs; nur dann zählen `utm` und `referrerHost` (Kanal des Besuchs).\n\n**Datenschutz:** Ohne Einwilligung speichert der Core nur Pfad (ohne Query und Fragment), Kanal, Kampagne und einen täglich wechselnden Hash aus IP und User-Agent; die IP selbst nie. `visitorId` nur mit `consent.statistics: true`; damit verknüpft eine spätere Anfrage die Besuche mit dem Kontakt. Aus der Vorschau wird nichts gezählt (`dryRun`). Bots werden still verworfen (dieselbe Antwort).\n\nBody höchstens 4 KB. Fehler hier darf das SDK ignorieren — nie dem Besucher zeigen.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "path": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000,
+                    "pattern": "^\\/",
+                    "description": "`location.pathname`. Query und Fragment entfernt der Core vor dem Speichern."
+                  },
+                  "landing": {
+                    "description": "`true` beim ersten Seitenaufruf eines Besuchs (Einstieg). Nur dann zählen `utm` und `referrerHost`.",
+                    "type": "boolean"
+                  },
+                  "referrerHost": {
+                    "description": "Host von `document.referrer`, nur wenn fremd.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 255
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "utm": {
+                    "description": "UTM-Parameter des aktuellen Besuchs.",
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "source": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "medium": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "campaign": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "term": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "content": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "maxLength": 200
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "visitorId": {
+                    "description": "Nur mit `consent.statistics: true` gespeichert.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "consent": {
+                    "description": "Fehlt = keine Einwilligung.",
+                    "type": "object",
+                    "properties": {
+                      "statistics": {
+                        "type": "boolean"
+                      },
+                      "marketing": {
+                        "type": "boolean"
+                      },
+                      "at": {
+                        "description": "Zeitpunkt der Einwilligung (ISO 8601).",
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "maxLength": 64
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    },
+                    "required": [
+                      "statistics",
+                      "marketing"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "path"
+                ],
+                "additionalProperties": false
+              },
+              "example": {
+                "path": "/verkaufen",
+                "landing": true,
+                "referrerHost": "www.google.com",
+                "utm": {
+                  "source": "google",
+                  "medium": "cpc",
+                  "campaign": "herbst"
+                },
+                "visitorId": "5b1d7c2e-8f4a-4e3b-9c6d-2a7f1e0b3c4d",
+                "consent": {
+                  "statistics": true,
+                  "marketing": false,
+                  "at": "2026-11-10T08:03:05.000Z"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Vorschau: geprüft, nichts gezählt.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageviewAccepted"
+                },
+                "example": {
+                  "data": {
+                    "accepted": true,
+                    "dryRun": true
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Gezählt (oder als Bot verworfen).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageviewAccepted"
+                },
+                "example": {
+                  "data": {
+                    "accepted": true
+                  }
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "Preflight (`OPTIONS`) für einen erlaubten `Origin`."
+          },
+          "400": {
+            "description": "`invalid_json`: Body ist kein JSON.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`site_not_found`: Schlüssel unbekannt, abgelaufen, Seite gelöscht oder pausiert. `funnel_not_found` (nur Leads): Formular unbekannt oder ausgeschaltet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Diese Website ist nicht (mehr) verfügbar.",
+                  "status": 404,
+                  "code": "site_not_found"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "`method_not_allowed`: nur `GET` und `POST`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: Body größer als 4 KB. Gelesen wird erst nach dem Rate-Limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Payload Too Large",
+                  "message": "Die Anfrage ist zu groß.",
+                  "status": 413,
+                  "code": "payload_too_large"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "`unsupported_media_type`: `Content-Type` ist nicht `application/json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_error`: unbekanntes Feld, Pfad ohne führendes `/`, ungültige `visitorId` …",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Validation Error",
+                  "message": "path: Pfad muss mit / beginnen.",
+                  "status": 422,
+                  "code": "validation_error",
+                  "details": [
+                    {
+                      "path": "path",
+                      "message": "Pfad muss mit / beginnen."
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 300/min je IP über die ganze Site-API, dazu 60/min je IP und Seite, 1 200/min und 50 000/Tag je Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "`internal_error`: Speichern gescheitert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -987,6 +1761,34 @@
         ],
         "additionalProperties": false,
         "description": "Angenommen. Enthält bewusst keine Kontakt- oder Deal-ID. Nie eine Erfolgsmeldung anzeigen ohne `accepted: true`."
+      },
+      "PageviewAccepted": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "type": "object",
+            "properties": {
+              "accepted": {
+                "type": "boolean",
+                "const": true
+              },
+              "dryRun": {
+                "description": "Nur aus der Vorschau: geprüft, aber nichts gezählt.",
+                "type": "boolean",
+                "const": true
+              }
+            },
+            "required": [
+              "accepted"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false,
+        "description": "Angenommen (oder als Bot still verworfen). Enthält keine IDs."
       },
       "CollectionList": {
         "type": "object",
