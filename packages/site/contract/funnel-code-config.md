@@ -1,16 +1,17 @@
-# Vertrag: Formular-Einstellungen aus dem Code (Paket C2, noch nicht im Core)
+# Vertrag: Formular-Einstellungen aus dem Code (Paket C2, Core-PR #963)
 
 Das SDK meldet je Formular im Manifest (`.dealsystem/manifest.json`, `funnels[]`, `manifestVersion` bleibt `1`)
 zusätzlich zu `key`, `label` und `fields`:
 
 ## Grenze: höchstens **50 Felder** je Formular
 
-Der Core übernimmt aus dem Manifest je Formular nur die ersten 50 Felder (`normalizeFieldDefs` in
-`src/lib/domain/selfSite.ts`, `if (out.length >= 50) break`). Weitere Felder nimmt `POST …/leads` zwar an (bis
+Der Core übernimmt aus dem Manifest je Formular nur die ersten 50 Felder (`SELF_SITE_FUNNEL_MAX_FIELDS` in
+`src/lib/domain/selfSite.ts`, angewandt in `normalizeFieldDefs`). Weitere Felder nimmt `POST …/leads` zwar an (bis
 `SITE_LEAD_MAX_FIELDS = 60` Werte in `data`, `src/lib/server/validation/schemas/siteApi.ts`), aber ungeprüft und
 ohne Zuordnung, nur als Notiz. Versteckte Felder zählen mit. Im SDK: `FUNNEL_MANIFEST_MAX_FIELDS` (50, Warnung
-`QUA-010`) und `MAX_FUNNEL_FIELDS` (60, Fehler `STR-005`). Bitte im Core die 50 als benannte Konstante
-ausweisen, dann prüft ein Vertragstest beide Seiten gegen sie.
+`QUA-010`) und `MAX_FUNNEL_FIELDS` (60, Fehler `STR-005`). Der Core nennt beide Zahlen im Site-API-Vertrag unter
+`info['x-dealsystem-limits']` (`funnelManifestFields`, `leadDataFields`, `hiddenFieldValue`); sobald
+`site-api.v1.json` sie enthält, prüft ein Vertragstest die SDK-Konstanten dagegen.
 
 ## `fields[]`: neuer Typ `hidden`
 
@@ -43,11 +44,11 @@ ausweisen, dann prüft ein Vertragstest beide Seiten gegen sie.
 | Feld                   | Typ      | Grenzen           | Hinweis                                                                                                     |
 | ---------------------- | -------- | ----------------- | ----------------------------------------------------------------------------------------------------------- |
 | `createDeal`           | boolean  |                   |                                                                                                             |
-| `pipeline`             | string   | 1–100             | Name oder ID; nur mit `createDeal: true`                                                                    |
-| `stage`                | string   | 1–100             | nur mit `pipeline`                                                                                          |
+| `pipeline`             | string   | 1–100             | Name einer Deal-Pipeline (ohne Groß/Klein)                                                                  |
+| `stage`                | string   | 1–100             | Name einer Phase; nur mit `pipeline`; fehlt = erste Phase der Pipeline                                      |
 | `dealName`             | string   | 1–200             | Platzhalter `{{firstName}}`, `{{lastName}}`, `{{email}}`, `{{phone}}`, `{{adresse}}` (wie `renderDealName`) |
 | `tags`                 | string[] | ≤ 20, je 1–50     | Namen                                                                                                       |
-| `leadSource`           | string   | 1–100             | Name oder ID                                                                                                |
+| `leadSource`           | string   | 1–100             | Name; gilt für Kontakt und Deal                                                                             |
 | `confirmation.enabled` | boolean  | Pflicht im Objekt |                                                                                                             |
 | `confirmation.subject` | string   | 1–200             | Platzhalter `{{firstName}}`, `{{lastName}}`, `{{formName}}`, Klartext, keine Links                          |
 | `confirmation.body`    | string   | 1–5 000           | wie `subject`                                                                                               |
@@ -57,11 +58,14 @@ bleibt alles wie heute.
 
 ## Regeln für den Core (C2)
 
-- Namen gegen den Workspace auflösen; **nichts anlegen**. Unbekanntes bleibt beim Standard und steht als Warnung im
-  Prüfergebnis der Version.
+- Nur **Namen** (keine IDs), aufgelöst im Workspace der Seite, ohne Groß/Klein, nur bei genau einem Treffer;
+  **nichts anlegen**. Unbekanntes oder Mehrdeutiges lässt den Wert, wie er ist, und steht als Hinweis am Formular
+  (Reiter „Formulare“, `codeSettings[].issue` der API). Der Build scheitert daran nie.
+- `createDeal: true` gilt nur, wenn danach Pipeline und Phase feststehen (aus dem Code oder im CRM gewählt).
 - „Code legt vor, CRM entscheidet“: `self_site_funnels.code_config` = normalisiertes `crm`; jede Angabe, die nicht in
-  `crm_set_fields` steht, gilt aus dem Code. Feldnamen in `crm_set_fields`: genau die Schlüssel oben
-  (`confirmation.subject` usw. einzeln).
+  `crm_set_fields` steht, gilt aus dem Code. Schlüssel in `crm_set_fields`: `createDeal`, `pipeline` (umfasst
+  `stage`), `dealName`, `tags`, `leadSource`, `confirmation.enabled`, `confirmation.subject`, `confirmation.body`.
+  „Auf Code-Stand zurücksetzen“ nimmt einen Schlüssel wieder heraus.
 - Mailtexte aus dem Code sind fremder Text (`untrustedText`), es gelten alle Schutzregeln aus #947.
 
 ## `leadmagnet` (Paket C4)
