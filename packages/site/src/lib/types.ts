@@ -83,12 +83,73 @@ export interface CollectionDef {
 	fields: readonly CollectionFieldDef[];
 }
 
+// ------------------------------------------------------- Fremde Dienste
+
+/**
+ * Zweck, für den der Besucher einwilligen muss, bevor ein fremder Dienst lädt. „Notwendig“ gibt es für
+ * eigene Deklarationen bewusst nicht: Fremdes lädt immer erst nach der Einwilligung.
+ */
+export type ExternalCategory = 'statistics' | 'marketing' | 'media';
+
+/** Von DealSystem gepflegte, geprüfte Vorlagen für fremde Dienste. */
+export type ExternalPreset = 'youtube' | 'vimeo' | 'google-maps' | 'calendly';
+
+/** CSP-Direktiven, die eine Deklaration öffnen kann: `script` → `script-src` usw. */
+export type ExternalDirective = 'script' | 'connect' | 'img' | 'frame' | 'media' | 'style' | 'font';
+
+/** Ein fremder Dienst aus einer Vorlage, z. B. `{ preset: 'youtube' }`. Mehr Angaben braucht es nicht. */
+export interface ExternalPresetDef {
+	preset: ExternalPreset;
+}
+
+/**
+ * Ein eigener fremder Dienst (Chat, Tag-Manager, Widget). Jede Host-Liste öffnet genau eine Direktive der
+ * Content-Security-Policy. Hosts nur als `https://host.de`, ohne Pfad; `https://*.host.de` nur in
+ * `connect`, `img`, `media`, `style` und `font`.
+ */
+export interface ExternalCustomDef {
+	/** Wofür der Besucher einwilligt: `statistics`, `marketing` oder `media`. */
+	category: ExternalCategory;
+	/** Anbieter mit Sitz, z. B. `HubSpot, Inc., USA`. Steht im Cookie-Hinweis. */
+	provider?: string;
+	/** Zweck in einem Satz, z. B. `Live-Chat mit dem Vertrieb`. Steht im Cookie-Hinweis. */
+	purpose?: string;
+	/** Datenschutzerklärung des Anbieters (https). Steht im Cookie-Hinweis. */
+	privacyUrl?: string;
+	script?: readonly string[];
+	connect?: readonly string[];
+	img?: readonly string[];
+	frame?: readonly string[];
+	media?: readonly string[];
+	style?: readonly string[];
+	font?: readonly string[];
+}
+
+/** Ein fremder Dienst in `dealsystem.config.ts` unter `external`. */
+export type ExternalDef = ExternalPresetDef | ExternalCustomDef;
+
+/** Hosts je Direktive, immer alle Schlüssel, sortiert. */
+export type ExternalHosts = Record<ExternalDirective, string[]>;
+
+/** Ein fremder Dienst nach dem Auflösen der Vorlage: so steht er im Manifest und in den Seitendaten. */
+export interface ResolvedExternal {
+	id: string;
+	preset: ExternalPreset | null;
+	category: ExternalCategory;
+	provider: string | null;
+	purpose: string | null;
+	privacyUrl: string | null;
+	hosts: ExternalHosts;
+}
+
 /** Inhalt von `dealsystem.config.ts`. */
 export interface SiteConfig {
 	/** Kennung der Seite im CRM. `npx dealsystem init` trägt sie ein. */
 	siteId: string;
 	collections?: Readonly<Record<string, CollectionDef>>;
 	funnels?: Readonly<Record<string, FunnelDef>>;
+	/** Fremde Dienste (Videos, Chat, Skripte). Nur was hier steht, lässt die Seite zu. */
+	external?: Readonly<Record<string, ExternalDef>>;
 }
 
 // ------------------------------------------------- Typen aus der Konfiguration
@@ -120,6 +181,13 @@ export type FunnelKey = Registered extends null
 	? string
 	: Registered extends { funnels: infer F }
 		? keyof F & string
+		: never;
+
+/** Schlüssel der fremden Dienste aus `dealsystem.config.ts` (`external`). Ohne Registrierung `string`. */
+export type ExternalKey = Registered extends null
+	? string
+	: Registered extends { external: infer E }
+		? keyof E & string
 		: never;
 
 /**
@@ -389,6 +457,8 @@ export interface SiteManifest {
 	 * jeder Grenze neu (Grund `schedule`).
 	 */
 	schedule: string[];
+	/** Fremde Dienste mit aufgelöster Vorlage, nach `id` sortiert. Ältere SDKs senden das Feld nicht. */
+	external: ResolvedExternal[];
 }
 
 // ------------------------------------------------------------------- Intern
@@ -412,4 +482,6 @@ export interface SiteData {
 	seo: SeoConfig;
 	/** Zeitpunkt des Builds (ms seit 1970, UTC). `<Zeitfenster>` entscheidet damit, was im HTML steht. 0 = unbekannt. */
 	builtAt: number;
+	/** Fremde Dienste aus `dealsystem.config.ts`, je Schlüssel. */
+	external: Record<string, ResolvedExternal>;
 }

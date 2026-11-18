@@ -23,7 +23,7 @@ Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellunge
 
 <script lang="ts">
 	import { consent } from '../consent/consent.svelte.js';
-	import { siteHasTracking } from '../internal/consentNeed.js';
+	import { siteUsesConsent } from '../internal/consentNeed.js';
 
 	let {
 		impressumHref = '/impressum',
@@ -31,8 +31,8 @@ Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellunge
 		class: className,
 	}: SiteFooterLegalProps = $props();
 
-	// Mit Tracking-Kennung schon im fertigen HTML; sonst erst, wenn ein Baustein eine Einwilligung braucht.
-	const hasTracking = siteHasTracking();
+	// Mit Tracking-Kennung oder fremdem Dienst schon im fertigen HTML; sonst erst, wenn ein Baustein eine Einwilligung braucht.
+	const hasTracking = siteUsesConsent();
 </script>
 
 <nav class={['ds-footer-legal', className]} aria-label="Rechtliches" data-ds-footer-legal>

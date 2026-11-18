@@ -430,3 +430,87 @@ describe('Starter mit Inhalten aus dem CRM', () => {
 		expect(start).not.toMatch(/G-ABCDEF1234|1234567890|googletagmanager|fbevents/);
 	});
 });
+
+describe('YouTube-Video auf der Startseite (echter Build, Regelsatz 3)', () => {
+	let project: StarterProject;
+
+	beforeAll(async () => {
+		project = await createStarter();
+		await simulateInstallAndInit(project.dir);
+		const configFile = join(project.dir, 'dealsystem.config.ts');
+		const config = await readFile(configFile, 'utf8');
+		await writeFile(
+			configFile,
+			config.replace('\tcollections: {', "\texternal: { video: { preset: 'youtube' } },\n\tcollections: {"),
+		);
+		const home = join(project.dir, 'src/routes/+page.svelte');
+		const original = await readFile(home, 'utf8');
+		const changed = original
+			.replace(
+				"import { RichText, Seo, Text } from '@dealsystem/site';",
+				"import { Embed, RichText, Seo, Text } from '@dealsystem/site';",
+			)
+			.replace(
+				'<section class="section hero">',
+				'<Embed id="video" src="https://www.youtube.com/watch?v=aqz-KE-bpKQ" title="Rundgang durch das Haus" />\n\n<section class="section hero">',
+			);
+		expect(changed).not.toBe(original);
+		await writeFile(home, changed);
+		await build(project.dir);
+	});
+
+	afterAll(() => project.remove());
+
+	it('Quelle und fertige Seite bestehen die Prüfung ohne Meldung', async () => {
+		const result = await runCheck({
+			projectDir: project.dir,
+			outputDir: join(project.dir, 'build'),
+			siteUrl: 'https://muster-immobilien.de',
+			apiUrl: 'https://app.dealsystem.io',
+		});
+		expect(problems(result)).toEqual([]);
+	});
+
+	it('die CSP der fertigen Seite erlaubt YouTube ohne Cookies als Rahmen, sonst nichts Neues', async () => {
+		const html = await page(project.dir, 'index.html');
+		const csp = /<meta http-equiv="content-security-policy" content="([^"]*)"/i.exec(html)?.[1] ?? '';
+		const frame = csp.split(';').find((d) => d.trim().startsWith('frame-src')) ?? '';
+		expect(frame.trim().split(/\s+/)).toEqual([
+			'frame-src',
+			"'self'",
+			'https://www.openstreetmap.org',
+			'https://www.youtube-nocookie.com',
+		]);
+		expect(csp).not.toContain('youtube.com ');
+		expect(csp).not.toContain('unsafe-eval');
+	});
+
+	it('vor der Einwilligung steht kein Rahmen im HTML und nichts lädt von YouTube', async () => {
+		const html = withoutCsp(await page(project.dir, 'index.html'));
+		expect(html).toContain('data-ds-embed="video"');
+		expect(html).not.toMatch(/<iframe/i);
+		expect(html).not.toMatch(/\ssrc="https:\/\/[^"]*youtube/i);
+		expect(html).not.toMatch(/<img[^>]+(ytimg|youtube)/i);
+	});
+
+	it('mit der Build-Host-Angabe aus dem Manifest: Abweichung im Meta-Tag ist ein Fehler', async () => {
+		const out = join(project.dir, 'build');
+		const html = await page(project.dir, 'index.html');
+		const tampered = html.replace('frame-src', 'frame-src https://evil.example.com');
+		await writeFile(join(out, 'index.html'), tampered);
+		try {
+			const manifest = JSON.parse(await readFile(join(project.dir, '.dealsystem/manifest.json'), 'utf8')) as {
+				external: Parameters<typeof runCheck>[0]['external'];
+			};
+			const result = await runCheck({
+				outputDir: out,
+				stages: ['output'],
+				apiUrl: 'https://app.dealsystem.io',
+				external: manifest.external,
+			});
+			expect(result.errors.map((f) => f.rule)).toContain('SEC-008');
+		} finally {
+			await writeFile(join(out, 'index.html'), html);
+		}
+	});
+});

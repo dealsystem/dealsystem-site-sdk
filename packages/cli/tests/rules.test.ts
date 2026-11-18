@@ -7,8 +7,9 @@ import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { RULES } from '../src/check/catalog.js';
 import { runCheck } from '../src/check/run.js';
-import { SVELTE_CONFIG_TEMPLATE } from '../src/project/svelteConfig.js';
-import type { CheckStage, Finding } from '../src/check/types.js';
+import { LEGACY_SVELTE_CONFIG_TEMPLATE, SVELTE_CONFIG_TEMPLATE } from '../src/project/svelteConfig.js';
+import type { CheckOptions, CheckStage, Finding } from '../src/check/types.js';
+import { buildCspDirectives, resolveExternal, type ExternalDef } from '@dealsystem/site/config';
 import {
 	BASE_OUTPUT,
 	BASE_SOURCE,
@@ -46,7 +47,51 @@ interface RuleCase {
 	stage: CheckStage;
 	pass: Overlay[];
 	fail: Overlay[];
+	/** Zusätzliche Optionen für `runCheck` (Build-Host: `external`, `hosting`, `apiUrl`). */
+	options?: Partial<CheckOptions>;
 }
+
+// ------------------------------------------------- Regelsatz 3: fremde Dienste
+
+/** svelte.config.js des Starters ab Regelsatz 3: `csp: dealsystemCsp()`. */
+const NEW_CSP: Overlay = { 'svelte.config.js': SVELTE_CONFIG_TEMPLATE };
+const CHAT = `{ category: 'marketing', provider: 'HubSpot, Inc., USA', purpose: 'Live-Chat', privacyUrl: 'https://legal.hubspot.com/privacy-policy', script: ['https://js.hs-scripts.com'], connect: ['https://*.hubspot.com'] }`;
+/** Neue CSP und `external` in dealsystem.config.ts. */
+const withExternal = (external: string, extra: Overlay = {}): Overlay => ({
+	...NEW_CSP,
+	'dealsystem.config.ts': baseText('dealsystem.config.ts').replace(
+		'defineSite({',
+		`defineSite({\n\texternal: ${external},`,
+	),
+	...extra,
+});
+const IMPORT_EXTERNAL = "\timport { Embed, ExternalScript } from '@dealsystem/site';\n";
+const embedPage = (body: string): Overlay => ({
+	'src/routes/+page.svelte': homePage(`<h1>A</h1>\n${body}`, IMPORT_EXTERNAL),
+});
+const YT = 'https://www.youtube.com/watch?v=aqz-KE-bpKQ';
+
+/** Meta-Tag wie SvelteKit ihn schreibt: Schlüsselwörter in Anführungszeichen, Direktiven mit `;`. */
+function metaTag(directives: Record<string, string[]>): string {
+	const keyword =
+		/^(self|none|unsafe-inline|unsafe-eval|wasm-unsafe-eval|strict-dynamic|unsafe-hashes|sha\d+-.*)$/;
+	const content = Object.entries(directives)
+		.map(([name, sources]) => [name, ...sources.map((v) => (keyword.test(v) ? `'${v}'` : v))].join(' '))
+		.join('; ');
+	return `<meta http-equiv="content-security-policy" content="${content}">`;
+}
+const API = 'https://app.dealsystem.io';
+const DECLARED = resolveExternal({ video: { preset: 'youtube' } } satisfies Record<string, ExternalDef>);
+const expectedMeta = (patch: (d: Record<string, string[]>) => void = () => {}): string => {
+	const d = buildCspDirectives(DECLARED, API);
+	d['script-src'] = [...d['script-src']!, 'sha256-AbCdEf0123456789+/='];
+	patch(d);
+	return metaTag(d);
+};
+const EMBED_MARKER =
+	'<div data-ds-embed="video" data-ds-src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ"><button type="button">Video laden</button></div>';
+const SCRIPT_MARKER =
+	'<span hidden data-ds-external-script="chat" data-ds-src="https://js.hs-scripts.com/1.js"></span>';
 
 const S = 'source' as const;
 const O = 'output' as const;
@@ -283,6 +328,75 @@ const CASES: Record<string, RuleCase[]> = {
 	'SEC-005': [
 		{
 			stage: S,
+			// Regelsatz 3: `dealsystemCsp()` und gültige Deklarationen.
+			pass: [
+				NEW_CSP,
+				withExternal(`{ video: { preset: 'youtube' }, rundgang: { preset: 'vimeo' }, chat: ${CHAT} }`),
+				// Die feste Liste bis SDK 0.1 bleibt gültig (unveränderte Live-Seite).
+				{ 'svelte.config.js': LEGACY_SVELTE_CONFIG_TEMPLATE },
+			],
+			fail: [
+				// Platzhalter in script und frame: jeder Unterhost wäre offen.
+				withExternal(`{ chat: { category: 'marketing', script: ['https://*.hubspot.com'] } }`),
+				withExternal(`{ karte: { category: 'media', frame: ['https://*.google.com'] } }`),
+				// Alles, was jeden Host öffnet.
+				withExternal(`{ chat: { category: 'marketing', connect: ['*'] } }`),
+				withExternal(`{ chat: { category: 'marketing', connect: ['https:'] } }`),
+				withExternal(`{ chat: { category: 'marketing', img: ['data:'] } }`),
+				withExternal(`{ chat: { category: 'marketing', script: ["'unsafe-eval'"] } }`),
+				// Platzhalter auf einer Endung, unter der jeder eine Adresse bekommt.
+				withExternal(`{ chat: { category: 'marketing', connect: ['https://*.github.io'] } }`),
+				withExternal(`{ chat: { category: 'marketing', connect: ['https://*.co.uk'] } }`),
+				// Unverschlüsselt, mit Pfad, mit Port, groß geschrieben.
+				withExternal(`{ chat: { category: 'marketing', script: ['http://js.example.com'] } }`),
+				withExternal(`{ chat: { category: 'marketing', script: ['https://js.example.com/a.js'] } }`),
+				withExternal(`{ chat: { category: 'marketing', script: ['https://js.example.com:8443'] } }`),
+				withExternal(`{ chat: { category: 'marketing', script: ['https://JS.example.com'] } }`),
+				// Keine Kategorie „notwendig“, keine ohne Host, keine unbekannte Vorlage, nichts neben preset.
+				withExternal(`{ chat: { category: 'necessary', script: ['https://js.example.com'] } }`),
+				withExternal(`{ chat: { category: 'marketing' } }`),
+				withExternal(`{ video: { preset: 'tiktok' } }`),
+				withExternal(`{ video: { preset: 'youtube', script: ['https://evil.example.com'] } }`),
+				// DealSystem selbst gehört nicht in die Deklaration.
+				withExternal(`{ chat: { category: 'marketing', connect: ['https://app.dealsystem.io'] } }`),
+				// Nicht feste Werte kommen nicht in die CSP.
+				withExternal(`{ chat: { category: 'marketing', script: [process.env.HOST] } }`),
+				// dealsystemCsp() mit Argumenten, aus falschem Modul, oder svelte.config.js führt eigenen Code aus.
+				{
+					'svelte.config.js': SVELTE_CONFIG_TEMPLATE.replace(
+						'dealsystemCsp()',
+						"dealsystemCsp({ 'script-src': ['*'] })",
+					),
+				},
+				{
+					'svelte.config.js': SVELTE_CONFIG_TEMPLATE.replace(
+						"import { dealsystemCsp } from '@dealsystem/site/csp';",
+						"import { dealsystemCsp } from './csp.js';",
+					),
+				},
+				{
+					'svelte.config.js': SVELTE_CONFIG_TEMPLATE.replace(
+						'export default config;',
+						"config.kit.csp.directives['script-src'].push('*');\nexport default config;",
+					),
+				},
+				{ 'svelte.config.js': SVELTE_CONFIG_TEMPLATE.replace('dealsystemCsp()', 'eigeneCsp()') },
+				// Deklaration mit der alten, festen CSP: Die Dienste blieben gesperrt.
+				{
+					...withExternal(`{ video: { preset: 'youtube' } }`),
+					'svelte.config.js': LEGACY_SVELTE_CONFIG_TEMPLATE,
+				},
+				// Die alte, feste CSP von Hand um einen Host erweitert.
+				{
+					'svelte.config.js': LEGACY_SVELTE_CONFIG_TEMPLATE.replace(
+						"'frame-src': ['self', 'https://www.openstreetmap.org'],",
+						"'frame-src': ['self', 'https://www.openstreetmap.org', 'https://www.youtube-nocookie.com'],",
+					),
+				},
+			],
+		},
+		{
+			stage: S,
 			// Der Aufruf siteApiOrigin() aus dem SDK ist die eine erlaubte Quelle, die keine feste Zeichenkette ist.
 			pass: [{}],
 			fail: [
@@ -346,6 +460,52 @@ const CASES: Record<string, RuleCase[]> = {
 			stage: S,
 			pass: [
 				{
+					...NEW_CSP,
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head><script type="application/ld+json">[]</script></svelte:head>\n<h1>A</h1>',
+					),
+				},
+				// Eigene JSON-Daten mit anderer id führen nichts aus.
+				{
+					...NEW_CSP,
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head><script type="application/json" id="preise">[]</script></svelte:head>\n<h1>A</h1>',
+					),
+				},
+			],
+			fail: [
+				{
+					...NEW_CSP,
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head><script>window.chat = true;</script></svelte:head>\n<h1>A</h1>',
+					),
+				},
+				{
+					...NEW_CSP,
+					'src/lib/rechnen.ts': 'export const run = (b: BufferSource) => WebAssembly.instantiate(b);\n',
+				},
+				{
+					...NEW_CSP,
+					'static/info.html': '<!doctype html><html lang="de"><script>alert(1)</script></html>\n',
+				},
+				// Inhaltsblock des SDK (Patchen statt Bauen) nie im eigenen Code, auch nicht als JSON und nicht mit
+				// der alten CSP: Er würde das Patchen im Core aushebeln.
+				{
+					'src/routes/+page.svelte': homePage(
+						'<svelte:head><script type="application/json" id="ds-content">[]</script></svelte:head>\n<h1>A</h1>',
+					),
+				},
+				{ 'src/lib/patch.ts': "export const block = () => document.getElementById('ds-content');\n" },
+				{
+					'static/info.html':
+						'<!doctype html><html lang="de"><script type="application/json" id="ds-content">[]</script></html>\n',
+				},
+			],
+		},
+		{
+			stage: S,
+			pass: [
+				{
 					'src/routes/+page.svelte': homePage(
 						'<h1>Hallo</h1>\n<button onclick={() => (n += 1)}>Mehr</button>',
 						`\tlet n = $state(0);\n\tconst evaluate = (x: number) => x;\n\tevaluate(1);\n`,
@@ -362,8 +522,41 @@ const CASES: Record<string, RuleCase[]> = {
 	'SEC-007': [
 		{
 			stage: S,
-			pass: [{}],
+			pass: [
+				{},
+				// Eigenes Formular ohne action: Absenden übernimmt der eigene Code (createLeadClient).
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<form onsubmit={(e) => e.preventDefault()}><label>PLZ <input name="plz" /></label><button>Weiter</button></form>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<dialog open><form method="dialog"><button>Schließen</button></form></dialog>',
+					),
+				},
+			],
 			fail: [
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<form action="/danke"><button>Senden</button></form>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<form><button formaction="https://evil.example.com/x">Senden</button></form>',
+					),
+				},
+				{
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<form {...rest}><button>Senden</button></form>',
+						'\tconst rest = {};\n',
+					),
+				},
+				{
+					'static/kontakt.html':
+						'<!doctype html><html lang="de"><form action="https://formspree.io/f/x"></form></html>\n',
+				},
 				{
 					'src/routes/+page.svelte': homePage(
 						'<h1>Hallo</h1>\n<form action="https://formspree.io/f/abc" method="post"><label>E-Mail <input name="email" /></label></form>',
@@ -439,6 +632,32 @@ const CASES: Record<string, RuleCase[]> = {
 		},
 	],
 	'PRV-003': [
+		{
+			stage: S,
+			pass: [
+				// Snippet als Datei, geladen von <ExternalScript> nach der Einwilligung „Marketing“.
+				withExternal(
+					`{ tags: { category: 'marketing', provider: 'Google', purpose: 'Messung', privacyUrl: 'https://policies.google.com/privacy', script: ['https://www.googletagmanager.com'] } }`,
+					{
+						...embedPage('<ExternalScript id="tags" src="/scripts/gtm.js" />'),
+						'static/scripts/gtm.js':
+							"window.dataLayer = window.dataLayer || [];\ndataLayer.push({ event: 'start' });\n",
+					},
+				),
+			],
+			fail: [
+				// Datei in static/ ohne <ExternalScript>.
+				{ ...NEW_CSP, 'static/scripts/gtm.js': "gtag('config', 'G-123');\n" },
+				// Geladen, aber als „Externe Inhalte“ deklariert.
+				withExternal(
+					`{ tags: { category: 'media', provider: 'Google', purpose: 'Messung', privacyUrl: 'https://policies.google.com/privacy', script: ['https://www.googletagmanager.com'] } }`,
+					{
+						...embedPage('<ExternalScript id="tags" src="/scripts/gtm.js" />'),
+						'static/scripts/gtm.js': "gtag('config', 'G-123');\n",
+					},
+				),
+			],
+		},
 		{
 			stage: S,
 			pass: [
@@ -795,6 +1014,98 @@ const CASES: Record<string, RuleCase[]> = {
 		{
 			stage: S,
 			pass: [
+				withExternal(
+					`{ video: { preset: 'youtube' } }`,
+					embedPage(`<Embed id="video" src="${YT}" title="Rundgang" />`),
+				),
+				withExternal(
+					`{ rundgang: { preset: 'vimeo' }, termin: { preset: 'calendly' } }`,
+					embedPage(
+						'<Embed id="rundgang" src="https://vimeo.com/76979871" title="Rundgang" />\n<Embed id="termin" src="https://calendly.com/makler/erstgespraech" title="Termin buchen" />',
+					),
+				),
+				withExternal(
+					`{ chat: ${CHAT} }`,
+					embedPage(
+						'<ExternalScript id="chat" src="https://js.hs-scripts.com/123.js" />\n<ExternalScript id="chat" src="/scripts/chat.js" />',
+					),
+				),
+			],
+			fail: [
+				// Ohne Deklaration.
+				{ ...NEW_CSP, ...embedPage(`<Embed id="video" src="${YT}" title="Rundgang" />`) },
+				withExternal(
+					`{ video: { preset: 'youtube' } }`,
+					embedPage(`<ExternalScript id="chat" src="https://js.hs-scripts.com/1.js" />`),
+				),
+				// Adresse passt nicht zur Vorlage oder zum Host der Deklaration.
+				withExternal(
+					`{ video: { preset: 'youtube' } }`,
+					embedPage('<Embed id="video" src="https://evil.example.com/embed/x" title="Rundgang" />'),
+				),
+				withExternal(
+					`{ chat: ${CHAT} }`,
+					embedPage('<ExternalScript id="chat" src="https://evil.example.com/x.js" />'),
+				),
+				withExternal(
+					`{ chat: ${CHAT} }`,
+					embedPage('<ExternalScript id="chat" src="//js.hs-scripts.com.evil.example/x.js" />'),
+				),
+				// Rahmen und Skripte ohne Baustein, auch wenn die CSP sie erlaubt.
+				withExternal(
+					`{ video: { preset: 'youtube' } }`,
+					embedPage(
+						'<iframe src="https://www.youtube-nocookie.com/embed/aqz-KE-bpKQ" title="Video"></iframe>',
+					),
+				),
+				withExternal(
+					`{ chat: ${CHAT} }`,
+					embedPage('<svelte:head><script src="https://js.hs-scripts.com/1.js"></script></svelte:head>'),
+				),
+				{ ...NEW_CSP, ...embedPage('<svelte:head><script src="/scripts/eigen.js"></script></svelte:head>') },
+				// Deklariert, aber die alte, feste CSP sperrt den Rahmen.
+				{
+					...withExternal(
+						`{ video: { preset: 'youtube' } }`,
+						embedPage(`<Embed id="video" src="${YT}" title="Rundgang" />`),
+					),
+					'svelte.config.js': LEGACY_SVELTE_CONFIG_TEMPLATE,
+				},
+			],
+		},
+		{
+			stage: O,
+			options: { external: DECLARED, apiUrl: API },
+			pass: [{ 'index.html': page({ head: expectedMeta(), body: EMBED_MARKER }) }],
+			fail: [
+				// Meta-Tag lockerer als die Deklaration.
+				{
+					'index.html': page({
+						head: expectedMeta((d) => d['script-src']!.push('https://evil.example.com')),
+					}),
+				},
+				{ 'index.html': page({ head: expectedMeta((d) => d['connect-src']!.push('*')) }) },
+				{ 'index.html': page({ head: expectedMeta((d) => d['script-src']!.push('unsafe-eval')) }) },
+				{
+					'index.html': page({
+						head: expectedMeta((d) => (d['report-uri'] = ['https://evil.example.com/r'])),
+					}),
+				},
+				{ 'index.html': page({ head: expectedMeta((d) => delete d['form-action']) }) },
+				{ 'index.html': page({ head: expectedMeta((d) => delete d['default-src']) }) },
+				// Baustein lädt einen Host, den der Meta-Tag nicht erlaubt.
+				{
+					'index.html': page({
+						head: expectedMeta((d) => (d['frame-src'] = ['self'])),
+						body: EMBED_MARKER,
+					}),
+				},
+				{ 'index.html': page({ head: expectedMeta(), body: SCRIPT_MARKER }) },
+			],
+		},
+		{
+			stage: S,
+			pass: [
 				// Die CSP erlaubt den Anbieter ausdrücklich.
 				{
 					'svelte.config.js': baseText('svelte.config.js').replace(
@@ -802,7 +1113,7 @@ const CASES: Record<string, RuleCase[]> = {
 						"'object-src': ['none'],\n\t\t\t\t'frame-src': ['self', 'https://www.openstreetmap.org'],",
 					),
 					'src/routes/+page.svelte': homePage(
-						'<h1>A</h1>\n<ConsentGate category="media">\n\t<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=1,2,3,4" title="Karte"></iframe>\n</ConsentGate>\n<MapEmbed lat={53.87} lon={10.69} title="Anfahrt" />',
+						'<h1>A</h1>\n<MapEmbed lat={53.87} lon={10.69} title="Anfahrt" />',
 						"\timport { MapEmbed } from '@dealsystem/site';\n",
 					),
 				},
@@ -869,6 +1180,70 @@ const CASES: Record<string, RuleCase[]> = {
 						head: `<meta http-equiv="content-security-policy" content="default-src 'self'">\n<script src="https://widget.example.com/w.js"></script>`,
 					}),
 				},
+			],
+		},
+	],
+	'SEC-009': [
+		{
+			stage: S,
+			pass: [
+				{
+					...NEW_CSP,
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<label>PLZ <input type="text" name="plz" /></label>',
+					),
+				},
+			],
+			fail: [
+				{
+					...NEW_CSP,
+					'src/routes/+page.svelte': homePage(
+						'<h1>A</h1>\n<label>Passwort <input type="password" name="pw" /></label>',
+					),
+				},
+				{
+					...NEW_CSP,
+					'static/login.html': '<!doctype html><html lang="de"><input type="password"></html>\n',
+				},
+			],
+		},
+		{
+			stage: O,
+			options: { external: [] },
+			pass: [{ 'index.html': page({ body: '<label>PLZ <input type="text" name="plz"></label>' }) }],
+			fail: [{ 'index.html': page({ body: '<label>Passwort <input type="password" name="pw"></label>' }) }],
+		},
+	],
+	'SEC-011': [
+		{
+			stage: O,
+			options: { hosting: { standardHostOnly: true, sitesDomainOnPsl: false } },
+			pass: [{}, { 'index.html': page({ body: EMBED_MARKER }) }],
+			fail: [{ 'index.html': page({ body: SCRIPT_MARKER }) }],
+		},
+		{
+			// Eigene Domain oder PSL-Eintrag: Skripte gehen.
+			stage: O,
+			options: { hosting: { standardHostOnly: false, sitesDomainOnPsl: false } },
+			pass: [{ 'index.html': page({ body: SCRIPT_MARKER }) }],
+			fail: [],
+		},
+		{
+			stage: O,
+			options: { hosting: { standardHostOnly: true, sitesDomainOnPsl: true } },
+			pass: [{ 'index.html': page({ body: SCRIPT_MARKER }) }],
+			fail: [],
+		},
+	],
+	'PRV-008': [
+		{
+			stage: S,
+			pass: [withExternal(`{ video: { preset: 'youtube' } }`), withExternal(`{ chat: ${CHAT} }`)],
+			fail: [
+				withExternal(`{ chat: { category: 'marketing', script: ['https://js.hs-scripts.com'] } }`),
+				withExternal(
+					`{ chat: { category: 'marketing', provider: 'HubSpot', purpose: 'Chat', script: ['https://js.hs-scripts.com'] } }`,
+				),
 			],
 		},
 	],
@@ -1042,9 +1417,16 @@ const CASES: Record<string, RuleCase[]> = {
 	],
 };
 
-async function findingsFor(stage: CheckStage, overlay: Overlay): Promise<Finding[]> {
+async function findingsFor(
+	stage: CheckStage,
+	overlay: Overlay,
+	options: Partial<CheckOptions> = {},
+): Promise<Finding[]> {
 	const dir = materialize(stage === 'source' ? BASE_SOURCE : BASE_OUTPUT, overlay);
-	const result = await runCheck(stage === 'source' ? { projectDir: dir } : { outputDir: dir });
+	const result = await runCheck({
+		...options,
+		...(stage === 'source' ? { projectDir: dir } : { outputDir: dir }),
+	});
 	return [...result.errors, ...result.warnings];
 }
 
@@ -1158,7 +1540,7 @@ describe('SEC-008: CSP der fertigen Seite und die Site-API', () => {
 		expect(found).toHaveLength(1);
 		expect(found[0]!.message).toContain('https://staging.dealsystem.io');
 		expect(found[0]!.message).toContain('Formular und Captcha');
-		expect(found[0]!.fix).toContain('siteApiOrigin()');
+		expect(found[0]!.fix).toContain('dealsystemCsp()');
 	});
 
 	it('ist zufrieden, wenn die CSP genau diese Site-API erlaubt, auch lokal über http', async () => {
@@ -1178,7 +1560,7 @@ describe('Abdeckung', () => {
 				const cases = CASES[rule.id]?.filter((c) => c.stage === stage) ?? [];
 				expect(cases.length, `${rule.id} (${stage})`).toBeGreaterThan(0);
 				expect(
-					cases.every((c) => c.pass.length > 0 && c.fail.length > 0),
+					cases.some((c) => c.pass.length > 0) && cases.some((c) => c.fail.length > 0),
 					`${rule.id} (${stage})`,
 				).toBe(true);
 			}
@@ -1191,13 +1573,13 @@ for (const [id, cases] of Object.entries(CASES)) {
 		for (const c of cases) {
 			c.pass.forEach((overlay, i) => {
 				it(`${c.stage}: Positiv-Beispiel ${i + 1} meldet nichts für ${id}`, async () => {
-					const own = (await findingsFor(c.stage, overlay)).filter((f) => f.rule === id);
+					const own = (await findingsFor(c.stage, overlay, c.options)).filter((f) => f.rule === id);
 					expect(own).toEqual([]);
 				});
 			});
 			c.fail.forEach((overlay, i) => {
 				it(`${c.stage}: Negativ-Beispiel ${i + 1} meldet ${id} mit Korrektur`, async () => {
-					const own = (await findingsFor(c.stage, overlay)).filter((f) => f.rule === id);
+					const own = (await findingsFor(c.stage, overlay, c.options)).filter((f) => f.rule === id);
 					expect(own.length).toBeGreaterThan(0);
 					for (const f of own) {
 						expect(f.message.length).toBeGreaterThan(5);
@@ -1216,7 +1598,7 @@ describe('SEC-006: Inhaltsblock ds-content gehört dem SDK', () => {
 			.filter((f) => f.rule === 'SEC-006')
 			.map((f) => [f.severity, f.file, f.line]);
 
-	it('warnt bei eigenem Block und bei Code, der ihn nennt, nur als Warnung', async () => {
+	it('meldet eigenen Block und Code, der ihn nennt, als Fehler (Regelsatz 3)', async () => {
 		expect(
 			await sec006({
 				'src/routes/+page.svelte':
@@ -1224,8 +1606,8 @@ describe('SEC-006: Inhaltsblock ds-content gehört dem SDK', () => {
 				'src/lib/lesen.ts': "export const block = () => document.getElementById('ds-content');\n",
 			}),
 		).toEqual([
-			['warning', 'src/lib/lesen.ts', 1],
-			['warning', 'src/routes/+page.svelte', 2],
+			['error', 'src/lib/lesen.ts', 1],
+			['error', 'src/routes/+page.svelte', 2],
 		]);
 	});
 
@@ -1236,5 +1618,71 @@ describe('SEC-006: Inhaltsblock ds-content gehört dem SDK', () => {
 					'<svelte:head>\n\t<script type="application/ld+json" id="firma">{}</script>\n</svelte:head>\n<h1>Hallo</h1>\n',
 			}),
 		).toEqual([]);
+	});
+});
+
+describe('Regelsatz 3: unveränderte Seiten bauen weiter', () => {
+	const legacy = { 'svelte.config.js': LEGACY_SVELTE_CONFIG_TEMPLATE };
+	const raw = embedPage(
+		'<ConsentGate category="media">\n\t<iframe src="https://www.openstreetmap.org/export/embed.html?bbox=1,2,3,4" title="Karte"></iframe>\n</ConsentGate>',
+	);
+	const password = embedPage('<label>Passwort <input type="password" name="pw" /></label>');
+
+	it('die feste CSP bis SDK 0.1 besteht ohne Meldung', async () => {
+		expect(await findingsFor('source', legacy)).toEqual([]);
+	});
+
+	it('Verschärfungen sind bei der festen CSP nur Warnungen, die Prüfung besteht', async () => {
+		for (const overlay of [raw, password]) {
+			const dir = materialize(BASE_SOURCE, { ...legacy, ...overlay });
+			const result = await runCheck({ projectDir: dir });
+			expect(result.passed).toBe(true);
+			expect(result.warnings.map((f) => f.rule)).toEqual(
+				expect.arrayContaining([overlay === raw ? 'SEC-008' : 'SEC-009']),
+			);
+		}
+	});
+
+	it('mit dealsystemCsp() sind dieselben Funde Fehler', async () => {
+		for (const overlay of [raw, password]) {
+			const dir = materialize(BASE_SOURCE, { ...NEW_CSP, ...overlay });
+			const result = await runCheck({ projectDir: dir });
+			expect(result.passed).toBe(false);
+			expect(result.errors.map((f) => f.rule)).toContain(overlay === raw ? 'SEC-008' : 'SEC-009');
+		}
+	});
+
+	it('Ausgabe ohne bekannte Deklaration (älteres SDK auf dem Build-Host): Abweichung nur als Warnung', async () => {
+		const dir = materialize(BASE_OUTPUT, {
+			'index.html': page({
+				head: `<meta http-equiv="content-security-policy" content="default-src 'self'; script-src 'self' https://evil.example.com">`,
+			}),
+		});
+		const result = await runCheck({ outputDir: dir });
+		expect(result.passed).toBe(true);
+		expect(result.warnings.map((f) => f.rule)).toContain('SEC-008');
+	});
+
+	it('lokal mit Quelle und Ausgabe: die Deklaration kommt aus der Quelle', async () => {
+		const source = materialize(BASE_SOURCE, withExternal(`{ video: { preset: 'youtube' } }`));
+		const meta = (d: Record<string, string[]>) => d;
+		const ok = materialize(BASE_OUTPUT, {
+			'index.html': page({ head: expectedMeta(meta), body: EMBED_MARKER }),
+		});
+		expect((await runCheck({ projectDir: source, outputDir: ok, apiUrl: API })).passed).toBe(true);
+		// Ohne die Deklaration fehlt der Rahmen von YouTube in der erwarteten CSP: Der Meta-Tag ist lockerer.
+		const plain = materialize(BASE_SOURCE, NEW_CSP);
+		const result = await runCheck({ projectDir: plain, outputDir: ok, apiUrl: API });
+		expect(result.errors.some((f) => f.rule === 'SEC-008' && f.message.includes('youtube-nocookie'))).toBe(
+			true,
+		);
+	});
+});
+
+describe('sync --fix-config: Vorlage', () => {
+	it('die Vorlage nutzt dealsystemCsp() und besteht SEC-005 und SEC-008', async () => {
+		expect(SVELTE_CONFIG_TEMPLATE).toContain('csp: dealsystemCsp()');
+		const own = (await findingsFor('source', NEW_CSP)).filter((f) => /^SEC-00[58]$/.test(f.rule));
+		expect(own).toEqual([]);
 	});
 });

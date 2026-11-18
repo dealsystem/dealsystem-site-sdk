@@ -1,12 +1,34 @@
 // SEC-*: Secrets, private Umgebungsvariablen, {@html}, API-Zugriffe, CSP, eval, eigene Formulare, Einbettungen.
 
+import ts from 'typescript';
 import type { OutputContext, SourceContext } from '../context.js';
 import { outputRule, sourceRule, type OutputRule, type SourceRule } from '../rule.js';
 import type { RawFinding } from '../types.js';
+import {
+	buildCspDirectives,
+	externalUrl,
+	resolveEmbedSource,
+	scriptSourceProblem,
+} from '@dealsystem/site/config';
 import { excerpt, findAll, isSvelteFile } from '../util/code.js';
-import { COMPONENT, CONFIG_MODULE, SDK_PACKAGE, SITE_API_ORIGIN_FN } from '../sdk.js';
-import { lineOf } from '../util/html.js';
-import { evaluate, isOpaque, isPlainObject, type LiteralValue, type ParsedModule } from '../util/literal.js';
+import { COMPONENT, CSP_MODULE, DEALSYSTEM_CSP_FN, MARKER, SDK_PACKAGE } from '../sdk.js';
+import { lineOf, type HtmlDoc } from '../util/html.js';
+import {
+	cspAllows,
+	cspForm,
+	cspLooserThan,
+	cspSourceList,
+	declaredExternal,
+	isValidDealsystemCall,
+	metaCsp,
+	SITE_API_SOURCE,
+	sourceCsp,
+	tighteningSeverity,
+	unquote,
+	type Csp,
+} from '../util/csp.js';
+import { getAttr, type SvelteElement } from '../util/svelte.js';
+import { isOpaque, isPlainObject, type LiteralValue } from '../util/literal.js';
 
 // ------------------------------------------------------------------ SEC-001
 
@@ -138,14 +160,12 @@ const sec004 = sourceRule('SEC-004', (ctx) => {
 
 // ------------------------------------------------------------------ SEC-005
 
-// SvelteKit schreibt Schlüsselwörter ohne Anführungszeichen (`'self'` → `['self']`); beide Formen zählen.
 const LOOSE_SCRIPT_SOURCES = ['unsafe-inline', 'unsafe-hashes', '*', 'data:', 'http:', 'https:', 'blob:'];
-const unquote = (v: string): string => v.trim().replace(/^'(.*)'$/, '$1');
 
 /**
- * Fremde Hosts, die die CSP nennen darf: nur hinter der Einwilligung (über `<Tracking>`) Google Tag und Meta Pixel,
- * dazu die Site-API von DealSystem. Das Captcha (ALTCHA) ist im SDK gebündelt und braucht keinen fremden Host.
-
+ * Fremde Hosts, die die feste CSP der Altform (Starter bis SDK 0.1) nennen darf: Google Tag und Meta Pixel (nur
+ * über `<Tracking>`), die Site-API und OpenStreetMap (`<MapEmbed>`). Ab Regelsatz 3 kommen weitere Hosts nur über
+ * `external` in dealsystem.config.ts und `dealsystemCsp()`.
  */
 export const CSP_ALLOWED_HOSTS: readonly string[] = [
 	'app.dealsystem.io',
@@ -155,7 +175,6 @@ export const CSP_ALLOWED_HOSTS: readonly string[] = [
 	'*.analytics.google.com',
 	'connect.facebook.net',
 	'www.facebook.com',
-	// Karte über `<MapEmbed>` aus dem SDK, nur nach Einwilligung.
 	'www.openstreetmap.org',
 ];
 const HOST_CHECKED_DIRECTIVES = [
@@ -166,6 +185,7 @@ const HOST_CHECKED_DIRECTIVES = [
 	'img-src',
 	'style-src',
 	'font-src',
+	'media-src',
 ];
 
 function cspHost(source: string): string | null {
@@ -178,102 +198,180 @@ function isAllowedCspHost(host: string): boolean {
 	return CSP_ALLOWED_HOSTS.some((h) => h === host || (h.startsWith('*.') && host.endsWith(h.slice(1))));
 }
 
-/** Platzhalter für `siteApiOrigin()` in einer Quellenliste: die Adresse der Site-API, erst beim Build bekannt. */
-const SITE_API_SOURCE = '<site-api>';
+const FIX_CSP =
+	"Schreibe in svelte.config.js `csp: dealsystemCsp()` mit `import { dealsystemCsp } from '@dealsystem/site/csp'` (oder `npx dealsystem sync --fix-config`) und trage fremde Hosts unter `external` in dealsystem.config.ts ein (extern.md).";
 
-/**
- * Quellenliste einer CSP-Direktive. Erlaubt sind feste Zeichenketten und der Aufruf `siteApiOrigin()` aus
- * `@dealsystem/site/config`; alles andere (Variablen, andere Aufrufe) ergibt `null`.
- */
-function cspSourceList(mod: ParsedModule, value: LiteralValue): string[] | null {
-	if (!Array.isArray(value)) return null;
-	const out: string[] = [];
-	for (const item of value) {
-		if (typeof item === 'string') out.push(item);
-		else if (
-			isOpaque(item) &&
-			item.call === SITE_API_ORIGIN_FN &&
-			(item.args?.length ?? 0) === 0 &&
-			mod.imports.get(item.call) === CONFIG_MODULE
-		)
-			out.push(SITE_API_SOURCE);
-		else return null;
-	}
-	return out;
+/** Probleme in `external` (dealsystem.config.ts): Sie bestimmen die Sicherheitsregeln, daher SEC-005. */
+function externalConfigFindings(ctx: SourceContext): RawFinding[] {
+	return ctx
+		.siteConfig()
+		.problems.filter((p) => p.kind === 'external')
+		.map((p) => ({
+			file: 'dealsystem.config.ts',
+			line: p.line,
+			message: `${p.path}: ${p.message}`,
+			fix: p.fix ?? 'Korrigiere den Eintrag unter `external` in dealsystem.config.ts. Anleitung: extern.md.',
+		}));
 }
 
 const sec005 = sourceRule('SEC-005', (ctx) => {
-	const path = ctx.svelteConfigPath();
-	if (!path) return []; // STR-001 meldet die fehlende Datei.
-	const mod = ctx.module(path);
-	if (!mod) return [];
-	const config = mod.defaultExport ? evaluate(mod, mod.defaultExport) : undefined;
-	const kit = isPlainObject(config) ? config.kit : undefined;
-	const csp = isPlainObject(kit) ? kit.csp : undefined;
-	const problem = (message: string, line?: number | null): RawFinding[] => [
-		{ file: path, line: line ?? null, message },
-	];
-	if (!isPlainObject(csp)) return problem('In svelte.config.js fehlt `kit.csp` (Content-Security-Policy).');
+	const out = externalConfigFindings(ctx);
+	const form = cspForm(ctx);
+	if (!form) return out; // STR-001 meldet die fehlende Datei.
+	const { path, mod } = form;
+	const problem = (message: string, line?: number | null, fix?: string): RawFinding => ({
+		file: path,
+		line: line ?? null,
+		message,
+		...(fix ? { fix } : {}),
+	});
+
+	if (form.kind === 'dealsystem') {
+		if ((form.call.args?.length ?? 0) > 0) {
+			out.push(
+				problem(
+					'`dealsystemCsp()` nimmt keine Argumente. Fremde Hosts gehören unter `external` in dealsystem.config.ts.',
+					form.call.line,
+				),
+			);
+		}
+		if (!isValidDealsystemCall(form) && mod.imports.get(DEALSYSTEM_CSP_FN) !== CSP_MODULE) {
+			out.push(
+				problem(
+					`\`${DEALSYSTEM_CSP_FN}\` kommt nicht aus \`${CSP_MODULE}\`.`,
+					form.call.line,
+					`Schreibe \`import { dealsystemCsp } from '${CSP_MODULE}'\`.`,
+				),
+			);
+		}
+		// Neben der Konfiguration darf svelte.config.js nichts ausführen: Eine nachträgliche Änderung der CSP
+		// (`config.kit.csp.directives[…].push(…)`) oder ein Ordnerwechsel sähe die statische Prüfung sonst nicht.
+		for (const stmt of mod.source.statements) {
+			const ok =
+				ts.isImportDeclaration(stmt) ||
+				ts.isVariableStatement(stmt) ||
+				ts.isExportAssignment(stmt) ||
+				ts.isFunctionDeclaration(stmt) ||
+				ts.isTypeAliasDeclaration(stmt) ||
+				ts.isInterfaceDeclaration(stmt) ||
+				ts.isEmptyStatement(stmt);
+			if (!ok) {
+				out.push(
+					problem(
+						`svelte.config.js führt eigenen Code aus (\`${excerpt(stmt.getText(mod.source), 60)}\`). Neben der Konfiguration ist nichts erlaubt.`,
+						mod.lines.at(stmt.getStart(mod.source)).line,
+						'Entferne die Anweisung oder stelle die Datei mit `npx dealsystem sync --fix-config` wieder her.',
+					),
+				);
+			}
+		}
+		return out;
+	}
+
+	if (form.kind === 'other') {
+		if (isOpaque(form.csp)) {
+			out.push(
+				problem(
+					`\`kit.csp\` ist \`${form.csp.text.slice(0, 60)}\`. Erlaubt ist nur \`dealsystemCsp()\` oder die feste Liste des Starters.`,
+					form.csp.line,
+					FIX_CSP,
+				),
+			);
+		} else out.push(problem('In svelte.config.js fehlt `kit.csp` (Content-Security-Policy).', null, FIX_CSP));
+		return out;
+	}
+
+	// Altform: feste Liste wie im Starter bis SDK 0.1. Bleibt gültig, öffnet aber keine fremden Hosts.
+	const csp = form.csp;
 	if (csp.mode !== 'hash') {
-		return problem(
-			`\`kit.csp.mode\` muss \`'hash'\` sein, ist \`${isOpaque(csp.mode) ? csp.mode.text : String(csp.mode)}\`.`,
+		out.push(
+			problem(
+				`\`kit.csp.mode\` muss \`'hash'\` sein, ist \`${isOpaque(csp.mode) ? csp.mode.text : String(csp.mode)}\`.`,
+			),
 		);
+		return out;
 	}
 	const directives = csp.directives;
-	if (!isPlainObject(directives)) return problem('`kit.csp.directives` fehlt oder ist kein festes Objekt.');
+	if (!isPlainObject(directives)) {
+		out.push(problem('`kit.csp.directives` fehlt oder ist kein festes Objekt.'));
+		return out;
+	}
 	const list = (v: LiteralValue): string[] | null => cspSourceList(mod, v)?.map(unquote) ?? null;
-	const out: RawFinding[] = [];
 	for (const [name, value] of Object.entries(directives)) {
 		const values = list(value);
 		if (values === null) {
-			out.push({ file: path, message: `\`kit.csp.directives['${name}']\` muss eine feste Liste sein.` });
+			out.push(problem(`\`kit.csp.directives['${name}']\` muss eine feste Liste sein.`));
 			continue;
 		}
 		if (values.includes('unsafe-eval') || values.includes('wasm-unsafe-eval')) {
-			out.push({ file: path, message: `\`${name}\` erlaubt \`unsafe-eval\`.` });
+			out.push(problem(`\`${name}\` erlaubt \`unsafe-eval\`.`));
 		}
 		if (!HOST_CHECKED_DIRECTIVES.includes(name)) continue;
 		for (const source of values) {
 			const host = cspHost(source);
 			if (host && !isAllowedCspHost(host)) {
-				out.push({
-					file: path,
-					message: `\`${name}\` erlaubt den fremden Host \`${source}\`.`,
-					fix: 'Entferne den Host. Erlaubt sind nur Google Tag und Meta Pixel (über `<Tracking>` hinter `<ConsentGate>`) und die DealSystem-API. Schriften, Bilder und Skripte gehören lokal ins Projekt.',
-				});
+				out.push(problem(`\`${name}\` erlaubt den fremden Host \`${source}\`.`, null, FIX_CSP));
 			}
 		}
 	}
 	const scriptKey = directives['script-src'] !== undefined ? 'script-src' : 'default-src';
 	const script = list(directives[scriptKey] ?? null);
 	if (!script) {
-		out.push({ file: path, message: 'In `kit.csp.directives` fehlt `script-src`.' });
+		out.push(problem('In `kit.csp.directives` fehlt `script-src`.'));
 	} else {
 		for (const loose of LOOSE_SCRIPT_SOURCES) {
-			if (script.includes(loose)) {
-				out.push({ file: path, message: `\`${scriptKey}\` ist gelockert: \`${loose}\`.` });
-			}
+			if (script.includes(loose)) out.push(problem(`\`${scriptKey}\` ist gelockert: \`${loose}\`.`));
 		}
+	}
+	if (declaredExternal(ctx).length > 0) {
+		out.push(
+			problem(
+				'dealsystem.config.ts nennt fremde Dienste unter `external`, aber svelte.config.js hat noch die feste Liste. Die Dienste blieben gesperrt.',
+				null,
+				"Schreibe `csp: dealsystemCsp()` mit `import { dealsystemCsp } from '@dealsystem/site/csp'` oder führe `npx dealsystem sync --fix-config` aus.",
+			),
+		);
 	}
 	return out;
 });
 
 // ------------------------------------------------------------------ SEC-006
 
-const DYNAMIC_CODE: readonly { pattern: RegExp; label: string }[] = [
+const DYNAMIC_CODE: readonly { pattern: RegExp; label: string; tightened?: boolean }[] = [
 	{ pattern: /\beval\s*\(/g, label: 'eval()' },
 	{ pattern: /\bnew\s+Function\s*\(/g, label: 'new Function()' },
 	{ pattern: /\b(?:setTimeout|setInterval)\s*\(\s*['"`]/g, label: 'setTimeout/setInterval mit Zeichenkette' },
 	{ pattern: /\.setAttribute\s*\(\s*['"`]on[a-z]+['"`]/g, label: 'Event-Handler als Attribut' },
+	// Regelsatz 3: ohne `wasm-unsafe-eval` läuft keine WebAssembly (sperrt die gängigen Krypto-Miner).
+	{
+		pattern:
+			/\bWebAssembly\.(?:instantiate|instantiateStreaming|compile|compileStreaming|Module|Instance)\b/g,
+		label: 'WebAssembly',
+		tightened: true,
+	},
+	{ pattern: /['"`]wasm-unsafe-eval['"`]/g, label: '`wasm-unsafe-eval`', tightened: true },
 ];
 const INLINE_HANDLER_HTML = /<[a-z][^>]*\son[a-z]+\s*=\s*["'][^"']*["']/gi;
+/** Datenblöcke führen nichts aus und unterliegen nicht `script-src` (z. B. strukturierte Daten für Google). */
+const DATA_SCRIPT_TYPES = ['application/ld+json', 'application/json', 'importmap'];
+const INLINE_SCRIPT_HTML = /<script\b([^>]*)>/gi;
+
+const INLINE_FIX =
+	'Lege den Code als Datei in `static/scripts/` ab und lade sie mit `<ExternalScript id="…" src="/scripts/datei.js" />` (extern.md), oder schreibe ihn als Svelte-Code in die Komponente.';
 
 const sec006 = sourceRule('SEC-006', (ctx) => {
 	const out: RawFinding[] = [];
+	const tightened = tighteningSeverity(ctx);
 	for (const path of ctx.codeFiles()) {
-		for (const { pattern, label } of DYNAMIC_CODE) {
+		for (const { pattern, label, tightened: isNew } of DYNAMIC_CODE) {
 			for (const m of findAll(ctx.code(path), pattern, ctx.lines(path))) {
-				out.push({ file: path, line: m.line, column: m.column, message: `\`${path}\` nutzt ${label}.` });
+				out.push({
+					file: path,
+					line: m.line,
+					column: m.column,
+					message: `\`${path}\` nutzt ${label}.`,
+					...(isNew ? { severity: tightened } : {}),
+				});
 			}
 		}
 		if (isSvelteFile(path)) {
@@ -291,17 +389,58 @@ const sec006 = sourceRule('SEC-006', (ctx) => {
 						);
 					}
 				}
+				// Inline-Skript im Markup (z. B. in `<svelte:head>`): Die CSP der Seite sperrt es ohnehin.
+				if (el.name.toLowerCase() === 'script' && !getAttr(el, 'src')) {
+					const type = getAttr(el, 'type')?.value;
+					if (typeof type === 'string' && DATA_SCRIPT_TYPES.includes(type.trim().toLowerCase())) continue;
+					out.push({
+						...ctx.at(
+							path,
+							el.start,
+							`\`${path}\` enthält ein Inline-Skript (\`<script>\` ohne \`src\`).`,
+							INLINE_FIX,
+						),
+						severity: tightened,
+					});
+				}
 			}
 		}
 	}
 	for (const path of ctx.htmlFiles()) {
-		for (const m of findAll(ctx.code(path), INLINE_HANDLER_HTML, ctx.lines(path))) {
+		const code = ctx.code(path);
+		for (const m of findAll(code, INLINE_HANDLER_HTML, ctx.lines(path))) {
 			out.push({
 				file: path,
 				line: m.line,
 				column: m.column,
 				message: `\`${path}\` enthält einen Inline-Event-Handler.`,
 			});
+		}
+		for (const m of code.matchAll(INLINE_SCRIPT_HTML)) {
+			const attrs = m[1] ?? '';
+			if (/\bsrc\s*=/i.test(attrs)) continue;
+			const type = /\btype\s*=\s*["']?([^"'\s>]+)/i.exec(attrs)?.[1]?.toLowerCase();
+			if (type && DATA_SCRIPT_TYPES.includes(type)) continue;
+			out.push({
+				...ctx.at(
+					path,
+					m.index,
+					`\`${path}\` enthält ein Inline-Skript (\`<script>\` ohne \`src\`).`,
+					INLINE_FIX,
+				),
+				severity: tightened,
+			});
+		}
+		// Inhaltsblock des SDK auch nicht in eigenen HTML-Dateien (`src/app.html`, `static/`).
+		for (const m of code.matchAll(/<[a-z]+\b[^>]*\bid\s*=\s*["']?ds-content\b[^>]*>/gi)) {
+			out.push(
+				ctx.at(
+					path,
+					m.index,
+					`\`${path}\` enthält den Inhaltsblock \`ds-content\` des SDK.`,
+					CONTENT_BLOCK_FIX,
+				),
+			);
 		}
 	}
 	out.push(...contentBlockOwnership(ctx));
@@ -310,13 +449,14 @@ const sec006 = sourceRule('SEC-006', (ctx) => {
 
 // Inhaltsblock `ds-content` (Patchen statt Bauen): Ihn schreibt nur `<SiteHead>` aus dem SDK. Ein eigener
 // Block oder Code, der ihn liest oder schreibt, würde beim Patchen alte und neue Texte mischen.
-// Vorerst nur Warnung, das Urteil ändert sich nicht (RULE_SET_VERSION bleibt).
+// Regelsatz 3: Fehler (in feature/p2-content-block zunächst Warnung). Es gibt keinen legitimen Grund dafür.
 const CONTENT_BLOCK_ID = /(['"`])ds-content\1/g;
+const CONTENT_BLOCK_FIX =
+	'Lass den Block weg: `<SiteHead>` im Haupt-Layout schreibt ihn. Texte aus dem CRM gehören in `<Text>`, `<RichText>` oder `<MediaImage key>`.';
 
 function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
 	const out: RawFinding[] = [];
-	const fix =
-		'Lass den Block weg: `<SiteHead>` im Haupt-Layout schreibt ihn. Texte aus dem CRM gehören in `<Text>`, `<RichText>` oder `<MediaImage key>`.';
+	const fix = CONTENT_BLOCK_FIX;
 	for (const path of ctx.codeFiles()) {
 		const reported = new Set<number>();
 		if (isSvelteFile(path)) {
@@ -331,7 +471,7 @@ function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
 					fix,
 				);
 				reported.add(finding.line ?? -1);
-				out.push({ ...finding, severity: 'warning' });
+				out.push(finding);
 			}
 		}
 		for (const m of findAll(ctx.code(path), CONTENT_BLOCK_ID, ctx.lines(path))) {
@@ -342,7 +482,6 @@ function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
 				column: m.column,
 				message: `\`${path}\` nennt den Inhaltsblock \`ds-content\` des SDK.`,
 				fix,
-				severity: 'warning',
 			});
 		}
 	}
@@ -351,23 +490,58 @@ function contentBlockOwnership(ctx: SourceContext): RawFinding[] {
 
 // ------------------------------------------------------------------ SEC-007
 
+const FORM_FIX =
+	'Ein eigenes `<form>` schickt nichts selbst ab: Lass `action` weg und sende die Daten mit `createLeadClient()` oder nimm `<LeadForm funnel="…" />`. Formulardaten gehen nur über DealSystem in dein CRM.';
+
 const sec007 = sourceRule('SEC-007', (ctx) => {
 	const out: RawFinding[] = [];
 	for (const path of ctx.svelteFiles()) {
 		for (const el of ctx.svelte(path)?.elements ?? []) {
-			if (el.kind === 'element' && el.name === 'form') {
-				out.push(ctx.at(path, el.start, `\`${path}\` enthält ein eigenes \`<form>\`.`));
+			if (el.kind !== 'element') continue;
+			const formaction = getAttr(el, 'formaction');
+			if (formaction) {
+				out.push(
+					ctx.at(
+						path,
+						formaction.start,
+						`\`<${el.name} formaction>\` in \`${path}\` schickt ein Formular an eine Adresse.`,
+						FORM_FIX,
+					),
+				);
+			}
+			if (el.name !== 'form') continue;
+			const action = getAttr(el, 'action');
+			const method = getAttr(el, 'method')?.value;
+			if (typeof method === 'string' && method.trim().toLowerCase() === 'dialog') continue;
+			if (action) {
+				const target = typeof action.value === 'string' ? ` an \`${excerpt(action.value, 60)}\`` : '';
+				out.push(
+					ctx.at(path, el.start, `\`${path}\` enthält ein \`<form>\` mit \`action\`${target}.`, FORM_FIX),
+				);
+			} else if (getAttr(el, '...') || el.attributes.some((a) => a.kind === 'spread')) {
+				out.push(
+					ctx.at(
+						path,
+						el.start,
+						`\`${path}\` enthält ein \`<form>\` mit \`{...}\`; ob es eine \`action\` bekommt, lässt sich nicht prüfen.`,
+						'Schreibe die Attribute des `<form>` einzeln aus, ohne `{...}`.',
+					),
+				);
 			}
 		}
 	}
 	for (const path of ctx.htmlFiles()) {
-		for (const m of findAll(ctx.code(path), /<form\b/gi, ctx.lines(path))) {
+		const code = ctx.code(path);
+		for (const m of code.matchAll(/<form\b([^>]*)>/gi)) {
+			const attrs = m[1] ?? '';
+			if (/\bmethod\s*=\s*["']?dialog\b/i.test(attrs) || !/\baction\s*=/i.test(attrs)) continue;
 			out.push({
-				file: path,
-				line: m.line,
-				column: m.column,
-				message: `\`${path}\` enthält ein eigenes \`<form>\`.`,
+				...ctx.at(path, m.index, `\`${path}\` enthält ein \`<form>\` mit \`action\`.`),
+				fix: FORM_FIX,
 			});
+		}
+		for (const m of code.matchAll(/<[a-z]+\b[^>]*\bformaction\s*=/gi)) {
+			out.push({ ...ctx.at(path, m.index, `\`${path}\` enthält \`formaction\`.`), fix: FORM_FIX });
 		}
 	}
 	return out;
@@ -387,42 +561,6 @@ const EMBED_DIRECTIVE: Readonly<Record<string, string>> = {
 	script: 'script-src',
 };
 
-type Csp = Record<string, string[]>;
-
-function externalUrl(value: string | null | undefined): URL | null {
-	if (!value) return null;
-	const v = value.trim();
-	if (!/^(https?:)?\/\//i.test(v)) return null;
-	try {
-		return new URL(v.startsWith('//') ? `https:${v}` : v);
-	} catch {
-		return null;
-	}
-}
-
-/** Ob eine Host-Quelle der CSP (`https://a.de`, `*.a.de`, `http://localhost:5173`) zu `url` passt. */
-function hostSourceMatches(source: string, url: URL): boolean {
-	const m = /^(?:([a-z][a-z0-9+.-]*):\/\/)?(\*\.)?([a-z0-9.-]+)(?::(\d+|\*))?(?:\/.*)?$/i.exec(source);
-	if (!m) return false;
-	const [, scheme, wildcard, host, port] = m;
-	if (scheme && `${scheme.toLowerCase()}:` !== url.protocol) return false;
-	const name = url.hostname.toLowerCase();
-	const wanted = host!.toLowerCase();
-	if (wildcard ? !name.endsWith(`.${wanted}`) : name !== wanted) return false;
-	if (port === undefined || port === '*') return port === '*' || url.port === '';
-	return port === (url.port || (url.protocol === 'https:' ? '443' : '80'));
-}
-
-/** Ob die Direktive (sonst `default-src`) das Laden von `url` erlaubt. Ohne beide Direktiven ist alles erlaubt. */
-function cspAllows(csp: Csp, directive: string, url: URL): boolean {
-	const sources = csp[directive] ?? csp['default-src'];
-	if (!sources) return true;
-	return sources.some((raw) => {
-		const source = unquote(raw).toLowerCase();
-		return source === '*' || source === url.protocol || hostSourceMatches(source, url);
-	});
-}
-
 function blockedMessage(tag: string, url: URL, directive: string): string {
 	return (
 		`\`<${tag}>\` lädt \`${excerpt(url.href, 80)}\`, aber die Sicherheitsregeln der Seite (\`${directive}\`) ` +
@@ -432,31 +570,79 @@ function blockedMessage(tag: string, url: URL, directive: string): string {
 
 function blockedFix(tag: string): string {
 	return tag === 'script'
-		? 'Entferne das Skript. Fremde Skripte lassen sich auf dieser Seite nicht einbinden; Tracking läuft über `<Tracking />`. Lockere nicht die Regeln in svelte.config.js.'
-		: 'Für eine Karte nutze `<MapEmbed lat={…} lon={…} title="…" />` aus `@dealsystem/site` (OpenStreetMap). Jeden anderen fremden Inhalt ersetzt du durch einen gewöhnlichen Link `<a href="…">` zum Anbieter und sagst dem Kunden, dass sich dieser Dienst hier nicht einbetten lässt. Lockere nicht die Regeln in svelte.config.js.';
+		? 'Trage den Dienst unter `external` in dealsystem.config.ts ein (mit Host unter `script`) und lade das Skript mit `<ExternalScript id="…" src="…" />`. Anleitung: extern.md. Lockere nicht die Regeln in svelte.config.js.'
+		: 'Trage den Dienst unter `external` in dealsystem.config.ts ein (YouTube: `{ preset: \'youtube\' }`) und bette ihn mit `<Embed id="…" src="…" title="…" />` ein. Anleitung: extern.md. Lockere nicht die Regeln in svelte.config.js.';
 }
 
-/** `kit.csp.directives` aus svelte.config.js, soweit sie als feste Listen dastehen. */
-function sourceCsp(ctx: SourceContext): { path: string; csp: Csp } | null {
-	const path = ctx.svelteConfigPath();
-	const mod = path ? ctx.module(path) : null;
-	if (!path || !mod) return null;
-	const config = mod.defaultExport ? evaluate(mod, mod.defaultExport) : undefined;
-	const kit = isPlainObject(config) ? config.kit : undefined;
-	const directives = isPlainObject(kit) && isPlainObject(kit.csp) ? kit.csp.directives : undefined;
-	if (!isPlainObject(directives)) return null;
-	const csp: Csp = {};
-	for (const [name, value] of Object.entries(directives)) {
-		const sources = cspSourceList(mod, value);
-		if (sources) csp[name] = sources;
+const RAW_EMBED_FIX: Record<string, string> = {
+	script:
+		'Lade Skripte nur mit `<ExternalScript id="…" src="…" />` aus `@dealsystem/site`: Es wartet auf die Einwilligung und lädt nach einem Widerruf neu. Anleitung: extern.md.',
+	frame:
+		'Bette fremde Inhalte nur mit `<Embed id="…" src="…" title="…" />` aus `@dealsystem/site` ein: Es zeigt vor der Einwilligung einen Platzhalter. Anleitung: extern.md.',
+};
+
+function staticAttr(el: SvelteElement, name: string): string | null {
+	const attr = getAttr(el, name);
+	return attr && typeof attr.value === 'string' ? attr.value : null;
+}
+
+/** Prüft `<Embed>` und `<ExternalScript>` mit festen Angaben gegen Deklaration und CSP. */
+function componentFindings(
+	ctx: SourceContext,
+	path: string,
+	el: SvelteElement,
+	csp: Csp,
+	kind: 'dealsystem' | 'legacy',
+): RawFinding[] {
+	const isEmbed = el.name === COMPONENT.embed;
+	const id = staticAttr(el, 'id');
+	const src = staticAttr(el, 'src');
+	if (id === null) return []; // Ausdruck: Das SDK prüft beim Build selbst.
+	const entry = declaredExternal(ctx).find((e) => e.id === id);
+	const tag = `<${el.name} id="${id}">`;
+	if (!entry) {
+		return [
+			ctx.at(
+				path,
+				el.start,
+				`\`${tag}\` in \`${path}\`: "${id}" steht nicht unter \`external\` in dealsystem.config.ts. Ohne Deklaration lässt die Seite den Dienst nicht zu.`,
+				isEmbed
+					? `Trage den Dienst ein, z. B. \`external: { ${id}: { preset: 'youtube' } }\` (Vorlagen: youtube, vimeo, google-maps, calendly). Anleitung: extern.md.`
+					: `Trage den Dienst mit \`category\`, \`provider\`, \`purpose\`, \`privacyUrl\` und dem Host unter \`script\` ein, z. B. \`external: { ${id}: { category: 'marketing', …, script: ['https://js.anbieter.de'] } }\`. Anleitung: extern.md.`,
+			),
+		];
 	}
-	return { path, csp };
+	if (src === null) return [];
+	if (isEmbed) {
+		const resolved = resolveEmbedSource(entry, src);
+		if (!resolved.ok) return [ctx.at(path, el.start, `\`${tag}\` in \`${path}\`: ${resolved.message}`)];
+		const url = new URL(resolved.src);
+		if (kind === 'legacy' && !cspAllows(csp, 'frame-src', url))
+			return [ctx.at(path, el.start, blockedMessage(el.name, url, 'frame-src'), blockedFix('iframe'))];
+		return [];
+	}
+	const problem = scriptSourceProblem(entry, src);
+	if (problem) {
+		return [
+			ctx.at(
+				path,
+				el.start,
+				`\`${tag}\` in \`${path}\`: ${problem}`,
+				`Trage den Host unter \`external.${id}.script\` in dealsystem.config.ts ein (nur \`https://host\`, ohne Pfad) oder lege die Datei unter \`static/\` ab.`,
+			),
+		];
+	}
+	const url = externalUrl(src);
+	if (url && kind === 'legacy' && !cspAllows(csp, 'script-src', url))
+		return [ctx.at(path, el.start, blockedMessage(el.name, url, 'script-src'), blockedFix('script'))];
+	return [];
 }
 
 const sec008Source = sourceRule('SEC-008', (ctx) => {
 	const found = sourceCsp(ctx);
 	if (!found) return []; // SEC-005 meldet die fehlende oder unlesbare CSP.
 	const out: RawFinding[] = [];
+	const tightened = tighteningSeverity(ctx);
 	// Formular und Captcha sprechen die Site-API an. Welche Adresse das ist, steht erst beim Build fest
 	// (PUBLIC_DEALSYSTEM_API): Eine fest eingetragene Adresse passt nur für eine Umgebung.
 	const connect = found.csp['connect-src'] ?? found.csp['default-src'];
@@ -465,7 +651,7 @@ const sec008Source = sourceRule('SEC-008', (ctx) => {
 			file: found.path,
 			message:
 				'`connect-src` in svelte.config.js nennt die Adresse der Site-API nicht über `siteApiOrigin()`. Wird die Seite für eine andere Umgebung erzeugt, blockiert der Browser Formular und Captcha.',
-			fix: "Schreibe in `kit.csp.directives`: `'connect-src': ['self', siteApiOrigin(), …]` mit `import { siteApiOrigin } from '@dealsystem/site/config'`, oder führe `npx dealsystem sync --fix-config` aus.",
+			fix: "Schreibe in svelte.config.js `csp: dealsystemCsp()` mit `import { dealsystemCsp } from '@dealsystem/site/csp'`, oder führe `npx dealsystem sync --fix-config` aus.",
 		});
 	}
 	for (const path of ctx.svelteFiles()) {
@@ -474,12 +660,9 @@ const sec008Source = sourceRule('SEC-008', (ctx) => {
 		const usesSdk = ctx.code(path).includes(SDK_PACKAGE);
 		for (const el of ast.elements) {
 			if (el.kind === 'component') {
+				if (!usesSdk) continue;
 				// `<MapEmbed>` bettet OpenStreetMap ein: Die Vorlage der CSP erlaubt das, eine ältere oder veränderte nicht.
-				if (
-					usesSdk &&
-					el.name === COMPONENT.map &&
-					!cspAllows(found.csp, 'frame-src', new URL(MAP_EMBED_ORIGIN))
-				) {
+				if (el.name === COMPONENT.map && !cspAllows(found.csp, 'frame-src', new URL(MAP_EMBED_ORIGIN))) {
 					out.push(
 						ctx.at(
 							path,
@@ -489,36 +672,66 @@ const sec008Source = sourceRule('SEC-008', (ctx) => {
 						),
 					);
 				}
+				if (el.name === COMPONENT.embed || el.name === COMPONENT.externalScript) {
+					out.push(...componentFindings(ctx, path, el, found.csp, found.kind));
+				}
 				continue;
 			}
 			const tag = el.name.toLowerCase();
 			const directive = EMBED_DIRECTIVE[tag];
 			if (!directive) continue;
-			const attr = el.attributes.find(
-				(a) => a.kind === 'attribute' && a.name.toLowerCase() === (tag === 'object' ? 'data' : 'src'),
-			);
-			const url = externalUrl(typeof attr?.value === 'string' ? attr.value : null);
+			const value = staticAttr(el, tag === 'object' ? 'data' : 'src');
+			const url = externalUrl(value);
 			if (url && !cspAllows(found.csp, directive, url)) {
 				out.push(ctx.at(path, el.start, blockedMessage(tag, url, directive), blockedFix(tag)));
+			} else if (url || (tag === 'script' && value !== null)) {
+				// Regelsatz 3: fremde Rahmen und jedes Skript nur über die Bausteine des SDK.
+				out.push({
+					...ctx.at(
+						path,
+						el.start,
+						`\`<${tag}>\` in \`${path}\` lädt \`${excerpt(value ?? '', 80)}\` ohne Baustein des SDK.`,
+						RAW_EMBED_FIX[tag === 'script' ? 'script' : 'frame'],
+					),
+					severity: tightened,
+				});
 			}
 		}
 	}
 	return out;
 });
 
-/** CSP aus dem `<meta http-equiv="content-security-policy">` einer fertigen Seite. */
-function metaCsp(content: string): Csp {
-	const csp: Csp = {};
-	for (const part of content.split(';')) {
-		const [name, ...sources] = part.trim().split(/\s+/);
-		if (name) csp[name.toLowerCase()] = sources;
+/** Adressen, die eine fertige Seite lädt oder nach der Einwilligung laden wird, mit Direktive. */
+function pageLoads(
+	doc: HtmlDoc,
+): { el: HtmlDoc['elements'][number]; url: URL; directive: string; tag: string }[] {
+	const out: { el: HtmlDoc['elements'][number]; url: URL; directive: string; tag: string }[] = [];
+	for (const el of doc.elements) {
+		const direct = EMBED_DIRECTIVE[el.tag];
+		if (direct) {
+			const url = externalUrl(el.attrs[el.tag === 'object' ? 'data' : 'src']);
+			if (url) out.push({ el, url, directive: direct, tag: el.tag });
+		}
+		// Platzhalter von `<Embed>` und Marker von `<ExternalScript>`: Laden erst nach der Einwilligung.
+		const marked =
+			MARKER.embed in el.attrs ? 'frame-src' : MARKER.externalScript in el.attrs ? 'script-src' : null;
+		const src = el.attrs[MARKER.src];
+		if (marked && src) {
+			const url = externalUrl(src);
+			if (url)
+				out.push({ el, url, directive: marked, tag: marked === 'frame-src' ? 'Embed' : 'ExternalScript' });
+		}
 	}
-	return csp;
+	return out;
 }
 
 const sec008Output = outputRule('SEC-008', (ctx) => {
 	const out: RawFinding[] = [];
 	const api = externalUrl(ctx.options.apiUrl);
+	// Unbekannte Deklaration (Build-Host, älteres SDK ohne `external` im Manifest): gegen die Basis, nur als Warnung.
+	const known = ctx.expectedCsp(api?.origin ?? SITE_API_SOURCE);
+	const expected = known?.csp ?? buildCspDirectives([], api?.origin ?? SITE_API_SOURCE);
+	const looserSeverity = known?.strict ? 'error' : 'warning';
 	let apiReported = false;
 	for (const path of ctx.pages()) {
 		const doc = ctx.html(path);
@@ -527,6 +740,17 @@ const sec008Output = outputRule('SEC-008', (ctx) => {
 		);
 		if (!meta?.attrs.content) continue;
 		const csp = metaCsp(meta.attrs.content);
+		// Die fertige Seite darf nicht mehr erlauben, als Basis und Deklaration ergeben.
+		const looser = cspLooserThan(csp, expected, api?.origin ?? null, known?.strict ?? false);
+		if (looser.length > 0) {
+			out.push({
+				file: path,
+				line: lineOf(doc, meta),
+				message: `Die Sicherheitsregeln der fertigen Seite weichen von dealsystem.config.ts ab: ${looser.join(' ')}`,
+				severity: looserSeverity,
+				fix: 'Schreibe in svelte.config.js nur `csp: dealsystemCsp()` und ändere die Regeln nirgends sonst. Fremde Hosts gehören unter `external` in dealsystem.config.ts (extern.md); `npx dealsystem sync --fix-config` stellt svelte.config.js wieder her.',
+			});
+		}
 		// Die Seite schickt Formular und Captcha an die Site-API: Die CSP der fertigen Seite muss sie erlauben.
 		if (api && !apiReported && !cspAllows(csp, 'connect-src', api)) {
 			apiReported = true;
@@ -534,24 +758,96 @@ const sec008Output = outputRule('SEC-008', (ctx) => {
 				file: path,
 				line: lineOf(doc, meta),
 				message: `Die Sicherheitsregeln der fertigen Seite (\`connect-src\`) erlauben die Site-API \`${api.origin}\` nicht. Der Browser blockiert Formular und Captcha.`,
-				fix: "Schreibe in svelte.config.js `'connect-src': ['self', siteApiOrigin(), …]` (`npx dealsystem sync --fix-config`) und erzeuge die Seite neu, mit derselben `PUBLIC_DEALSYSTEM_API` wie beim Hochladen.",
+				fix: 'Schreibe in svelte.config.js `csp: dealsystemCsp()` (`npx dealsystem sync --fix-config`) und erzeuge die Seite neu, mit derselben `PUBLIC_DEALSYSTEM_API` wie beim Hochladen.',
 			});
 		}
-		for (const el of doc.elements) {
-			const directive = EMBED_DIRECTIVE[el.tag];
-			if (!directive) continue;
-			const url = externalUrl(el.attrs[el.tag === 'object' ? 'data' : 'src']);
-			if (url && !cspAllows(csp, directive, url)) {
+		for (const load of pageLoads(doc)) {
+			if (!cspAllows(csp, load.directive, load.url)) {
 				out.push({
 					file: path,
-					line: lineOf(doc, el),
-					message: blockedMessage(el.tag, url, directive),
-					fix: blockedFix(el.tag),
+					line: lineOf(doc, load.el),
+					message: blockedMessage(load.tag, load.url, load.directive),
+					fix: blockedFix(load.directive === 'script-src' ? 'script' : 'iframe'),
 				});
 			}
 		}
 	}
 	return out;
+});
+
+// ------------------------------------------------------------------ SEC-009
+
+const PASSWORD_FIX =
+	'Entferne das Passwortfeld. Eine Seite auf DealSystem hat keine Anmeldung; ein Passwortfeld wirkt wie eine nachgebaute Login-Seite und kann die Seite sperren lassen.';
+
+// Neu in Regelsatz 3: Fehler für Seiten mit `dealsystemCsp()`, Warnung für die Altform (unveränderte Live-Seiten).
+const sec009Source = sourceRule('SEC-009', (ctx) => {
+	const out: RawFinding[] = [];
+	const severity = tighteningSeverity(ctx);
+	for (const path of ctx.svelteFiles()) {
+		for (const el of ctx.svelte(path)?.elements ?? []) {
+			if (
+				el.kind === 'element' &&
+				el.name === 'input' &&
+				staticAttr(el, 'type')?.trim().toLowerCase() === 'password'
+			)
+				out.push({
+					...ctx.at(path, el.start, `\`${path}\` enthält ein Passwortfeld.`, PASSWORD_FIX),
+					severity,
+				});
+		}
+	}
+	for (const path of ctx.htmlFiles()) {
+		for (const m of ctx.code(path).matchAll(/<input\b[^>]*\btype\s*=\s*["']?password\b/gi))
+			out.push({
+				...ctx.at(path, m.index, `\`${path}\` enthält ein Passwortfeld.`),
+				fix: PASSWORD_FIX,
+				severity,
+			});
+	}
+	return out;
+});
+
+const sec009Output = outputRule('SEC-009', (ctx) => {
+	const out: RawFinding[] = [];
+	const severity = ctx.declared?.strict ? 'error' : 'warning';
+	for (const path of ctx.pages()) {
+		const doc = ctx.html(path);
+		for (const el of doc.elements) {
+			if (el.tag === 'input' && el.attrs.type?.trim().toLowerCase() === 'password')
+				out.push({
+					file: path,
+					line: lineOf(doc, el),
+					message: `\`${path}\` enthält ein Passwortfeld.`,
+					fix: PASSWORD_FIX,
+					severity,
+				});
+		}
+	}
+	return out;
+});
+
+// ------------------------------------------------------------------ SEC-011
+
+/**
+ * Eigene Skripte auf einer Seite, die nur unter dem Standard-Host (`<name>.dealsystem.site`) läuft, solange die
+ * Domain nicht auf der Public Suffix List steht: Ein Skript könnte Cookies für alle Seiten setzen. Nur der
+ * Build-Host kennt die Hosts der Seite (`CheckOptions.hosting`); lokal bleibt die Regel still.
+ */
+const sec011 = outputRule('SEC-011', (ctx) => {
+	const hosting = ctx.options.hosting;
+	if (!hosting?.standardHostOnly || hosting.sitesDomainOnPsl) return [];
+	const pages = ctx
+		.pages()
+		.filter((p) => ctx.html(p).elements.some((el) => MARKER.externalScript in el.attrs));
+	if (pages.length === 0) return [];
+	return [
+		{
+			file: pages[0]!,
+			message: `\`<ExternalScript>\` läuft hier nur unter der Adresse von DealSystem (${pages.length === 1 ? 'eine Seite' : `${pages.length} Seiten`}). Eigene Skripte gehen dort noch nicht, weil sich Seiten verschiedener Kunden diese Adresse teilen.`,
+			fix: 'Verbinde eine eigene Domain (Eigene Website → Domains) oder nimm `<ExternalScript>` heraus. Videos über `<Embed>` und Tracking über `<Tracking />` gehen auch ohne eigene Domain.',
+		},
+	];
 });
 
 export const securitySourceRules: SourceRule[] = [
@@ -563,5 +859,6 @@ export const securitySourceRules: SourceRule[] = [
 	sec006,
 	sec007,
 	sec008Source,
+	sec009Source,
 ];
-export const securityOutputRules: OutputRule[] = [sec001Output, sec008Output];
+export const securityOutputRules: OutputRule[] = [sec001Output, sec008Output, sec009Output, sec011];

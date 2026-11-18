@@ -98,7 +98,7 @@ describe('Bibliothek für den Build-Host', () => {
 
 	it('Schweregrad überschreibbar (neue Regel erst als Warnung)', async () => {
 		const dir = materialize(BASE_SOURCE, {
-			'src/routes/+page.svelte': homePage('<h1>A</h1>\n<form></form>'),
+			'src/routes/+page.svelte': homePage('<h1>A</h1>\n<form action="/danke"></form>'),
 		});
 		const result = await runCheck({ projectDir: dir, severityOverrides: { 'SEC-007': 'warning' } });
 		expect(result.passed).toBe(true);

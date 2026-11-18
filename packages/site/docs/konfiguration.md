@@ -7,7 +7,7 @@ Felder eines Formulars stehen nur hier. Nach einer Änderung an Sammlungen: `npx
 
 ### defineSite()
 
-Beschreibt die Seite: Kennung, Sammlungen und Formulare. Steht in
+Beschreibt die Seite: Kennung, Sammlungen, Formulare und fremde Dienste (`external`). Steht in
 `dealsystem.config.ts` im Projektordner. Aus dem Rückgabetyp entstehen die
 Typen für `funnel` und `collection` — ein Tippfehler ist ein Typfehler.
 Wirft mit einer Liste aller Probleme, wenn die Konfiguration ungültig ist.
@@ -109,6 +109,8 @@ interface SiteConfig {
 	siteId: string;
 	collections?: Readonly<Record<string, CollectionDef>>;
 	funnels?: Readonly<Record<string, FunnelDef>>;
+	/** Fremde Dienste (Videos, Chat, Skripte). Nur was hier steht, lässt die Seite zu. */
+	external?: Readonly<Record<string, ExternalDef>>;
 }
 ```
 

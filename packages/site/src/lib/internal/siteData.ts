@@ -40,5 +40,6 @@ export function emptySiteData(): SiteData {
 			favicon: null,
 		},
 		builtAt: 0,
+		external: {},
 	};
 }

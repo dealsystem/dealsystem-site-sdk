@@ -17,10 +17,10 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/regeln.md` (jede Regel mit Kor
 4. Häufige Fälle:
    - nicht freigegebenes Paket → entfernen; die Liste zeigt `npx dealsystem check --allowed`
    - `<img>` → `<MediaImage>` mit `alt`
-   - eigenes `<form>` oder `fetch` → `<LeadForm>`
+   - `<form action="…">` (`SEC-007`) oder eigenes `fetch` → `<LeadForm>`
    - fremde Schrift → lokal ablegen (`@fontsource/…`)
-   - Karte oder fremder Inhalt, den die Sicherheitsregeln blockieren (`SEC-008`) → `<MapEmbed>` für Karten,
-     sonst ein gewöhnlicher Link zum Anbieter
+   - fremder Dienst, Host oder Skript (`SEC-005`, `SEC-006`, `SEC-008`, `PRV-003`, `PRV-008`) → Eintrag unter
+     `external` und `<Embed>`/`<ExternalScript>`, Skill `extern-einbinden`; Karte ohne Eintrag: `<MapEmbed>`
    - feste Adresse, Telefonnummer oder E-Mail (`CNT-002`) → `{data.site.address}` usw. aus dem CRM
    - zwei `h1` oder übersprungene Ebene → Überschriften ordnen
    - langer fester Text → `<Text>` oder `<RichText>` mit `key` und `default`

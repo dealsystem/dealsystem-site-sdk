@@ -1,8 +1,8 @@
 <!--
 @component
-Eine Karte von OpenStreetMap mit einer Markierung, z. B. für die Anfahrt. Das
-ist die eine freigegebene Karte: Andere Kartendienste lassen sich auf der Seite
-nicht einbetten. Die Karte lädt erst, wenn der Besucher zustimmt; vorher steht
+Eine Karte von OpenStreetMap mit einer Markierung, z. B. für die Anfahrt. Sie
+braucht keinen Eintrag unter `external`. Google Maps geht über `<Embed>` mit
+der Vorlage `google-maps`. Die Karte lädt erst, wenn der Besucher zustimmt; vorher steht
 dort ein Hinweis mit der Schaltfläche „Karte anzeigen“. Der Link „Karte in
 OpenStreetMap öffnen“ funktioniert immer.
 
@@ -28,6 +28,13 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 
 	/** Adresse der Einbettung. Die CSP des Starters erlaubt genau diese Herkunft. */
 	const ORIGIN = 'https://www.openstreetmap.org';
+
+	/** Steht im Cookie-Hinweis unter „Externe Inhalte“, solange eine Karte auf der Seite ist. */
+	const OSM_PROVIDER = {
+		name: 'OpenStreetMap Foundation, Vereinigtes Königreich',
+		purpose: 'Zeigt die Karte.',
+		privacyUrl: 'https://osmfoundation.org/wiki/Privacy_Policy',
+	};
 </script>
 
 <script lang="ts">
@@ -65,7 +72,7 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 
 	onMount(() => {
 		consent.init();
-		return consent.require('media');
+		return consent.require('media', OSM_PROVIDER);
 	});
 </script>
 

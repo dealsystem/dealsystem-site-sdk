@@ -126,18 +126,14 @@ Für die Anfahrt gibt es genau eine Karte: `<MapEmbed>` mit OpenStreetMap.
   nicht; eine Markierung am falschen Haus ist schlimmer als keine Karte.
 - Die Karte lädt erst nach „Karte anzeigen“. Der Link „Karte in OpenStreetMap öffnen“ steht immer da.
 - Die Adresse daneben kommt aus dem CRM (`data.site.address`), nicht aus dem Code.
-- **Google Maps geht nicht**, auch nicht in `<ConsentGate>`: Die Sicherheitsregeln der Seite erlauben den
-  Anbieter nicht, die Karte bliebe leer, und `npx dealsystem check` meldet es (`SEC-008`). Wünscht der Kunde
-  ausdrücklich Google Maps, sag ihm in einem Satz, dass hier OpenStreetMap eingebaut ist, und biete einen
-  Link „Route mit Google Maps planen“ als gewöhnliches `<a href="https://www.google.com/maps/…">` an.
+- Wünscht der Kunde ausdrücklich Google Maps, nimm `<Embed>` mit der Vorlage `google-maps` und der Adresse
+  aus Google Maps → Teilen → Karte einbetten (`extern.md`). Ohne diese Adresse bleibt es bei `<MapEmbed>`.
 
 ## Fremde Inhalte
 
-Einbetten lässt sich nur, was die Sicherheitsregeln der Seite (CSP in `svelte.config.js`) erlauben: Tracking
-über `<Tracking />` in `<ConsentGate category="marketing">` (die Kennungen stehen im CRM) und die Karte über
-`<MapEmbed />`. `<ConsentGate>` allein macht einen Dienst nicht erlaubt.
-
-Alles andere, was Daten an fremde Anbieter schickt (Google Maps, YouTube, Bewertungs-Widgets,
-Terminbuchung), bindest du nicht ein. Setze stattdessen einen gewöhnlichen Link zum Anbieter und sag dem
-Kunden in einem Satz, dass sich dieser Dienst auf der Seite nicht einbetten lässt. Lockere dafür nie die
-Regeln in `svelte.config.js`; `npx dealsystem check` lehnt das ab (`SEC-005`, `SEC-008`).
+Videos (YouTube, Vimeo), Google Maps, Terminbuchung, Widgets und fremde Skripte stehen in
+`dealsystem.config.ts` unter `external` und kommen über `<Embed>` oder `<ExternalScript>` auf die Seite. Daraus
+entstehen die Sicherheitsregeln (`csp: dealsystemCsp()` in `svelte.config.js`) und der Cookie-Hinweis; vor der
+Einwilligung lädt nichts davon. Anleitung mit Beispielen: `extern.md`. Ohne Eintrag gehen nur Tracking über
+`<Tracking />` (Kennungen im CRM) und die Karte über `<MapEmbed />`. Lockere nie die Regeln in
+`svelte.config.js`; `npx dealsystem check` lehnt das ab (`SEC-005`, `SEC-008`).

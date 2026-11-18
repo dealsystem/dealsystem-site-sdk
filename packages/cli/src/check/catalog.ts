@@ -7,7 +7,9 @@
 
 import type { RuleMeta } from './types.js';
 
-export const RULE_SET_VERSION = '2';
+// 3: fremde Dienste über `external` und `dealsystemCsp()` (Phase 2, Paket A). Verschärfungen gelten als Fehler nur
+// für Seiten mit `dealsystemCsp()`; Seiten mit der festen CSP bis SDK 0.1 bekommen sie als Warnung.
+export const RULE_SET_VERSION = '3';
 
 /** Bereich von `@dealsystem/site`, den dieser Regelkatalog kennt. Der Build-Host gibt seinen eigenen mit. */
 export const DEFAULT_SDK_RANGE = '>=0.1.0 <2.0.0';
@@ -127,38 +129,64 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'SEC-005',
 		severity: 'error',
 		stages: ['source'],
-		title: '`kit.csp` wie im Starter (Modus `hash`, Direktiven nicht gelockert)',
-		fix: 'Stelle den Abschnitt `csp` in svelte.config.js wieder her: `npx dealsystem sync --fix-config`.',
+		title:
+			'`kit.csp: dealsystemCsp()` (oder die feste Liste bis SDK 0.1); `external` in dealsystem.config.ts gültig: nur `https://host`, Platzhalter nicht in `script`/`frame`, kein `unsafe-eval`',
+		fix: 'Schreibe in svelte.config.js `csp: dealsystemCsp()` (`npx dealsystem sync --fix-config`) und trage fremde Hosts unter `external` in dealsystem.config.ts ein (extern.md).',
 	},
 	{
 		id: 'SEC-006',
 		severity: 'error',
 		stages: ['source'],
-		title: 'kein `eval`, `new Function`, kein Inline-Event-Handler als Zeichenkette',
-		fix: 'Entferne den Fund; die Seite läuft mit einer strengen Content-Security-Policy.',
+		title:
+			'kein `eval`, `new Function`, WebAssembly, kein Inline-Event-Handler als Zeichenkette, kein `<script>` ohne `src`, kein eigener Inhaltsblock `ds-content`',
+		fix: 'Entferne den Fund; die Seite läuft mit einer strengen Content-Security-Policy. Eigenen Code legst du als Datei in `static/scripts/` ab und lädst ihn mit `<ExternalScript>` (extern.md).',
 	},
 	{
 		id: 'SEC-007',
 		severity: 'error',
 		stages: ['source'],
-		title: 'Formulare nur über `<LeadForm>`, kein eigenes `<form>`',
-		fix: 'Ersetze das `<form>` durch `<LeadForm funnel="…" />` und lege das Formular in dealsystem.config.ts unter `funnels` an.',
+		title: 'eigenes `<form>` nur ohne `action` (oder `method="dialog"`), kein `formaction`',
+		fix: 'Lass `action` weg und sende mit `createLeadClient()`, oder nimm `<LeadForm funnel="…" />` mit dem Formular unter `funnels` in dealsystem.config.ts.',
 	},
 	{
 		id: 'SEC-008',
 		severity: 'error',
 		stages: ['source', 'output'],
 		title:
-			'eingebettete fremde Inhalte (`<iframe>`, `<script>`) sind von der Content-Security-Policy der Seite erlaubt',
-		fix: 'Für eine Karte nutze `<MapEmbed lat={…} lon={…} title="…" />` aus `@dealsystem/site`. Jeden anderen fremden Inhalt ersetzt du durch einen Link zum Anbieter. Lockere nicht die Regeln in svelte.config.js.',
+			'fremde Rahmen und Skripte nur über `<Embed>`/`<ExternalScript>` mit Eintrag unter `external`; CSP der fertigen Seite = erwartete CSP',
+		fix: 'Trage den Dienst unter `external` in dealsystem.config.ts ein und binde ihn mit `<Embed>` (Video, Karte, Termin) oder `<ExternalScript>` (Skript) ein. Anleitung: extern.md. Lockere nicht die Regeln in svelte.config.js.',
+	},
+	{
+		id: 'SEC-009',
+		severity: 'error',
+		stages: ['source', 'output'],
+		title: 'kein Passwortfeld (`<input type="password">`)',
+		fix: 'Entferne das Passwortfeld. Eine Seite auf DealSystem hat keine Anmeldung.',
+	},
+	{
+		id: 'SEC-010',
+		severity: 'error',
+		stages: [],
+		title:
+			'deklarierte fremde Hosts sind nicht als gefährlich gemeldet (Prüfung durch DealSystem beim Hochladen)',
+		fix: 'Entferne den Dienst aus `external` in dealsystem.config.ts und aus der Seite. Ein gemeldeter Host schadet den Besuchern.',
+	},
+	{
+		id: 'SEC-011',
+		severity: 'error',
+		stages: ['output'],
+		title:
+			'`<ExternalScript>` nur auf Seiten mit eigener Domain, solange `dealsystem.site` nicht auf der Public Suffix List steht (nur Build-Host)',
+		fix: 'Verbinde eine eigene Domain (Eigene Website → Domains) oder nimm `<ExternalScript>` heraus. Videos über `<Embed>` und `<Tracking />` gehen auch ohne.',
 	},
 	// --------------------------------------------------------------- Datenschutz
 	{
 		id: 'PRV-001',
 		severity: 'error',
 		stages: ['source', 'output'],
-		title: 'keine externen Skripte, Styles, Iframes, Schriften, Bilder außerhalb `<ConsentGate>`',
-		fix: 'Lege die Datei lokal ab (Ordner `static/` oder Import) oder umschließe das Element mit `<ConsentGate category="…">`.',
+		title:
+			'keine externen Skripte, Styles, Iframes, Schriften, Bilder vor der Einwilligung (außerhalb `<Embed>`, `<ExternalScript>`, `<ConsentGate>`)',
+		fix: 'Lege die Datei lokal ab (Ordner `static/` oder Import). Fremde Dienste bindest du mit `<Embed>` oder `<ExternalScript>` ein (extern.md).',
 	},
 	{
 		id: 'PRV-002',
@@ -171,8 +199,9 @@ export const RULES: readonly RuleMeta[] = [
 		id: 'PRV-003',
 		severity: 'error',
 		stages: ['source'],
-		title: 'Tracking nur über `<Tracking>` in `<ConsentGate>`, keine eigenen Pixel-Snippets',
-		fix: 'Entferne das Snippet. Trage die ID im CRM ein und nutze `<ConsentGate category="marketing"><Tracking /></ConsentGate>`.',
+		title:
+			'Tracking über `<Tracking>` oder als Datei in `static/`, geladen von `<ExternalScript>` mit Kategorie `statistics`/`marketing`',
+		fix: 'Google Tag und Meta Pixel: Kennung im CRM eintragen und `<ConsentGate category="marketing"><Tracking /></ConsentGate>`. Andere Snippets als Datei unter `static/scripts/` mit `<ExternalScript>` laden (extern.md).',
 	},
 	{
 		id: 'PRV-004',
@@ -194,6 +223,13 @@ export const RULES: readonly RuleMeta[] = [
 		stages: ['source'],
 		title: 'kein eigener Zugriff auf `document.cookie`, `localStorage`, `sessionStorage`',
 		fix: 'Wenn das Speichern nicht technisch nötig ist, gehört es hinter `<ConsentGate>`.',
+	},
+	{
+		id: 'PRV-008',
+		severity: 'warning',
+		stages: ['source'],
+		title: 'eigener fremder Dienst unter `external` nennt `provider`, `purpose` und `privacyUrl`',
+		fix: 'Ergänze Anbieter mit Sitz, Zweck und Datenschutz-Link: Der Cookie-Hinweis zeigt sie dem Besucher.',
 	},
 	// ------------------------------------------------------------ Barrierefreiheit
 	{

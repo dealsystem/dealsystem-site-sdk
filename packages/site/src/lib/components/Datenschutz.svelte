@@ -27,14 +27,14 @@ Live schalten lässt sich die Seite erst mit Text.
 
 <script lang="ts">
 	import { consent } from '../consent/consent.svelte.js';
-	import { siteHasTracking } from '../internal/consentNeed.js';
+	import { siteUsesConsent } from '../internal/consentNeed.js';
 	import { privacyHtml } from '../internal/privacy.js';
 	import { hasVisibleText, nestHeadings } from './legal.js';
 
 	let { headingLevel = 1, class: className }: DatenschutzProps = $props();
 
 	const text = privacyHtml();
-	const hasTracking = siteHasTracking();
+	const hasTracking = siteUsesConsent();
 	const html = $derived(nestHeadings(text, headingLevel + 1));
 </script>
 

@@ -238,10 +238,15 @@ describe('Detailseiten', () => {
 		expect(await docs('ablauf.md')).toContain('Prüfung bestanden: Quelltext und fertige Seite geprüft');
 	});
 
-	it('nennt die freigegebene Karte und sagt, dass andere Dienste sich nicht einbetten lassen', async () => {
+	it('nennt die Karte ohne Eintrag und den Weg für andere fremde Dienste', async () => {
 		const gestaltung = await docs('gestaltung.md');
 		expect(gestaltung).toContain('<MapEmbed lat=');
-		expect(gestaltung).toContain('**Google Maps geht nicht**');
+		expect(gestaltung).toContain('extern.md');
+		const extern = await docs('extern.md');
+		expect(extern).toContain("external: { video: { preset: 'youtube' } }");
+		expect(extern).toContain('<ExternalScript');
+		expect(extern).toContain('csp: dealsystemCsp()');
+		expect(await docs('komponenten.md')).toContain('## Embed');
 		expect(await docs('komponenten.md')).toContain('## MapEmbed');
 		expect(await docs('regeln.md')).toContain('`SEC-008`');
 	});
