@@ -71,6 +71,33 @@ export function loadTracking(config: TrackingConfig): string[] {
 	return added;
 }
 
+/** Ereignis-ID einer Anfrage, gleich bei Pixel, gtag und der serverseitigen Conversion (Core: `lead-<submissionId>`). */
+export function leadEventId(submissionId: string): string {
+	return `lead-${submissionId}`;
+}
+
+/**
+ * Meldet eine angenommene Anfrage an Meta Pixel (`Lead`) und Google Tag (`generate_lead`), mit derselben
+ * Ereignis-ID wie die serverseitige Conversion. So zählen Meta und Google sie einmal. Nur, wenn die Tags
+ * geladen sind, also nach der Einwilligung „Marketing“. Gibt zurück, wohin gemeldet wurde.
+ * @internal
+ */
+export function reportLeadConversion(submissionId: string): string[] {
+	if (typeof window === 'undefined' || loaded.size === 0) return [];
+	const w = window as unknown as Record<string, unknown>;
+	const eventID = leadEventId(submissionId);
+	const sent: string[] = [];
+	if (typeof w.fbq === 'function') {
+		(w.fbq as (...args: unknown[]) => void)('track', 'Lead', {}, { eventID });
+		sent.push('meta');
+	}
+	if (typeof w.gtag === 'function') {
+		(w.gtag as (...args: unknown[]) => void)('event', 'generate_lead', { transaction_id: eventID });
+		sent.push('google');
+	}
+	return sent;
+}
+
 /** @internal Nur für Tests. */
 export function resetTrackingForTests(): void {
 	loaded.clear();

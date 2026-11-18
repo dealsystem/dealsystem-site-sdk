@@ -46,7 +46,8 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { getFirstTouch } from '../client/attribution.js';
+	import { buildLeadAttribution } from '../client/attribution.js';
+	import { reportLeadConversion } from '../client/tracking.js';
 	import { captchaAdapter, type CaptchaHandle } from '../client/captcha.js';
 	import { captchaChallengeUrl, siteApi, type SiteApiError } from '../client/siteApi.js';
 	import { labelOf, maxLengthOf, toLeadData, validateField } from '../client/validation.js';
@@ -211,13 +212,15 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			funnelKey: funnel,
 			submissionId,
 			data: toLeadData(fields, values()),
-			attribution: getFirstTouch(),
+			attribution: buildLeadAttribution(consent.granted(), consent.decidedAt),
 			captcha: captchaSolution ?? '',
 			website: honeypot.slice(0, 500),
 		});
 
 		if (result.ok) {
 			dryRun = result.data.dryRun;
+			// Gleiche Ereignis-ID wie die serverseitige Conversion. Die Vorschau zählt nicht.
+			if (!dryRun && consent.has('marketing')) reportLeadConversion(submissionId);
 			status = 'success';
 			await tick();
 			successElement?.focus();

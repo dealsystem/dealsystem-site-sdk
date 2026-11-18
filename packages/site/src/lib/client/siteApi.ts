@@ -2,6 +2,7 @@
 // Grundsatz: Fehler kommen als Daten zurück. Keine Funktion hier wirft, auch
 // nicht bei Netzfehlern oder kaputten Antworten.
 import { getSiteData } from '../internal/siteData.js';
+import type { LeadAttributionV2, Touch } from './attribution.js';
 import { normalizeEntry } from '../snapshot.js';
 import type { RawCollectionEntry } from '../types.js';
 
@@ -46,8 +47,8 @@ export interface SiteApiError {
 /** Ergebnis jedes Aufrufs: entweder Daten oder ein Fehler, nie eine Ausnahme. */
 export type SiteApiResult<T> = { ok: true; data: T } | { ok: false; error: SiteApiError };
 
-/** First-Touch-Zuordnung einer Anfrage. */
-export interface LeadAttribution {
+/** Fassung 1 der Zuordnung (flach, ältere SDKs). Der Core nimmt sie weiter an. */
+export interface LeadAttributionV1 {
 	utmSource?: string;
 	utmMedium?: string;
 	utmCampaign?: string;
@@ -63,7 +64,8 @@ export interface LeadRequest {
 	/** UUID je Einsendung. Derselbe Wert bei einem neuen Versuch verhindert Doppel. */
 	submissionId: string;
 	data: Record<string, string | string[] | boolean>;
-	attribution?: LeadAttribution;
+	/** Herkunft (Fassung 2). Ohne Einwilligung nur der aktuelle Besuch. */
+	attribution?: LeadAttributionV2 | LeadAttributionV1;
 	/** Gelöste Captcha-Aufgabe (ALTCHA v3): base64 von `{ challenge, solution }`, höchstens 4 000 Zeichen. */
 	captcha: string;
 	/** Honeypot. Echte Besucher lassen das Feld leer. */
@@ -74,6 +76,19 @@ export interface LeadAccepted {
 	accepted: true;
 	/** `true` in der Vorschau: geprüft, aber nicht gespeichert. */
 	dryRun: boolean;
+}
+
+/** Body von `POST …/track` (Seitenaufruf). */
+export interface PageviewRequest {
+	/** `location.pathname`. */
+	path: string;
+	/** Erster Seitenaufruf der geöffneten Seite: nur dann zählen `utm` und `referrerHost`. */
+	landing?: boolean;
+	referrerHost?: string | null;
+	utm?: Pick<Touch, 'source' | 'medium' | 'campaign' | 'term' | 'content'> | null;
+	/** Nur mit Einwilligung (siehe `ATTRIBUTION_CONSENT.visitorId`). */
+	visitorId?: string | null;
+	consent?: { statistics: boolean; marketing: boolean; at: string | null };
 }
 
 export interface CollectionPage {
@@ -160,6 +175,8 @@ function validationDetails(
 /** @internal */
 export interface SiteApi {
 	submitLead(request: LeadRequest): Promise<SiteApiResult<LeadAccepted>>;
+	/** Seitenaufruf melden. Fehler sind egal: Gezählt wird, was ankommt. */
+	track(request: PageviewRequest): Promise<SiteApiResult<{ accepted: true; dryRun: boolean }>>;
 	getCollection(
 		key: string,
 		query?: { limit?: number; offset?: number; sort?: 'newest' | 'oldest' },
@@ -229,6 +246,20 @@ export function createSiteApi(options: SiteApiOptions): SiteApi {
 			if (!result.ok) return result;
 			const data = result.data.data;
 			// Nie ein Erfolg ohne ausdrückliches `accepted: true`.
+			if (!isRecord(data) || data.accepted !== true) return fail('invalid_response', 200);
+			return { ok: true, data: { accepted: true, dryRun: data.dryRun === true } };
+		},
+
+		async track(pageview) {
+			const result = await request('/track', {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(pageview),
+				// Auch beim Verlassen der Seite noch zustellen.
+				keepalive: true,
+			});
+			if (!result.ok) return result;
+			const data = result.data.data;
 			if (!isRecord(data) || data.accepted !== true) return fail('invalid_response', 200);
 			return { ok: true, data: { accepted: true, dryRun: data.dryRun === true } };
 		},

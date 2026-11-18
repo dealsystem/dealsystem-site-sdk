@@ -12,6 +12,9 @@ Angaben im Kopf jeder Seite, die für die ganze Website gelten. Gehört einmal i
 
 Titel und Beschreibung je Seite setzt `<Seo>`.
 
+Außerdem meldet `<SiteHead>` jeden Seitenaufruf für die Statistik im CRM: Pfad,
+Einstieg und Kampagne. Die Besuchs-ID geht nur mit Einwilligung „Marketing“ mit.
+
 ```svelte
 <SiteHead favicon="/favicon.svg" />
 ```
@@ -24,6 +27,10 @@ Titel und Beschreibung je Seite setzt `<Seo>`.
 </script>
 
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { page } from '$app/state';
+	import { trackPageview } from '../client/pageview.js';
+	import { consent } from '../consent/consent.svelte.js';
 	import { getSiteData } from '../internal/siteData.js';
 	import { faviconLinks, iconType, WEB_MANIFEST_PATH } from '../internal/seo.js';
 
@@ -32,6 +39,14 @@ Titel und Beschreibung je Seite setzt `<Seo>`.
 	const { seo } = getSiteData();
 	const crm = seo.favicon ? faviconLinks(seo.favicon) : null;
 	const hasManifest = seo.favicon?.icons.some((i) => i.size >= 192) ?? false;
+
+	onMount(() => consent.init());
+
+	// Jeder Seitenwechsel ist ein Seitenaufruf für die Statistik im CRM. Nur im Browser, nie beim Build.
+	$effect(() => {
+		const path = page.url.pathname;
+		if (consent.ready) trackPageview(path);
+	});
 </script>
 
 <svelte:head>

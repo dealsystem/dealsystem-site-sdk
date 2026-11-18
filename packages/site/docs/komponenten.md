@@ -661,6 +661,9 @@ Angaben im Kopf jeder Seite, die für die ganze Website gelten. Gehört einmal i
 
 Titel und Beschreibung je Seite setzt `<Seo>`.
 
+Außerdem meldet `<SiteHead>` jeden Seitenaufruf für die Statistik im CRM: Pfad,
+Einstieg und Kampagne. Die Besuchs-ID geht nur mit Einwilligung „Marketing“ mit.
+
 ```svelte
 <SiteHead favicon="/favicon.svg" />
 ```
@@ -704,6 +707,30 @@ Zwecke, für die eine Einwilligung nötig ist:
 
 ```ts
 type ConsentCategory = 'statistics' | 'marketing' | 'media';
+```
+
+## Kampagnen-Parameter
+
+### getCampaignParam()
+
+Wert eines eigenen URL-Parameters, z. B. `partner` aus `?partner=…`: aus dem aktuellen Besuch, sonst (nur mit
+Einwilligung) aus dem zuletzt gespeicherten. `null`, wenn es ihn nicht gibt. Nur im Browser.
+
+Nicht gelesen werden UTM-Parameter, Klick-IDs und Namen, die nach Zugangs- oder Personendaten aussehen
+(`email`, `token`, `session` …); höchstens 20 Parameter, Werte bis 500 Zeichen. Mit der Anfrage gehen die
+Parameter ohnehin an das CRM (`<LeadForm>`), dafür ist nichts zu tun.
+
+```ts
+<script lang="ts">
+	import { getCampaignParam } from '@dealsystem/site';
+	import { onMount } from 'svelte';
+	let partner = $state<string | null>(null);
+	onMount(() => (partner = getCampaignParam('partner')));
+</script>
+```
+
+```ts
+function getCampaignParam(name: string): string | null;
 ```
 
 ## Inhalte im Browser nachladen

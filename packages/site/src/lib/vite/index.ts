@@ -244,6 +244,11 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 				res.setHeader('X-Captcha-Mode', 'test');
 				return sendJson(res, 200, { data: { accepted: true, dryRun: true } });
 			}
+			if (resource === 'track' && req.method === 'POST') {
+				// Seitenaufrufe zählen lokal nicht; wie eine Vorschau: geprüft, nichts gespeichert.
+				for await (const _chunk of req) void _chunk;
+				return sendJson(res, 200, { data: { accepted: true, dryRun: true } });
+			}
 			if (resource === 'captcha' && req.method === 'GET') {
 				res.setHeader('Cache-Control', 'no-store');
 				res.setHeader('X-Captcha-Mode', 'test');

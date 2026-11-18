@@ -1,7 +1,7 @@
 // Einwilligung des Besuchers. Eine Quelle für <CookieBanner>, <ConsentGate>
 // und <Tracking>. Gespeichert wird nur die Wahl selbst (technisch nötig).
 import { untrack } from 'svelte';
-import { captureFirstTouch, forgetStoredFirstTouch } from '../client/attribution.js';
+import { syncAttribution } from '../client/attribution.js';
 import { reloadPage } from '../internal/reload.js';
 
 /**
@@ -27,13 +27,15 @@ const state = $state({
 	/** Wahl aus dem Browser gelesen? Vorher gilt nichts als erlaubt. */
 	ready: false,
 	decided: false,
+	/** Zeitpunkt der Wahl (ms), `null` vor der Entscheidung. */
+	decidedAt: null as number | null,
 	granted: { ...NONE } as Granted,
 	settingsOpen: false,
 	/** Wie viele Bausteine auf der Seite gerade eine Einwilligung je Zweck brauchen. */
 	required: { statistics: 0, marketing: 0, media: 0 } as Record<ConsentCategory, number>,
 });
 
-function read(): { granted: Granted } | null {
+function read(): { granted: Granted; at: number } | null {
 	try {
 		const raw = localStorage.getItem(STORAGE_KEY);
 		if (!raw) return null;
@@ -43,7 +45,7 @@ function read(): { granted: Granted } | null {
 		const stored = (parsed.granted ?? {}) as Record<string, unknown>;
 		const granted = { ...NONE };
 		for (const category of CONSENT_CATEGORIES) granted[category] = stored[category] === true;
-		return { granted };
+		return { granted, at: parsed.at };
 	} catch {
 		return null;
 	}
@@ -53,14 +55,16 @@ function decide(granted: Granted): void {
 	const revoked = CONSENT_CATEGORIES.some((c) => state.granted[c] && !granted[c]);
 	state.granted = { ...granted };
 	state.decided = true;
+	const at = Date.now();
+	state.decidedAt = at;
 	state.settingsOpen = false;
 	try {
-		localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: STORAGE_VERSION, at: Date.now(), granted }));
+		localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: STORAGE_VERSION, at, granted }));
 	} catch {
 		// Speicher gesperrt: die Wahl gilt bis zum Schließen der Seite.
 	}
-	if (granted.marketing) captureFirstTouch(true);
-	else forgetStoredFirstTouch();
+	// Legt an, was die neue Wahl erlaubt, und löscht, was sie nicht mehr erlaubt (Klick-IDs, Besuchs-ID, Besuche).
+	syncAttribution(granted);
 	// Bereits geladene Skripte Dritter lassen sich nicht entladen. Nach einem
 	// Widerruf wird die Seite deshalb neu geladen.
 	if (revoked) reloadPage();
@@ -88,6 +92,16 @@ export const consent = {
 	/** Hat der Besucher schon gewählt? Im Server-Rendering immer `false`. */
 	get decided(): boolean {
 		return state.decided;
+	},
+	/** Zeitpunkt der Wahl als ISO-Zeitpunkt, sonst `null`. Geht mit dem Lead an den Core. */
+	get decidedAt(): string | null {
+		// Nur zum Umwandeln in einen Text, nicht als reaktiver Zustand.
+		// eslint-disable-next-line svelte/prefer-svelte-reactivity
+		return state.decidedAt === null ? null : new Date(state.decidedAt).toISOString();
+	},
+	/** Aktuelle Wahl je Zweck, als Kopie. @internal */
+	granted(): Record<ConsentCategory, boolean> {
+		return { ...state.granted };
 	},
 	/** Ist die gespeicherte Wahl schon gelesen? Erst danach erscheint der Hinweis. */
 	get ready(): boolean {
@@ -166,14 +180,16 @@ export const consent = {
 		if (stored) {
 			state.granted = stored.granted;
 			state.decided = true;
+			state.decidedAt = stored.at;
 		}
 		state.ready = true;
-		captureFirstTouch(state.granted.marketing);
+		syncAttribution(state.granted);
 	},
 	/** @internal Nur für Tests. */
 	resetForTests(): void {
 		state.ready = false;
 		state.decided = false;
+		state.decidedAt = null;
 		state.granted = { ...NONE };
 		state.settingsOpen = false;
 		state.required = { statistics: 0, marketing: 0, media: 0 };

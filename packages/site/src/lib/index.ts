@@ -21,6 +21,7 @@ export { default as Tracking } from './components/Tracking.svelte';
 
 export { consent, type ConsentCategory } from './consent/consent.svelte.js';
 export { loadCollection, loadEntry, type LoadedCollection } from './client/collections.js';
+export { getCampaignParam } from './client/attribution.js';
 export type { SiteApiError, SiteApiErrorKind, SiteApiResult } from './client/siteApi.js';
 
 export type {

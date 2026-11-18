@@ -279,6 +279,8 @@ async function build() {
 				.join('\n') +
 			'\n## consent\n\n' +
 			(await pick('consent/consent.svelte.ts', ['consent', 'ConsentCategory'])).map(entry).join('\n') +
+			'\n## Kampagnen-Parameter\n\n' +
+			(await pick('client/attribution.ts', ['getCampaignParam'])).map(entry).join('\n') +
 			'\n## Inhalte im Browser nachladen\n\n' +
 			(await pick('client/collections.ts', ['loadCollection', 'loadEntry'])).map(entry).join('\n'),
 	);
