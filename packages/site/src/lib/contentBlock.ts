@@ -11,8 +11,26 @@ import type { SlotOverride } from './types.js';
 /** `id` des Blocks im HTML. Vertrag zwischen SDK, Build-Host und Core. */
 export const CONTENT_BLOCK_ID = 'ds-content';
 
-/** Format des Blocks. Steigt, wenn sich die Form ändert. */
+/** Format des Blocks (`v` im Block, `contentPatch.format` im Manifest). Steigt, wenn sich die Form ändert. */
 export const CONTENT_BLOCK_VERSION = 1;
+
+/**
+ * Grenzen für `contentPatch.richtextDefaults` im Manifest (Vertrag `contract/ds-content.v1.json`).
+ * Der Build-Bericht an den Core ist auf 8 MB begrenzt; wird eine Grenze überschritten, bekommt
+ * `contentPatch` den Blocker `richtext-defaults-too-large` und leere `richtextDefaults`: Die Seite
+ * baut weiter, der Core baut dann neu statt zu patchen.
+ */
+export const CONTENT_PATCH_LIMITS = Object.freeze({
+	/** Alle Werte und Schlüssel zusammen, in Bytes (UTF-8). */
+	richtextDefaultsTotalBytes: 2 * 1024 * 1024,
+	/** Ein Wert, in Zeichen. */
+	richtextDefaultMaxLength: 100_000,
+	/** Einträge. */
+	richtextDefaultsMaxEntries: 2000,
+	/** Einträge in `blockers`, Länge eines Eintrags. */
+	blockersMaxItems: 20,
+	blockerMaxLength: 40,
+});
 
 /** Inhalt des Blocks. Nur Öffentliches: was ohnehin auf der Seite steht. */
 export interface ContentBlock {

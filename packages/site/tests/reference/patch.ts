@@ -1,3 +1,7 @@
+// Referenz-Patcher für den Vertrag `contract/ds-content.v1.json` (Konzept Phase 2, 8.1). Nicht im
+// veröffentlichten Paket: Maßgeblich patcht der Core mit seinem eigenen Modul `selfSite/patch/`; dieser
+// Code ist dessen Vorlage und erzeugt mit `svelte/server` die Fälle der Vertragsdatei.
+//
 // „Patchen statt Bauen“: schreibt neue Slot-Werte aus dem CRM in eine
 // fertig gebaute Seite, ohne Kundencode auszuführen. Reine Funktion: Dateien
 // rein, Dateien raus. Entpacken, Packen, sha256 und Speichern macht der Aufrufer.
@@ -20,11 +24,11 @@ import {
 	contentBlockTag,
 	parseContentBlock,
 	type ContentBlock,
-} from '../contentBlock.js';
-import { resolveMediaImage } from '../internal/mediaImage.js';
-import { sanitizeRichtextHtml } from '../richtext/server.js';
-import { resolveImageSlot, resolveLinkSlot, resolveTextSlot } from '../slots.js';
-import type { ContentSlotDef, MediaRef, SiteManifest, SlotOverride } from '../types.js';
+} from '../../src/lib/contentBlock.js';
+import { resolveMediaImage } from '../../src/lib/internal/mediaImage.js';
+import { sanitizeRichtextHtml } from '../../src/lib/richtext/server.js';
+import { resolveImageSlot, resolveLinkSlot, resolveTextSlot } from '../../src/lib/slots.js';
+import type { ContentSlotDef, MediaRef, SiteManifest, SlotOverride } from '../../src/lib/types.js';
 
 /** Warum nicht gepatcht werden kann. Dann baut der Core wie bisher neu. */
 export interface PatchBlocker {
@@ -361,12 +365,7 @@ export function patchArtifact(input: PatchInput): PatchResult {
 		return { ok: false, blockers: [{ code: 'bad-manifest', message: `Manifest unbrauchbar: ${manifest}` }] };
 	}
 	const info = manifest.contentPatch;
-	if (
-		!info ||
-		info.version !== CONTENT_BLOCK_VERSION ||
-		info.delivery !== 'dom' ||
-		info.blockers.length > 0
-	) {
+	if (!info || info.format !== CONTENT_BLOCK_VERSION || info.delivery !== 'dom' || info.blockers.length > 0) {
 		return {
 			ok: false,
 			blockers: [
@@ -706,5 +705,3 @@ function checkedManifest(raw: unknown, limits: PatchLimits): SiteManifest | stri
 	}
 	return manifest;
 }
-
-export { readArtifactDirectory, UnsafeArtifactError } from './directory.js';

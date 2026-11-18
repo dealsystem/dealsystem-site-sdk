@@ -376,7 +376,8 @@ export interface SiteManifest {
 	 * Seite, nicht im JS-Bundle. `blockers` nennt, was ein Patchen verhindert.
 	 */
 	contentPatch?: {
-		version: number;
+		/** Fassung des Inhaltsblocks (`contract/ds-content.v1.json`). Unbekannte Fassung: Der Core baut. */
+		format: number;
 		delivery: 'dom' | 'embedded';
 		blockers: string[];
 		/** Geprüftes Standard-HTML je Richtext-Slot (zum Zurücksetzen). */

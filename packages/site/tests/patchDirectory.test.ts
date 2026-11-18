@@ -2,7 +2,7 @@
 import { link, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readArtifactDirectory, UnsafeArtifactError } from '../src/lib/patch/index.js';
+import { readArtifactDirectory, UnsafeArtifactError } from './reference/patchDirectory.js';
 
 let dir: string;
 let outside: string;

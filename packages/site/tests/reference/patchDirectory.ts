@@ -1,10 +1,10 @@
-// Liest ein entpacktes Artefakt für `patchArtifact`, ohne Links zu folgen: Nur reguläre Dateien
+// Referenz für den Core (E1c), nicht im Paket. Liest ein entpacktes Artefakt für `patchArtifact`, ohne Links zu folgen: Nur reguläre Dateien
 // und Ordner zählen, ein Symlink, eine Gerätedatei oder ein Hardlink bricht ab. Grenzen wie in
 // `PATCH_LIMITS`. Das Artefakt ist nicht vertrauenswürdig: Hier wird nur gelesen, nie ausgeführt.
 import { constants } from 'node:fs';
 import { lstat, open, readdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PATCH_LIMITS, unsafeArtifactPath, type PatchLimits } from './index.js';
+import { PATCH_LIMITS, unsafeArtifactPath, type PatchLimits } from './patch.js';
 
 export class UnsafeArtifactError extends Error {
 	constructor(

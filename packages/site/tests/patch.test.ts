@@ -11,7 +11,7 @@ import {
 	svelteHash,
 	unsafeArtifactPath,
 	type PatchInput,
-} from '../src/lib/patch/index.js';
+} from './reference/patch.js';
 import { defaultRichtextToHtml } from '../src/lib/richtext/server.js';
 import type { ContentSlotDef, MediaRef, SiteManifest, SlotOverride } from '../src/lib/types.js';
 import { buildContentPatchInfo, buildSiteData } from '../src/lib/vite/index.js';
@@ -462,7 +462,7 @@ describe('feindliches Artefakt', () => {
 			{ ...manifest(), slots: 'x' },
 			{ ...manifest(), slots: [{ key: 'a.b', type: 'script', default: null }] },
 			{ ...manifest(), slots: [SLOTS[0], SLOTS[0]] },
-			{ ...manifest(), contentPatch: { version: 1, delivery: 'dom', blockers: 'x', richtextDefaults: {} } },
+			{ ...manifest(), contentPatch: { format: 1, delivery: 'dom', blockers: 'x', richtextDefaults: {} } },
 		]) {
 			expect(codes(run(artifact(A), { manifest: bad as unknown as SiteManifest }))).toEqual(['bad-manifest']);
 		}

@@ -24,7 +24,7 @@ import type {
 	SlotDefaultImage,
 } from '../types.js';
 import { SDK_VERSION } from '../version.js';
-import { CONTENT_BLOCK_VERSION } from '../contentBlock.js';
+import { CONTENT_BLOCK_VERSION, CONTENT_PATCH_LIMITS } from '../contentBlock.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
 
 export { scanSlots, mergeSlots, SlotScanError, type FoundSlot } from './scan.js';
@@ -179,13 +179,33 @@ export function buildContentPatchInfo(
 	if (!collected.siteHeadInRootLayout) blockers.push('site-head-missing');
 	if (collected.readsSlotsInCode) blockers.push('get-slots');
 	// Standard-HTML der Richtext-Slots: braucht der Core, wenn der Kunde einen Text zurücksetzt.
-	const richtextDefaults: Record<string, string> = {};
+	let richtextDefaults: Record<string, string> = {};
+	let bytes = 0;
+	let entries = 0;
+	let tooLarge = false;
+	const encoder = new TextEncoder();
 	for (const slot of slots) {
 		if (slot.type !== 'richtext' || typeof slot.default !== 'string') continue;
-		richtextDefaults[slot.key] = defaultRichtextToHtml(slot.default);
+		const html = defaultRichtextToHtml(slot.default);
+		entries += 1;
+		bytes += encoder.encode(slot.key).length + encoder.encode(html).length;
+		if (
+			html.length > CONTENT_PATCH_LIMITS.richtextDefaultMaxLength ||
+			entries > CONTENT_PATCH_LIMITS.richtextDefaultsMaxEntries ||
+			bytes > CONTENT_PATCH_LIMITS.richtextDefaultsTotalBytes
+		) {
+			tooLarge = true;
+			break;
+		}
+		richtextDefaults[slot.key] = html;
+	}
+	// Zu groß für den Build-Bericht: Die Seite baut weiter, nur gepatcht wird sie nicht.
+	if (tooLarge) {
+		blockers.push('richtext-defaults-too-large');
+		richtextDefaults = {};
 	}
 	return {
-		version: CONTENT_BLOCK_VERSION,
+		format: CONTENT_BLOCK_VERSION,
 		delivery: blockers.includes('site-head-missing') ? 'embedded' : 'dom',
 		blockers,
 		richtextDefaults,

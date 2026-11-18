@@ -48,7 +48,7 @@ describe('Bundle für den Browser', () => {
 describe('Manifest: contentPatch', () => {
 	it('dom nur mit <SiteHead> im Haupt-Layout, getSlots verhindert das Patchen', () => {
 		expect(buildContentPatchInfo({ siteHeadInRootLayout: true, readsSlotsInCode: false }, [])).toEqual({
-			version: 1,
+			format: 1,
 			delivery: 'dom',
 			blockers: [],
 			richtextDefaults: {},

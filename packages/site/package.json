@@ -50,15 +50,9 @@
 			"types": "./dist/vite/index.d.ts",
 			"default": "./dist/vite/index.js"
 		},
-		"./patch": {
-			"types": "./dist/patch/index.d.ts",
-			"default": "./dist/patch/index.js"
-		},
 		"./docs/*": "./docs/*",
 		"./contract/site-api.v1.json": "./contract/site-api.v1.json",
-		"./contract/content-block.v1.schema.json": "./contract/content-block.v1.schema.json",
-		"./contract/content-block.v1.fixture.json": "./contract/content-block.v1.fixture.json",
-		"./contract/content-patch.v1.schema.json": "./contract/content-patch.v1.schema.json",
+		"./contract/ds-content.v1.json": "./contract/ds-content.v1.json",
 		"./package.json": "./package.json"
 	},
 	"engines": {
@@ -72,7 +66,6 @@
 	"dependencies": {
 		"altcha": "^3.6.0",
 		"esm-env": "^1.2.2",
-		"htmlparser2": "^12.0.0",
 		"marked": "^18.2.1",
 		"sanitize-html": "^2.18.2"
 	},
@@ -96,6 +89,7 @@
 		"@types/node": "^22.20.5",
 		"@types/sanitize-html": "^2.16.2",
 		"ajv": "^8.20.0",
+		"htmlparser2": "^12.0.0",
 		"jsdom": "^31.0.1",
 		"publint": "^0.3.25",
 		"svelte": "^5.57.0",
