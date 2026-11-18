@@ -79,6 +79,7 @@ describe('Dateien für KI-Agenten', () => {
 			'angebote-einbauen',
 			'bild-einbauen',
 			'domain-verbinden',
+			'erster-entwurf',
 			'extern-einbinden',
 			'formular-anbinden',
 			'funnel-mehrstufig',
@@ -86,6 +87,7 @@ describe('Dateien für KI-Agenten', () => {
 			'prueffehler-beheben',
 			'termin-buchung',
 			'veroeffentlichen',
+			'website-planen',
 		]);
 		for (const skill of skills) {
 			const text = await readFile(join(root, skill, 'SKILL.md'), 'utf8');

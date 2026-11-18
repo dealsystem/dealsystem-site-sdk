@@ -16,7 +16,7 @@ wörtlich auf der Seite (`dealsystem check` warnt, CNT-003).
 
 ```svelte
 <RichText
-	key="ankauf.ablauf"
+	key="leistungen.ablauf"
 	default={'1. Sie schicken uns die Eckdaten.\n2. Wir prüfen und melden uns.\n3. Sie erhalten ein Angebot.\n\nDer Ablauf ist für Sie kostenlos.'}
 />
 ```

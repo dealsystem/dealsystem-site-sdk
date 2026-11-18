@@ -9,7 +9,7 @@ Nachschlagen: `node_modules/@dealsystem/site/docs/konfiguration.md` und `kompone
 LeadForm).
 
 1. Formulare stehen in `dealsystem.config.ts` unter `funnels`. Ein neues Formular bekommt einen Schlüssel
-   in Kleinbuchstaben mit Bindestrichen (`ankauf-anfrage`), ein `label` und seine `fields`.
+   in Kleinbuchstaben mit Bindestrichen (`angebot-anfrage`), ein `label` und seine `fields`.
 2. Jedes Formular braucht ein Feld mit `standardField: 'email'` oder `standardField: 'phone'`, sonst
    entsteht im CRM kein Kontakt. Namen immer getrennt als `firstName` und `lastName`.
 3. Feldtypen: `text`, `email`, `tel`, `textarea`, `select`, `multiselect`, `checkbox`, `date`. `select`
@@ -17,7 +17,7 @@ LeadForm).
    (`type: 'hidden'`, z. B. `from: { query: 'partner' }` für `?partner=…`) füllt das SDK selbst; mit
    `crm` am Formular schlägst du vor, was im CRM passiert (`konfiguration.md`).
 4. Auf der Seite genügt eine Zeile:
-   `<LeadForm funnel="ankauf-anfrage" submitLabel="Anfrage senden" successMessage="Danke, wir melden uns." />`
+   `<LeadForm funnel="angebot-anfrage" submitLabel="Anfrage senden" successMessage="Danke, wir melden uns." />`
 5. Kein eigenes `fetch`. Beschriftungen, Fehlermeldungen, Spam-Schutz und Versand bringt `<LeadForm>` mit.
    Eigene Oberfläche oder mehrere Schritte: `<form onsubmit={…}>` mit `createLeadClient()`, Skill
    `funnel-mehrstufig`.
@@ -26,7 +26,7 @@ LeadForm).
    die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 7. Ausprobieren mit `npm run dev`: Die Einsendung wird geprüft, aber nicht gespeichert.
 8. **Leadmagnet** (Formular verspricht eine Datei, z. B. einen Ratgeber als PDF): im Code nur ankündigen,
-   `leadmagnet: { label: 'Ratgeber Immobilienverkauf' }` am Formular. Keine Datei ins Projekt, kein Link im
+   `leadmagnet: { label: 'Checkliste für Ihr Projekt' }` am Formular. Keine Datei ins Projekt, kein Link im
    Code. `<LeadForm>` kündigt die Datei nach dem Absenden selbst an. Sag dem Kunden in einem Satz: Er lädt die
    Datei unter Eigene Website → Formulare hoch und schaltet dort die Eingangsbestätigung ein; mit ihr kommt
    der Download-Link.

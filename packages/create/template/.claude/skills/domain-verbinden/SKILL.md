@@ -1,6 +1,6 @@
 ---
 name: domain-verbinden
-description: Die eigene Domain des Kunden (z. B. muster-immobilien.de) mit der DealSystem-Website verbinden. Verwenden, wenn der Kunde fragt, wie seine Seite unter seiner Adresse erreichbar wird.
+description: Die eigene Domain des Kunden (z. B. muster-firma.de) mit der DealSystem-Website verbinden. Verwenden, wenn der Kunde fragt, wie seine Seite unter seiner Adresse erreichbar wird.
 ---
 
 # Eigene Domain verbinden

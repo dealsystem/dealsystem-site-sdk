@@ -1,6 +1,6 @@
 ---
 name: funnel-mehrstufig
-description: Ein mehrstufiges Formular mit eigener Oberfläche bauen (Funnel, Rechner, Quiz), z. B. „Immobilie bewerten lassen“. Verwenden, wenn der Kunde mehr will als ein einfaches Kontaktformular, etwa Schritte mit Fortschrittsanzeige.
+description: Ein mehrstufiges Formular mit eigener Oberfläche bauen (Funnel, Rechner, Quiz), z. B. eine Anfrage in Schritten oder ein Angebotsrechner; Beispiel unten: „Immobilie bewerten lassen“. Verwenden, wenn der Kunde mehr will als ein einfaches Kontaktformular, etwa Schritte mit Fortschrittsanzeige.
 ---
 
 # Mehrstufiges Formular (Funnel)

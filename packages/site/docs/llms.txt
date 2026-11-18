@@ -1,4 +1,4 @@
-# @dealsystem/site 0.2.0
+# @dealsystem/site 0.2.2
 
 > Bausteine, Lade-Helfer und Regeln für statische SvelteKit-Websites, die DealSystem baut und hostet. Geschrieben für KI-Agenten, die im Auftrag eines Kunden ohne technische Vorkenntnisse arbeiten. Sprache: Deutsch.
 
@@ -7,13 +7,13 @@ Beginne mit agents-block.md. Die übrigen Seiten sind Nachschlagewerke zu je ein
 ## Anleitung
 
 - [agents-block.md](agents-block.md): Regeln, Ablauf und Gesprächsführung; steht auch in AGENTS.md des Projekts
-- [ablauf.md](ablauf.md): Weg bis zur veröffentlichten Seite
-- [komponenten.md](komponenten.md): Bausteine mit Pflichtangaben und Beispielen
-- [inhalte.md](inhalte.md): Angebote und andere Sammlungen laden
-- [konfiguration.md](konfiguration.md): Formulare und Sammlungen in dealsystem.config.ts
+- [ablauf.md](ablauf.md): Weg bis zur fertigen Seite
+- [komponenten.md](komponenten.md): Bausteine mit Beispielen
+- [inhalte.md](inhalte.md): Sammlungen (Angebote) laden
+- [konfiguration.md](konfiguration.md): Formulare, Sammlungen, Termine
 - [gestaltung.md](gestaltung.md): Farben, Schrift, Bilder, Barrierefreiheit
 - [rechtstexte.md](rechtstexte.md): Impressum, Datenschutz, Cookie-Hinweis
-- [extern.md](extern.md): fremde Dienste: Videos, Widgets, Skripte
-- [seo.md](seo.md): Titel, Beschreibung, Vorschaubild, Favicon, noindex
+- [extern.md](extern.md): Videos, Widgets, fremde Skripte
+- [seo.md](seo.md): Titel, Vorschaubild, Favicon, noindex
 - [regeln.md](regeln.md): Prüfregeln mit Korrektur
 - [befehle.md](befehle.md): Befehle mit Optionen

@@ -9,21 +9,21 @@
 <!-- Titel, Beschreibung und Vorschaubild kann der Kunde im CRM ersetzen (Eigene Website → Einstellungen → Google und Teilen). -->
 <Seo
 	title={data.site.name || 'Startseite'}
-	description="Immobilien in Ihrer Region: aktuelle Angebote ansehen oder direkt Kontakt aufnehmen."
+	description="Was wir anbieten, für wen, und wie Sie uns erreichen: Angebote ansehen oder direkt Kontakt aufnehmen."
 />
 
 <section class="section hero">
 	<div class="page">
 		<Text
 			key="start.hero.titel"
-			default="Immobilien in Ihrer Region"
+			default="Ihr Angebot in einem Satz"
 			as="h1"
 			label="Überschrift"
 			group="Startseite"
 		/>
 		<Text
 			key="start.hero.text"
-			default="Wir kaufen, verkaufen und entwickeln Immobilien. Persönlich, verlässlich und mit Ortskenntnis."
+			default="Hier steht kurz, was Sie für wen tun und was ein Besucher als Nächstes tun soll. Ersetzen Sie diesen Text durch Ihren eigenen."
 			as="p"
 			multiline
 			label="Text unter der Überschrift"

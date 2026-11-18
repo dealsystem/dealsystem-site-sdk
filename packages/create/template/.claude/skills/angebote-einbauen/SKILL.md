@@ -1,6 +1,6 @@
 ---
 name: angebote-einbauen
-description: Angebote, Objekte, Referenzen oder andere wiederkehrende Inhalte aus dem DealSystem-CRM auf der Website anzeigen, als Liste und als Detailseite. Verwenden, wenn der Kunde Inhalte zeigen will, die er im CRM pflegt.
+description: Angebote, Referenzen, Projekte, Stellen oder andere wiederkehrende Inhalte aus dem DealSystem-CRM auf der Website anzeigen, als Liste und als Detailseite. Verwenden, wenn der Kunde Inhalte zeigen will, die er im CRM pflegt.
 ---
 
 # Angebote und andere Sammlungen einbauen

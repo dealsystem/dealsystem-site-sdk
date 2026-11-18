@@ -283,7 +283,7 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 				throw new SlotScanError(
 					file,
 					line,
-					`Slot "${key}": default fehlt. Gib den Standardtext an, z. B. default="Wir kaufen Ihr Haus".`,
+					`Slot "${key}": default fehlt. Gib den Standardtext an, z. B. default="Ihr Meisterbetrieb für Bad und Heizung".`,
 				);
 			}
 			fallback = value;

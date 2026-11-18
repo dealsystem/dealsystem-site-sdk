@@ -1,6 +1,6 @@
 ---
 name: neue-seite
-description: Eine neue Unterseite anlegen (z. B. „Über uns“, „Leistungen“, „Ankauf“) oder die Startseite neu aufbauen. Verwenden, wenn der Kunde eine weitere Seite oder einen neuen Abschnitt möchte.
+description: Eine neue Unterseite anlegen (z. B. „Über uns“, „Leistungen“, „Team“) oder die Startseite neu aufbauen. Verwenden, wenn der Kunde eine weitere Seite oder einen neuen Abschnitt möchte.
 ---
 
 # Neue Seite anlegen
