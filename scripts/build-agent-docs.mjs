@@ -59,7 +59,7 @@ const COMPONENT_GROUPS = [
 const SKILLS = [
 	['neue-seite', 'neue Seite oder Abschnitt, Texte, tauschbare Fotos'],
 	['bild-einbauen', 'Foto des Kunden einbauen (ohne Standort)'],
-	['formular-anbinden', 'Kontakt- oder Anfrageformular'],
+	['formular-anbinden', 'Kontakt- oder Anfrageformular, Ratgeber zum Download'],
 	['funnel-mehrstufig', 'eigenes Formular in Schritten (Funnel)'],
 	['extern-einbinden', 'Video, Karte, Termin, Chat, fremdes Skript'],
 	['angebote-einbauen', 'Angebote, Referenzen, andere Sammlungen aus dem CRM'],
@@ -363,6 +363,7 @@ async function build() {
 					'FieldType',
 					'HiddenFieldSource',
 					'FunnelCrmConfig',
+					'FunnelLeadmagnetConfig',
 					'StandardFieldKey',
 					'CollectionDef',
 					'CollectionFieldDef',

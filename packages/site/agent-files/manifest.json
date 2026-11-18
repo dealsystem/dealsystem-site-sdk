@@ -28,10 +28,11 @@
 		{
 			"target": ".claude/skills/formular-anbinden/SKILL.md",
 			"source": "claude/skills/formular-anbinden/SKILL.md",
-			"sha256": "e367797a8ccf96fb904ca4fdec8d1fa76f4d7ddf1bf4670fdbfd1e9e6dea203f",
+			"sha256": "ebb376299b85daa330420f38840ba487d93359ef99b6e80f4aad1c5bffd66298",
 			"previous": [
 				"0b2919d101bedbee0512d2aaa6746287a78ecb54258f4d057212f9feef932b20",
-				"dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71"
+				"dda03625cf7c3f304e726c3ff996a2ab7f6fd28deb82b6879207fad29de08a71",
+				"e367797a8ccf96fb904ca4fdec8d1fa76f4d7ddf1bf4670fdbfd1e9e6dea203f"
 			]
 		},
 		{

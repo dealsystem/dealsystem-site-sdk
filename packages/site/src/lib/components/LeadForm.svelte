@@ -20,7 +20,10 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 		funnel: FunnelKey;
 		/** Text der Schaltfläche. Standard „Absenden“. */
 		submitLabel?: string;
-		/** Text nach erfolgreichem Versand. */
+		/**
+		 * Text nach erfolgreichem Versand. Standard „Vielen Dank. Ihre Anfrage ist bei uns angekommen.“; verspricht
+		 * das Formular eine Datei (`leadmagnet`), kündigt der Standard sie per E-Mail an.
+		 */
 		successMessage?: string;
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
@@ -55,7 +58,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	let {
 		funnel,
 		submitLabel = 'Absenden',
-		successMessage = 'Vielen Dank. Ihre Anfrage ist bei uns angekommen.',
+		successMessage,
 		privacyHref = '/datenschutz',
 		success,
 		onsuccess,
@@ -184,7 +187,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			{#if success}
 				{@render success()}
 			{:else}
-				<p>{successMessage}</p>
+				<p>{successMessage ?? client.successMessage}</p>
 			{/if}
 			{#if dryRun}
 				<p class="ds-form__hint">Vorschau: Diese Anfrage wurde geprüft, aber nicht gespeichert.</p>

@@ -25,5 +25,10 @@ LeadForm).
    `npx dealsystem check --output build`. Das geht ohne Anmeldung. „Geprüft“ sagst du dem Kunden nur, wenn
    die Ausgabe mit „Prüfung bestanden: Quelltext und fertige Seite geprüft“ endet.
 7. Ausprobieren mit `npm run dev`: Die Einsendung wird geprüft, aber nicht gespeichert.
-8. Nach dem Hochladen erscheint das Formular im CRM unter Eigene Website → Formulare. Dort legt der Kunde fest,
+8. **Leadmagnet** (Formular verspricht eine Datei, z. B. einen Ratgeber als PDF): im Code nur ankündigen,
+   `leadmagnet: { label: 'Ratgeber Immobilienverkauf' }` am Formular. Keine Datei ins Projekt, kein Link im
+   Code. `<LeadForm>` kündigt die Datei nach dem Absenden selbst an. Sag dem Kunden in einem Satz: Er lädt die
+   Datei unter Eigene Website → Formulare hoch und schaltet dort die Eingangsbestätigung ein; mit ihr kommt
+   der Download-Link.
+9. Nach dem Hochladen erscheint das Formular im CRM unter Eigene Website → Formulare. Dort legt der Kunde fest,
    was mit einer Anfrage geschieht (Liste, Deal, Benachrichtigung). Sag ihm das in einem Satz.

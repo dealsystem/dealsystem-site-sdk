@@ -64,6 +64,23 @@ bleibt alles wie heute.
   (`confirmation.subject` usw. einzeln).
 - Mailtexte aus dem Code sind fremder Text (`untrustedText`), es gelten alle Schutzregeln aus #947.
 
+## `leadmagnet` (Paket C4)
+
+Jeder Eintrag in `funnels[]` trägt `leadmagnet`, **immer** gesetzt:
+
+```json
+{ "key": "ratgeber", "label": "Ratgeber", "fields": [], "leadmagnet": { "label": "Ratgeber Immobilienverkauf" } }
+{ "key": "kontakt", "label": "Kontakt", "fields": [], "leadmagnet": null }
+```
+
+- `label`: Text, getrimmt, 1 bis 120 Zeichen (`LEADMAGNET_LABEL_MAX`). Sonst nichts im Objekt: keine Datei, kein
+  Pfad, kein Link. `validateSiteConfig` lehnt Datei-/Link-Schlüssel und Links im `label` ab.
+- `null`: Das Formular verspricht keine Datei. Ältere SDKs senden das Feld nicht; der Core behandelt das wie `null`.
+- Die Datei lädt der Kunde im CRM hoch; der Core schickt den signierten, ablaufenden Download-Link in der
+  Eingangsbestätigung (nur nach Captcha, mit den Schutzregeln aus #947). `label` ist fremder Text (`untrustedText`).
+- `<LeadForm>` und `createLeadClient().successMessage` kündigen die Datei nach dem Absenden an, ohne zu
+  behaupten, dass sie schon da ist.
+
 ## Einsendung
 
 Unverändert `POST /api/site/v1/s/{key}/leads` (`site-api.v1.json`). `createLeadClient` und `<LeadForm>` senden

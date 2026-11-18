@@ -233,6 +233,43 @@ describe('Versand', () => {
 		expect(sentBody().website).toBe('https://spam.test');
 	});
 
+	describe('Leadmagnet', () => {
+		const withLeadmagnet = (): Partial<SiteData> => {
+			const base = testSiteData();
+			return {
+				funnels: {
+					kontakt: { ...base.funnels.kontakt!, leadmagnet: { label: ' Ratgeber Immobilienverkauf ' } },
+				},
+			};
+		};
+
+		it('kündigt die Datei als Standard-Erfolgstext an, ohne mehr zu versprechen', async () => {
+			const { user } = setup(withLeadmagnet());
+			await fillAndSubmit(user);
+			const status = await screen.findByRole('status');
+			expect(status).toHaveTextContent(
+				'Vielen Dank. Ihre Anfrage ist bei uns angekommen. „Ratgeber Immobilienverkauf“ schicken wir Ihnen ' +
+					'per E-Mail. Falls nichts ankommt, sehen Sie bitte im Spam-Ordner nach oder sprechen Sie uns an.',
+			);
+		});
+
+		it('lässt einen eigenen Erfolgstext gelten', async () => {
+			const { user } = setup(withLeadmagnet(), { successMessage: 'Danke! Der Ratgeber ist unterwegs.' });
+			await fillAndSubmit(user);
+			const status = await screen.findByRole('status');
+			expect(status).toHaveTextContent('Danke! Der Ratgeber ist unterwegs.');
+			expect(status).not.toHaveTextContent('Spam-Ordner');
+		});
+
+		it('bleibt ohne Leadmagnet beim bisherigen Standardtext', async () => {
+			const { user } = setup();
+			await fillAndSubmit(user);
+			expect(await screen.findByRole('status')).toHaveTextContent(
+				/^Vielen Dank\. Ihre Anfrage ist bei uns angekommen\.$/,
+			);
+		});
+	});
+
 	it('kennzeichnet den Probelauf der Vorschau', async () => {
 		fetchSpy.mockResolvedValue(jsonResponse(201, { data: { accepted: true, dryRun: true } }));
 		const { user } = setup();

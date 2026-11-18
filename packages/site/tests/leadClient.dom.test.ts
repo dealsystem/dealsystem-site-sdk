@@ -258,6 +258,23 @@ describe('createLeadClient', () => {
 		});
 		expect(captcha.started).toBe(0);
 	});
+
+	it('Leadmagnet: label und Erfolgstext für eigene Oberflächen', () => {
+		const site = testSiteData();
+		setSiteDataForTests({
+			...site,
+			funnels: {
+				bewertung: { ...bewertungConfig(), active: true, leadmagnet: { label: ' Ratgeber ' } },
+				kontakt: site.funnels.kontakt!,
+			},
+		});
+		const lead = createLeadClient('bewertung');
+		expect(lead.leadmagnet).toStrictEqual({ label: 'Ratgeber' });
+		expect(lead.successMessage).toContain('„Ratgeber“ schicken wir Ihnen per E-Mail.');
+		const plain = createLeadClient('kontakt');
+		expect(plain.leadmagnet).toBeNull();
+		expect(plain.successMessage).toBe('Vielen Dank. Ihre Anfrage ist bei uns angekommen.');
+	});
 });
 
 describe('createFunnelState', () => {
