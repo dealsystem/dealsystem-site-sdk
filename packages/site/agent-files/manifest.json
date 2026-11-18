@@ -10,8 +10,10 @@
 		{
 			"target": ".claude/skills/bild-einbauen/SKILL.md",
 			"source": "claude/skills/bild-einbauen/SKILL.md",
-			"sha256": "6c5ead1e774abcf6261b0095aa32e289025e87ee62be84d641080dab66fb6239",
-			"previous": []
+			"sha256": "651b4ad6ad74483cb86af8a3a722e65a15cbba180521b6aa40ade505d95982a8",
+			"previous": [
+				"6c5ead1e774abcf6261b0095aa32e289025e87ee62be84d641080dab66fb6239"
+			]
 		},
 		{
 			"target": ".claude/skills/domain-verbinden/SKILL.md",

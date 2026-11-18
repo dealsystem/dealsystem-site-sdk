@@ -111,6 +111,18 @@ export interface DeployApi {
 	getSourceDownload(id: string, versionId: string): Promise<SourceDownload>;
 	/** Lädt das Quellpaket; bricht ab, sobald mehr als `maxBytes` kommen. */
 	downloadSource(source: SourceDownload, maxBytes: number): Promise<Uint8Array>;
+	/** Website-Texte und Bild-Plätze der Seite (`GET /websites/{id}/slots`). */
+	listSlots(id: string): Promise<WebsiteSlot[]>;
+	/** Foto für einen Bild-Platz, Schritt 1: signierte PUT-Adresse (`POST /websites/{id}/media`). */
+	prepareImageUpload(id: string, input: { slotKey: string; bytes: number }): Promise<PreparedImageUpload>;
+	/** Lädt das Foto an die signierte Adresse (ohne Authorization-Header). */
+	uploadImage(upload: PreparedImageUpload, body: Uint8Array): Promise<void>;
+	/** Schritt 2: Foto auf den Bild-Platz setzen (`POST /websites/{id}/media/{uploadId}/complete`). */
+	completeImageUpload(
+		id: string,
+		uploadId: string,
+		input: { slotKey: string; alt: string },
+	): Promise<WebsiteSlot | null>;
 	/** Probe-Einsendung aus `dealsystem dev` (immer `dryRun` im Core). Antwort wird unverändert durchgereicht. */
 	devLead(id: string, body: unknown): Promise<{ status: number; body: unknown }>;
 }
@@ -122,3 +134,21 @@ export const SETTLED_VERSION_STATUSES: ReadonlySet<string> = new Set([
 	'failed',
 	'expired',
 ]);
+
+/** Ein Website-Text oder Bild-Platz, wie `GET /websites/{id}/slots` ihn liefert (nur, was die CLI braucht). */
+export interface WebsiteSlot {
+	key: string;
+	type: string;
+	label: string;
+	inUse: boolean;
+	overridden: boolean;
+	mediaId: string | null;
+}
+
+export interface PreparedImageUpload {
+	uploadId: string;
+	url: string;
+	method: string;
+	headers: Record<string, string>;
+	expiresAt: string | null;
+}

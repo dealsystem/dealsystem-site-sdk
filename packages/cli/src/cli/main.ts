@@ -147,13 +147,16 @@ export const COMMANDS: Record<string, CommandDef> = {
 		positionals: true,
 	},
 	image: {
-		summary: 'Foto ins Projekt holen: verkleinern, Standort und Metadaten entfernen, Baustein ausgeben',
-		usage: 'dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"] [--force]',
+		summary:
+			'Foto ins Projekt holen (add) oder als eigenes Bild eines Bild-Platzes in DealSystem setzen (push); beide verkleinern und entfernen Standort und Metadaten',
+		usage:
+			'dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"] [--force]\n       dealsystem image push <datei> --slot <schlüssel> --alt "…"',
 		options: {
 			name: { type: 'string' },
 			key: { type: 'string' },
 			alt: { type: 'string' },
 			force: { type: 'boolean' },
+			slot: { type: 'string' },
 		},
 		flags: [
 			'<datei>  JPEG, PNG, WebP oder AVIF, höchstens 15 MB; wird auf 2560 px verkleinert, EXIF und GPS werden entfernt',
@@ -161,6 +164,7 @@ export const COMMANDS: Record<string, CommandDef> = {
 			'--key <schlüssel>  Schlüssel des Bild-Slots im ausgegebenen Baustein (Standard: bilder.<name>)',
 			'--alt "…"  Beschreibung des Bildes für den ausgegebenen Baustein',
 			'--force  ein Bild gleichen Namens überschreiben',
+			'push: --slot <schlüssel>  Bild-Platz aus <MediaImage key="…">; --alt "…" ist Pflicht; geht ohne Freigabe live, danach holt der Befehl die Inhalte für dev',
 		],
 		run: imageCommand,
 		positionals: true,

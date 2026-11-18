@@ -6,6 +6,7 @@ import type {
 	CheckFinding,
 	DeployApi,
 	PreparedUpload,
+	PreparedImageUpload,
 	ReleaseResult,
 	SourceDownload,
 	Version,
@@ -14,6 +15,7 @@ import type {
 	Website,
 	WebsiteDetails,
 	WebsiteDomain,
+	WebsiteSlot,
 } from './types.js';
 
 export interface TokenProvider {
@@ -72,6 +74,13 @@ const FIXES: Record<string, string> = {
 	source_unavailable:
 		'Der Quellcode dieser Version ist nicht mehr vorhanden. Nimm die Live-Version (ohne `--version`) oder eine neuere.',
 	rate_limited: 'Zu viele Abrufe in kurzer Zeit. Warte eine Minute und versuche es erneut.',
+	slot_not_found:
+		'Diesen Bild-Platz kennt DealSystem nicht. Die Schlüssel stehen im Code als <MediaImage key="…">; ein neuer Platz ist erst nach `npx dealsystem deploy` bekannt.',
+	type_changed: 'Dieser Platz ist kein Bild-Platz. Nimm den Schlüssel eines <MediaImage key="…">.',
+	missing_alt: 'Gib mit `--alt "…"` an, was auf dem Bild zu sehen ist.',
+	unsupported_type: 'Erlaubt sind JPEG, PNG und WebP.',
+	too_many_pixels: 'Das Bild hat zu viele Pixel. Verkleinere es und versuche es erneut.',
+	storage_unavailable: 'Bilder lassen sich gerade nicht speichern. Versuche es später erneut.',
 };
 
 function fixFor(status: number, code: string): string {
@@ -149,6 +158,19 @@ function normalizeDomain(raw: unknown): WebsiteDomain {
 		host: str(o.host) ?? '',
 		kind: str(o.kind) ?? 'primary',
 		active: o.active === true || str(o.activatedAt) !== null,
+	};
+}
+
+function normalizeSlot(raw: unknown): WebsiteSlot {
+	const o = obj(raw);
+	const value = obj(o.value);
+	return {
+		key: str(o.key) ?? '',
+		type: str(o.type) ?? 'text',
+		label: str(o.label) ?? str(o.key) ?? '',
+		inUse: o.inUse !== false,
+		overridden: o.overridden === true,
+		mediaId: str(value.mediaId),
 	};
 }
 
@@ -352,6 +374,79 @@ export class HttpDeployApi implements DeployApi {
 			confirm: true,
 		});
 		return this.release(raw, versionId ?? '');
+	}
+
+	async listSlots(id: string): Promise<WebsiteSlot[]> {
+		const o = obj(await this.call('GET', `/websites/${encodeURIComponent(id)}/slots`));
+		return arr(o.slots).map(normalizeSlot);
+	}
+
+	async prepareImageUpload(
+		id: string,
+		input: { slotKey: string; bytes: number },
+	): Promise<PreparedImageUpload> {
+		const o = obj(await this.call('POST', `/websites/${encodeURIComponent(id)}/media`, input));
+		const upload = obj(o.upload);
+		const uploadId = str(o.uploadId);
+		const url = str(upload.url);
+		if (!uploadId || !url) {
+			throw new CliError(
+				'bad_response',
+				'Die API hat keine Upload-Adresse geliefert.',
+				'Versuche es erneut.',
+				EXIT.api,
+			);
+		}
+		return {
+			uploadId,
+			url,
+			method: str(upload.method) ?? 'PUT',
+			headers: Object.fromEntries(
+				Object.entries(obj(upload.headers)).filter((e): e is [string, string] => typeof e[1] === 'string'),
+			),
+			expiresAt: str(upload.expiresAt),
+		};
+	}
+
+	async uploadImage(upload: PreparedImageUpload, body: Uint8Array): Promise<void> {
+		let res: Response;
+		try {
+			// Signierte URL wie beim Quellpaket: kein Authorization-Header, `Content-Length` setzt fetch selbst.
+			const headers = Object.fromEntries(
+				Object.entries(upload.headers).filter(([k]) => !['content-length', 'host'].includes(k.toLowerCase())),
+			);
+			res = await this.fetchImpl(upload.url, { method: upload.method, headers, body });
+		} catch (e) {
+			throw new CliError(
+				'upload_failed',
+				`Hochladen des Fotos fehlgeschlagen (${(e as Error).message}).`,
+				'Führe den Befehl erneut aus.',
+				EXIT.api,
+			);
+		}
+		if (!res.ok) {
+			throw new CliError(
+				'upload_failed',
+				`Hochladen des Fotos fehlgeschlagen (Status ${res.status}).`,
+				'Führe den Befehl erneut aus; die Upload-Adresse gilt nur 15 Minuten.',
+				EXIT.api,
+			);
+		}
+	}
+
+	async completeImageUpload(
+		id: string,
+		uploadId: string,
+		input: { slotKey: string; alt: string },
+	): Promise<WebsiteSlot | null> {
+		const o = obj(
+			await this.call(
+				'POST',
+				`/websites/${encodeURIComponent(id)}/media/${encodeURIComponent(uploadId)}/complete`,
+				input,
+			),
+		);
+		return o.slot ? normalizeSlot(o.slot) : null;
 	}
 
 	async getSourceDownload(id: string, versionId: string): Promise<SourceDownload> {

@@ -1,13 +1,15 @@
-// `dealsystem image add <datei>` — ein Foto ins Projekt holen, lokal und ohne DealSystem: Format und Größe prüfen,
+// `dealsystem image add <datei>` und `image push <datei> --slot … --alt …` (Ende der Datei).
+// `add` — ein Foto ins Projekt holen, lokal und ohne DealSystem: Format und Größe prüfen,
 // nach der EXIF-Drehung ausrichten, auf höchstens 2 560 px verkleinern, ALLE Metadaten entfernen (Handyfotos
 // tragen GPS-Koordinaten, oft die der Wohnung) und nach `src/lib/assets/bilder/` schreiben. Danach steht dort ein
 // Baustein, den der Agent einsetzen kann: `<MediaImage key=… default=…>`, im CRM tauschbar.
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { basename, extname, isAbsolute, resolve } from 'node:path';
+import { basename, dirname, extname, isAbsolute, resolve } from 'node:path';
 import { scanSlots, SlotScanError } from '@dealsystem/site/vite';
 import { CliError, EXIT } from '../api/errors.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
+import { canonicalJson, CONTENT_FILE } from '../project/snapshot.js';
 
 /** Größte Datei, die angenommen wird (wie beim Hochladen ins CRM). */
 export const IMAGE_MAX_BYTES = 15 * 1024 * 1024;
@@ -74,14 +76,14 @@ async function loadSharp(): Promise<Sharp> {
 
 export async function imageCommand(ctx: CommandContext): Promise<CommandResult> {
 	const [sub, file, ...rest] = ctx.positionals;
-	if (sub !== 'add') {
+	if (sub !== 'add' && sub !== 'push') {
 		throw usage(
 			sub ? `Unbekannter Unterbefehl \`image ${sub}\`.` : 'Es fehlt der Unterbefehl.',
-			'Aufruf: `npx dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"]`.',
+			'Aufruf: `npx dealsystem image add <datei> [--name <name>] [--key <schlüssel>] [--alt "…"]` oder `npx dealsystem image push <datei> --slot <schlüssel> --alt "…"`.',
 		);
 	}
 	if (!file || rest.length > 0) {
-		throw usage('Gib genau eine Bilddatei an.', 'Aufruf: `npx dealsystem image add pfad/zum/foto.jpg`.');
+		throw usage('Gib genau eine Bilddatei an.', `Aufruf: \`npx dealsystem image ${sub} pfad/zum/foto.jpg\`.`);
 	}
 	if (!existsSync(ctx.path('package.json'))) {
 		throw new CliError(
@@ -91,7 +93,28 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 			EXIT.usage,
 		);
 	}
+	return sub === 'add' ? imageAdd(ctx, file) : imagePush(ctx, file);
+}
 
+/** Ergebnis der lokalen Bearbeitung: Bytes ohne Metadaten, Maße, Format, was entfernt wurde. */
+interface ProcessedImage {
+	data: Buffer;
+	width: number;
+	height: number;
+	format: OutputFormat;
+	resized: boolean;
+	removed: { exif: boolean; gps: boolean; xmp: boolean; iptc: boolean };
+}
+
+/**
+ * Prüfen, drehen, verkleinern, alle Metadaten entfernen — eine Bearbeitung für `add` und `push`. `crm: true` gibt
+ * nur Formate aus, die DealSystem annimmt (AVIF wird zu WebP).
+ */
+async function processImage(
+	ctx: CommandContext,
+	file: string,
+	opts: { crm: boolean },
+): Promise<ProcessedImage> {
 	// Die Datei liegt irgendwo (Downloads, Desktop); der Pfad gilt wie in der Shell ab dem aktuellen Ordner.
 	const input = isAbsolute(file) ? file : resolve(ctx.io.cwd, file);
 	const stat = existsSync(input) ? statSync(input) : null;
@@ -102,14 +125,6 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 			`\`${file}\` ist ${(stat.size / 1024 / 1024).toFixed(1)} MB groß (erlaubt 15 MB).`,
 			'Bitte den Kunden um eine kleinere Fassung, z. B. beim Senden „Originalgröße“ abwählen.',
 			EXIT.failed,
-		);
-	}
-
-	const name = ctx.str('name') ?? imageNameFrom(file);
-	if (!NAME.test(name) || name.length > 60) {
-		throw usage(
-			`Der Name \`${name}\` geht nicht.`,
-			'Nimm Kleinbuchstaben, Ziffern und Bindestriche, z. B. `--name ueber-uns-foto`.',
 		);
 	}
 
@@ -135,13 +150,13 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 			EXIT.failed,
 		);
 	}
-	const format: OutputFormat | null =
+	const inputFormat: OutputFormat | null =
 		meta.format === 'jpeg' || meta.format === 'png' || meta.format === 'webp'
 			? meta.format
 			: meta.format === 'heif' && meta.compression === 'av1'
 				? 'avif'
 				: null;
-	if (!format || (meta.pages ?? 1) > 1) {
+	if (!inputFormat || (meta.pages ?? 1) > 1) {
 		throw new CliError(
 			'image_format',
 			`\`${file}\` hat das Format ${meta.pages && meta.pages > 1 ? 'animiert' : (meta.format ?? 'unbekannt')}; erlaubt sind JPEG, PNG, WebP und AVIF (ohne Animation).`,
@@ -150,6 +165,8 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 		);
 	}
 
+	// DealSystem nimmt JPEG, PNG und WebP; ein AVIF für das CRM wird WebP (ähnlich klein, überall lesbar).
+	const format: OutputFormat = opts.crm && inputFormat === 'avif' ? 'webp' : inputFormat;
 	// `rotate()` ohne Winkel richtet nach der EXIF-Angabe aus; danach darf sie weg. sharp schreibt ohne
 	// `withMetadata`/`keepExif` keine Metadaten (EXIF, GPS, XMP, IPTC) in die Ausgabe.
 	let pipeline = sharp(bytes, { failOn: 'error' })
@@ -175,6 +192,43 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 			EXIT.failed,
 		);
 	}
+
+	return {
+		data,
+		width: info.width,
+		height: info.height,
+		format,
+		resized: info.width !== meta.width || info.height !== meta.height,
+		removed: {
+			exif: Boolean(meta.exif),
+			gps: hasGps(meta.exif),
+			xmp: Boolean(meta.xmp),
+			iptc: Boolean(meta.iptc),
+		},
+	};
+}
+
+/** „entfernt: Standort (GPS), Kameradaten (EXIF)“ für die Meldung. */
+function removedText(removed: ProcessedImage['removed']): string {
+	return [
+		removed.gps ? 'Standort (GPS)' : null,
+		removed.exif ? 'Kameradaten (EXIF)' : null,
+		removed.xmp || removed.iptc ? 'weitere Metadaten' : null,
+	]
+		.filter(Boolean)
+		.join(', ');
+}
+
+async function imageAdd(ctx: CommandContext, file: string): Promise<CommandResult> {
+	const name = ctx.str('name') ?? imageNameFrom(file);
+	if (!NAME.test(name) || name.length > 60) {
+		throw usage(
+			`Der Name \`${name}\` geht nicht.`,
+			'Nimm Kleinbuchstaben, Ziffern und Bindestriche, z. B. `--name ueber-uns-foto`.',
+		);
+	}
+	const { data, width, height, format, resized, removed } = await processImage(ctx, file, { crm: false });
+	const info = { width, height };
 
 	const fileName = `${name}.${EXT[format]}`;
 	const target = `${IMAGE_DIR}/${fileName}`;
@@ -213,19 +267,7 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 	mkdirSync(ctx.path(IMAGE_DIR), { recursive: true });
 	writeFileSync(ctx.path(target), data);
 
-	const removed = {
-		exif: Boolean(meta.exif),
-		gps: hasGps(meta.exif),
-		xmp: Boolean(meta.xmp),
-		iptc: Boolean(meta.iptc),
-	};
-	const what = [
-		removed.gps ? 'Standort (GPS)' : null,
-		removed.exif ? 'Kameradaten (EXIF)' : null,
-		removed.xmp || removed.iptc ? 'weitere Metadaten' : null,
-	]
-		.filter(Boolean)
-		.join(', ');
+	const what = removedText(removed);
 	return {
 		exitCode: EXIT.ok,
 		data: {
@@ -237,7 +279,7 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 			height: info.height,
 			bytes: data.byteLength,
 			format,
-			resized: info.width !== meta.width || info.height !== meta.height,
+			resized,
 			removed,
 		},
 		text: [
@@ -251,5 +293,117 @@ export async function imageCommand(ctx: CommandContext): Promise<CommandResult> 
 		]
 			.filter(Boolean)
 			.join('\n'),
+	};
+}
+
+/** Größte Datei, die DealSystem für einen Bild-Platz annimmt (wie „Bild ersetzen“ im CRM). */
+export const CRM_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const SLOT_KEY = /^[a-z0-9]+(\.[a-z0-9-]+){1,4}$/;
+
+/**
+ * `dealsystem image push <datei> --slot <schlüssel> --alt "…"`: das Foto wie bei `add` bearbeiten (drehen,
+ * verkleinern, Metadaten weg) und als eigenes Bild des Bild-Platzes in DealSystem setzen — derselbe Weg wie „Bild
+ * ersetzen“ im CRM (`POST /websites/{id}/media` → PUT → `…/complete`). Danach `.dealsystem/content.json` neu holen,
+ * damit `dev` das Bild sofort zeigt (`/_ds/media/*` reicht der Dev-Server an die Seite im Netz durch).
+ *
+ * Keine Rückfrage: Inhalte gehen nach der Entscheidung des Inhabers ohne Freigabe live, wie im CRM. Die Meldung
+ * sagt das; zurück auf das Bild aus dem Code geht es im CRM (Inhalte → „Auf Standard zurücksetzen“).
+ */
+async function imagePush(ctx: CommandContext, file: string): Promise<CommandResult> {
+	const slotKey = ctx.str('slot');
+	if (!slotKey) {
+		throw usage(
+			'Es fehlt der Bild-Platz.',
+			'Gib mit `--slot <schlüssel>` an, welches Bild ersetzt wird — der Schlüssel aus `<MediaImage key="…">`.',
+		);
+	}
+	if (!SLOT_KEY.test(slotKey)) {
+		throw usage(
+			`\`${slotKey}\` ist kein Schlüssel eines Bild-Platzes.`,
+			'Nimm den Schlüssel aus `<MediaImage key="…">`, z. B. `--slot ueber.foto`.',
+		);
+	}
+	const alt = ctx.str('alt')?.trim();
+	if (!alt) {
+		throw usage(
+			'Es fehlt der Alternativtext.',
+			'Gib mit `--alt "…"` kurz an, was auf dem Bild zu sehen ist (für Blinde und Suchmaschinen), z. B. `--alt "Das Team vor dem Büro"`.',
+		);
+	}
+	if (alt.length > 1000) throw usage('Der Alternativtext ist zu lang.', 'Höchstens 1000 Zeichen.');
+
+	const siteId = ctx.siteId();
+	const image = await processImage(ctx, file, { crm: true });
+	if (image.data.byteLength > CRM_IMAGE_MAX_BYTES) {
+		throw new CliError(
+			'image_too_large',
+			`Das Foto ist nach dem Verkleinern noch ${(image.data.byteLength / 1024 / 1024).toFixed(1)} MB groß (erlaubt 10 MB).`,
+			'Nimm ein Foto mit weniger Details oder als JPEG.',
+			EXIT.failed,
+		);
+	}
+
+	const api = ctx.api();
+	ctx.progress('Prüfe den Bild-Platz …');
+	const slots = await api.listSlots(siteId);
+	const slot = slots.find((s) => s.key === slotKey);
+	const imageKeys = slots.filter((s) => s.type === 'image').map((s) => s.key);
+	if (!slot) {
+		throw new CliError(
+			'slot_not_found',
+			`Einen Bild-Platz \`${slotKey}\` kennt DealSystem für diese Website nicht.`,
+			imageKeys.length
+				? `Vorhanden: ${imageKeys.join(', ')}. Ein neuer Platz aus dem Code ist erst nach \`npx dealsystem deploy\` bekannt.`
+				: 'Die Website hat noch keinen Bild-Platz. Baue zuerst `<MediaImage key="…" default={…}>` ein (siehe `npx dealsystem image add`) und lade mit `npx dealsystem deploy` hoch.',
+			EXIT.usage,
+		);
+	}
+	if (slot.type !== 'image') {
+		throw new CliError(
+			'slot_not_image',
+			`\`${slotKey}\` ist ein Text (${slot.type}), kein Bild-Platz.`,
+			imageKeys.length ? `Bild-Plätze: ${imageKeys.join(', ')}.` : 'Die Website hat noch keinen Bild-Platz.',
+			EXIT.usage,
+		);
+	}
+
+	ctx.progress('Lade das Foto hoch …');
+	const upload = await api.prepareImageUpload(siteId, { slotKey, bytes: image.data.byteLength });
+	await api.uploadImage(upload, image.data);
+	const result = await api.completeImageUpload(siteId, upload.uploadId, { slotKey, alt });
+
+	// Lokal sofort sichtbar: den Schnappschuss neu holen. Scheitert das, ist das Bild trotzdem gesetzt.
+	let contentFile: string | null = CONTENT_FILE;
+	try {
+		ctx.progress('Hole Inhalte aus dem CRM …');
+		const snapshot = await api.getContent(siteId);
+		mkdirSync(dirname(ctx.path(CONTENT_FILE)), { recursive: true });
+		writeFileSync(ctx.path(CONTENT_FILE), canonicalJson(snapshot));
+	} catch {
+		contentFile = null;
+	}
+
+	const what = removedText(image.removed);
+	return {
+		exitCode: EXIT.ok,
+		data: {
+			slotKey,
+			mediaId: result?.mediaId ?? null,
+			width: image.width,
+			height: image.height,
+			bytes: image.data.byteLength,
+			format: image.format,
+			resized: image.resized,
+			removed: image.removed,
+			contentFile,
+		},
+		text: [
+			`Gesetzt: Bild-Platz ${slotKey} zeigt jetzt dieses Foto (${image.width} × ${image.height} px${what ? `, entfernt: ${what}` : ''}).`,
+			'Die Website wird automatisch neu gebaut und zeigt es ohne weitere Freigabe, meist nach ein bis zwei Minuten.',
+			contentFile
+				? `Lokal: ${CONTENT_FILE} aktualisiert; \`npx dealsystem dev\` zeigt das neue Bild.`
+				: 'Lokal: Inhalte nicht geholt; `npx dealsystem sync` holt sie nach.',
+			'Zurück auf das Bild aus dem Code: im CRM unter Eigene Website → Inhalte „Auf Standard zurücksetzen“.',
+		].join('\n'),
 	};
 }

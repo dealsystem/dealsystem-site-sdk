@@ -59,6 +59,10 @@ export interface MockState {
 	sources: Record<string, MockSource>;
 	/** Fehler der Route `…/source` statt einer Adresse. */
 	sourceError: { status: number; code: string; message: string } | null;
+	/** Website-Texte und Bild-Plätze (`GET …/slots`); `value` wie im Core. */
+	slots: { key: string; type: string; label: string; inUse: boolean; value: unknown }[];
+	/** Hochgeladene Fotos je `uploadId` (`POST …/media`, signiertes PUT). */
+	mediaUploads: Record<string, { slotKey: string; bytes: number; body: Buffer | null }>;
 }
 
 export interface MockSource {
@@ -146,6 +150,11 @@ export async function startMockServer(): Promise<MockServer> {
 		refreshCount: 0,
 		sources: {},
 		sourceError: null,
+		slots: [
+			{ key: 'start.hero.titel', type: 'text', label: 'Überschrift', inUse: true, value: null },
+			{ key: 'ueber.foto', type: 'image', label: 'Foto', inUse: true, value: null },
+		],
+		mediaUploads: {},
 	};
 	let deviceIssued = false;
 
@@ -244,6 +253,19 @@ export async function startMockServer(): Promise<MockServer> {
 				return res.end();
 			}
 
+			// ---------------------------------------------------------------- Foto-Upload (signiert)
+			const mediaUp = /^\/media-upload\/([^/]+)$/.exec(url.pathname);
+			if (mediaUp && req.method === 'PUT') {
+				const m = state.mediaUploads[mediaUp[1]!];
+				if (!m || url.searchParams.get('sig') !== 'ok') return error(403, 'signature', 'bad signature');
+				if (Number(req.headers['content-length']) !== m.bytes)
+					return error(400, 'length', 'Content-Length passt nicht');
+				if (req.headers.authorization) return error(400, 'auth', 'kein Token an den Speicher');
+				m.body = body;
+				res.writeHead(200);
+				return res.end();
+			}
+
 			// ---------------------------------------------------------------- Download (signiert)
 			const down = /^\/download\/([^/]+)$/.exec(url.pathname);
 			if (down && req.method === 'GET') {
@@ -295,6 +317,52 @@ export async function startMockServer(): Promise<MockServer> {
 				});
 			}
 			if (rest[0] === 'content' && req.method === 'GET') return reply(200, { data: state.content });
+			const slotView = (x: MockState['slots'][number]) => ({ ...x, overridden: x.value !== null });
+			if (rest[0] === 'slots' && rest.length === 1 && req.method === 'GET') {
+				return reply(200, { data: { slots: state.slots.map(slotView), live: site.liveVersionId !== null } });
+			}
+			if (rest[0] === 'media' && rest.length === 1 && req.method === 'POST') {
+				const b = jsonBody();
+				const slot = state.slots.find((x) => x.key === b.slotKey);
+				if (!slot) return error(404, 'slot_not_found', 'Diesen Bild-Platz gibt es auf der Website nicht.');
+				if (slot.type !== 'image') return error(409, 'type_changed', 'Dieser Platz ist kein Bild-Platz.');
+				const uploadId = `00000000-0000-4000-8000-${String(Object.keys(state.mediaUploads).length + 1).padStart(12, '0')}`;
+				state.mediaUploads[uploadId] = { slotKey: String(b.slotKey), bytes: Number(b.bytes), body: null };
+				return reply(201, {
+					data: {
+						uploadId,
+						upload: {
+							url: `${base()}/media-upload/${uploadId}?sig=ok`,
+							method: 'PUT',
+							headers: { 'Content-Length': String(b.bytes) },
+							expiresAt: '2026-11-18T12:15:00Z',
+						},
+					},
+				});
+			}
+			if (rest[0] === 'media' && rest[2] === 'complete' && req.method === 'POST') {
+				const b = jsonBody();
+				const m = state.mediaUploads[rest[1]!];
+				if (!m?.body) return error(409, 'upload_missing', 'Das Foto ist nicht angekommen.');
+				if (typeof b.alt !== 'string' || !b.alt.trim())
+					return error(422, 'missing_alt', 'Alternativtext fehlt.');
+				const slot = state.slots.find((x) => x.key === b.slotKey)!;
+				const mediaId = 'aaaaaaaa-0000-4000-8000-000000000001';
+				slot.value = { mediaId, alt: b.alt };
+				m.body = null;
+				const content = state.content as { slots: Record<string, unknown> };
+				content.slots[slot.key] = {
+					type: 'image',
+					source: 'override',
+					value: {
+						alt: b.alt,
+						variants: [{ url: `/_ds/media/${site.id}/${mediaId}/medium.jpg`, width: 800 }],
+					},
+				};
+				return reply(200, {
+					data: { slot: slotView(slot), changed: true, live: site.liveVersionId !== null },
+				});
+			}
 			if (rest[0] === 'versions' && rest.length === 1) {
 				if (req.method === 'GET') return reply(200, { data: [...state.versions].reverse().map(summary) });
 				if (req.method === 'POST') {
