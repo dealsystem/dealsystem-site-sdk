@@ -1,6 +1,6 @@
 <!-- Erzeugt von scripts/build-agent-docs.mjs. Nicht von Hand ändern. -->
 
-# Bausteine von @dealsystem/site 0.2.1
+# Bausteine von @dealsystem/site 0.2.2
 
 Alle Bausteine kommen aus einem Import: `import { … } from '@dealsystem/site'`.
 Pflichtangaben sind im Typ ohne `?` notiert; fehlt eine, meldet `npm run check` einen Fehler.
