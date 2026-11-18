@@ -33,7 +33,7 @@ export interface FoundSlot extends ContentSlotDef {
 	imageSource?: { kind: 'static' | 'module'; path: string; width?: number; height?: number };
 }
 
-type Node = Record<string, unknown> & { type: string; start?: number };
+export type Node = Record<string, unknown> & { type: string; start?: number };
 
 function isNode(value: unknown): value is Node {
 	return typeof value === 'object' && value !== null && typeof (value as Node).type === 'string';
@@ -133,7 +133,8 @@ function staticExpression(expression: Node): Static {
 }
 
 /** Wert eines Attributs, wenn er fest im Quelltext steht. */
-function staticAttribute(attribute: Node): Static {
+/** @internal */
+export function staticAttribute(attribute: Node): Static {
 	const value = attribute.value;
 	if (value === true) return true;
 	if (Array.isArray(value)) {

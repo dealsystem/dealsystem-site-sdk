@@ -8,6 +8,12 @@
 			"previous": []
 		},
 		{
+			"target": ".claude/skills/bild-einbauen/SKILL.md",
+			"source": "claude/skills/bild-einbauen/SKILL.md",
+			"sha256": "6c5ead1e774abcf6261b0095aa32e289025e87ee62be84d641080dab66fb6239",
+			"previous": []
+		},
+		{
 			"target": ".claude/skills/domain-verbinden/SKILL.md",
 			"source": "claude/skills/domain-verbinden/SKILL.md",
 			"sha256": "c850bf5e32c7d0b7811b61153c4f6b07b1489c63b2b1b0fb7afbf8e21890d4ba",
@@ -22,8 +28,10 @@
 		{
 			"target": ".claude/skills/neue-seite/SKILL.md",
 			"source": "claude/skills/neue-seite/SKILL.md",
-			"sha256": "9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af",
-			"previous": []
+			"sha256": "fcf374427d3ef807d9a44cb6685635994f97138a49b237cad58a5587dd12b22e",
+			"previous": [
+				"9981a10a604dc6cceb3624f4fe868de67f574de4fc0fc54c584e8c2dbb73c5af"
+			]
 		},
 		{
 			"target": ".claude/skills/prueffehler-beheben/SKILL.md",

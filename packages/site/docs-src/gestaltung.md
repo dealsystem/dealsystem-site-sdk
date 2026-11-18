@@ -46,8 +46,13 @@ Nie `<img>` schreiben, immer `<MediaImage>` (`A11Y-002`).
 
 - **Bilder aus dem CRM** (Angebote): `<MediaImage media={angebot.media.bilder[0]} sizes="…" />`. Größen und
   Alternativtext kommen aus dem CRM.
-- **Eigene Bilder im Projekt:** Datei verkleinert (höchstens etwa 2000 Pixel breit) nach `src/lib/bilder/`
-  legen, mit `import bild from '$lib/bilder/haus.jpg'` einbinden und als
+- **Fotos ins Projekt holen:** `npx dealsystem image add <datei> --name haus --alt "…"`. Der Befehl prüft das
+  Format (JPEG, PNG, WebP, AVIF, höchstens 15 MB), dreht nach der Kamera-Angabe, verkleinert auf höchstens
+  2 560 px, **entfernt alle Metadaten samt Standort (GPS)** und schreibt nach `src/lib/assets/bilder/`. Er gibt
+  die Import-Zeile und einen fertigen `<MediaImage>` aus. Fotos nicht von Hand kopieren: Sonst gehen die
+  Standortdaten aus dem Handy mit auf die Seite. HEIC (iPhone) lässt sich nicht umwandeln; der Kunde schickt
+  es als JPEG.
+- **Eigene Bilder im Projekt:** mit `import bild from '$lib/assets/bilder/haus.jpg'` einbinden und als
   `<MediaImage src={bild} alt="…" width={1600} height={1067} />` ausgeben. `width` und `height` sind die
   echten Maße der Datei; sie verhindern, dass die Seite beim Laden springt. Logos und kleine Grafiken als
   SVG nach `static/` legen: `src="/logo.svg"`.

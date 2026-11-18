@@ -26,8 +26,12 @@ import type {
 import { SDK_VERSION } from '../version.js';
 import { CONTENT_BLOCK_VERSION, CONTENT_PATCH_LIMITS } from '../contentBlock.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
+import { scheduleFrom } from '../schedule.js';
+import { scanZeitfenster } from './zeitfenster.js';
 
 export { scanSlots, mergeSlots, SlotScanError, type FoundSlot } from './scan.js';
+export { scanZeitfenster, type FoundGrenze, type FoundZeitfenster } from './zeitfenster.js';
+export { parseZeitpunkt, scheduleFrom, SCHEDULE_MAX, zeitpunktFehlerText } from '../schedule.js';
 export type { SiteManifest } from '../types.js';
 
 export { LOCAL_MANIFEST_FILE, MANIFEST_FILE_ENV } from '../paths.js';
@@ -70,6 +74,8 @@ export interface CollectedSlots {
 	siteHeadInRootLayout: boolean;
 	/** Der Code liest Slot-Werte selbst (`getSlots()`, Schnappschuss): sie können überall stehen. */
 	readsSlotsInCode: boolean;
+	/** Grenzen aller `<Zeitfenster>` mit festem Zeitpunkt (Millisekunden). */
+	grenzen: number[];
 }
 
 /** `<SiteHead>` aus dem SDK wird in dieser Datei benutzt. */
@@ -83,6 +89,7 @@ export function usesSiteHead(code: string): boolean {
 /** Sammelt die Slots aller `.svelte`-Dateien unter `src/`. */
 export async function collectSlots(root: string): Promise<CollectedSlots> {
 	const found: FoundSlot[] = [];
+	const grenzen: number[] = [];
 	const routes = new Set<string>();
 	let siteHeadInRootLayout = false;
 	for (const file of await svelteFiles(resolve(root, 'src'))) {
@@ -94,6 +101,8 @@ export async function collectSlots(root: string): Promise<CollectedSlots> {
 		const code = await readFile(file, 'utf8');
 		if (shown === 'src/routes/+layout.svelte' && usesSiteHead(code)) siteHeadInRootLayout = true;
 		found.push(...scanSlots(code, shown));
+		for (const fenster of scanZeitfenster(code))
+			for (const grenze of fenster.grenzen) if (grenze.ms !== null) grenzen.push(grenze.ms);
 	}
 	const imageSources: ImageSources = new Map();
 	for (const slot of found) {
@@ -105,6 +114,7 @@ export async function collectSlots(root: string): Promise<CollectedSlots> {
 		imageSources,
 		siteHeadInRootLayout,
 		readsSlotsInCode: await mentionsGetSlots(resolve(root, 'src')),
+		grenzen,
 	};
 }
 
@@ -217,7 +227,7 @@ export function buildManifest(
 	config: SiteConfig,
 	slots: ContentSlotDef[],
 	routes: string[],
-	contentPatch?: SiteManifest['contentPatch'],
+	extras: { contentPatch?: SiteManifest['contentPatch']; schedule?: string[] } = {},
 ): SiteManifest {
 	return {
 		manifestVersion: 1,
@@ -231,7 +241,8 @@ export function buildManifest(
 			source: 'cms' as const,
 		})),
 		funnels: Object.entries(config.funnels ?? {}).map(([key, funnel]) => ({ ...funnel, key })),
-		...(contentPatch ? { contentPatch } : {}),
+		...(extras.contentPatch ? { contentPatch: extras.contentPatch } : {}),
+		schedule: extras.schedule ?? [],
 	};
 }
 
@@ -257,6 +268,7 @@ export function buildSiteData(
 	snapshot: ContentSnapshot,
 	slots: readonly ContentSlotDef[],
 	env: Record<string, string | undefined>,
+	builtAt = Date.now(),
 ): SiteData {
 	const active = new Map(snapshot.funnels.map((funnel) => [funnel.key, funnel.active]));
 	const richtext: Record<string, string> = {};
@@ -301,6 +313,7 @@ export function buildSiteData(
 		slots: snapshot.slots,
 		richtext,
 		seo: snapshot.seo,
+		builtAt,
 	};
 }
 
@@ -438,6 +451,12 @@ export function dealsystem(config: SiteConfig): Plugin {
 	let clientSiteData: string | null = null;
 	let snapshot: ContentSnapshot | null = null;
 	let scanned: Awaited<ReturnType<typeof collectSlots>> | null = null;
+	/**
+	 * Zeitpunkt des Builds: entscheidet über `<Zeitfenster>` im HTML und welche Grenzen „künftig“ sind. Einmal je
+	 * Build, damit Server- und Client-Teil dieselbe Zeit sehen. In `vite dev` bleibt sie stehen (sonst lüde
+	 * jede Änderung die Seite ganz neu); dort schaltet der Baustein nach dem Laden mit der Uhr des Browsers.
+	 */
+	const builtAt = Date.now();
 	/** Datei im Projekt → Pfad im Artefakt, aus dem Client-Build. Bleibt für spätere Builds desselben Laufs. */
 	const assets = new Map<string, string>();
 	const loadedIds = new Set<string>();
@@ -445,12 +464,10 @@ export function dealsystem(config: SiteConfig): Plugin {
 	function currentManifest(): SiteManifest {
 		const { slots, routes, imageSources } = scanned!;
 		const staticExists = (path: string) => existsSync(resolve(root, 'static', `.${path}`));
-		return buildManifest(
-			config,
-			withDefaultImages(slots, imageSources, staticExists, assets),
-			routes,
-			buildContentPatchInfo(scanned!, slots),
-		);
+		return buildManifest(config, withDefaultImages(slots, imageSources, staticExists, assets), routes, {
+			contentPatch: buildContentPatchInfo(scanned!, slots),
+			schedule: scheduleFrom(scanned!.grenzen, builtAt),
+		});
 	}
 
 	async function refresh(): Promise<SiteManifest> {
@@ -458,7 +475,7 @@ export function dealsystem(config: SiteConfig): Plugin {
 		scanned = await collectSlots(root);
 		const { slots } = scanned;
 		const module = (value: unknown) => `export default ${JSON.stringify(value)};`;
-		const siteData = buildSiteData(config, snapshot, slots, process.env);
+		const siteData = buildSiteData(config, snapshot, slots, process.env, builtAt);
 		const contentPatch = buildContentPatchInfo(scanned, slots);
 		// Mit `<SiteHead>` im Haupt-Layout stehen die Texte nur im HTML, nicht im Bundle.
 		clientSiteData = contentPatch.delivery === 'dom' ? clientSiteDataModule(siteData) : null;

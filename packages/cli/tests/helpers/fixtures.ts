@@ -57,5 +57,5 @@ export function page(opts: {
 
 /** Svelte-Startseite mit eigenem Inhalt, Kopf wie in der Basis. */
 export function homePage(body: string, script = ''): string {
-	return `<script lang="ts">\n\timport { LeadForm, MediaImage, Text, RichText, Link, ConsentGate, Tracking, MediaVideo, CollectionList, Seo } from '@dealsystem/site';\n${script}</script>\n\n<Seo title="Muster" />\n\n${body}\n`;
+	return `<script lang="ts">\n\timport { LeadForm, MediaImage, Text, RichText, Link, ConsentGate, Tracking, MediaVideo, CollectionList, Seo, Zeitfenster } from '@dealsystem/site';\n${script}</script>\n\n<Seo title="Muster" />\n\n${body}\n`;
 }

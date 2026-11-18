@@ -29,6 +29,8 @@ export const CONTRACT_SLOTS: ContentSlotDef[] = [
 export function contractManifest(
 	patch: Partial<NonNullable<SiteManifest['contentPatch']>> = {},
 ): SiteManifest {
+	// Manifest wie zur Fassung 1 des Vertrags. Später hinzugekommene Felder (`schedule`, `external`) stehen bewusst
+	// nicht darin: Der Patcher liest nur `contentPatch`, `slots` und `routes`, und der Vertrag bleibt byte-gleich.
 	return {
 		manifestVersion: 1,
 		sdkVersion: '0.1.0',
@@ -41,7 +43,7 @@ export function contractManifest(
 			...buildContentPatchInfo({ siteHeadInRootLayout: true, readsSlotsInCode: false }, CONTRACT_SLOTS),
 			...patch,
 		},
-	};
+	} satisfies Omit<SiteManifest, 'schedule'> as unknown as SiteManifest;
 }
 
 export function image(

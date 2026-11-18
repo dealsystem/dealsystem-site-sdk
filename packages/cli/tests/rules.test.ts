@@ -940,6 +940,45 @@ const CASES: Record<string, RuleCase[]> = {
 			],
 		},
 	],
+	'QUA-009': [
+		{
+			stage: S,
+			pass: [
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<Zeitfenster ab="2026-12-01T18:00:00+01:00" bis="2026-12-01T19:30:00Z"><p>Jetzt</p></Zeitfenster>',
+					),
+				},
+			],
+			fail: [
+				// ohne Zeitzone
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<Zeitfenster bis="2026-12-01T18:00:00"><p>Jetzt</p></Zeitfenster>',
+					),
+				},
+				// Variable: kein Rebuild zur Grenze möglich
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<Zeitfenster bis={ende}><p>Jetzt</p></Zeitfenster>',
+						"\tconst ende = '2026-12-01T18:00:00+01:00';\n",
+					),
+				},
+				// ab nach bis
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<Zeitfenster ab="2026-12-02T00:00:00Z" bis="2026-12-01T00:00:00Z"><p>Nie</p></Zeitfenster>',
+					),
+				},
+				// weder ab noch bis
+				{
+					'src/routes/+page.svelte': homePage(
+						'<Text key="start.titel" default="Willkommen" as="h1" />\n<Zeitfenster><p>Immer</p></Zeitfenster>',
+					),
+				},
+			],
+		},
+	],
 	'CNT-004': [
 		{
 			stage: S,
@@ -1051,6 +1090,22 @@ describe('Zuordnung der SDK-Meldungen aus validateSiteConfig', () => {
 				.split('\n')
 				.findIndex((l) => l.includes("type: 'textarea'")) + 1,
 		);
+	});
+});
+
+describe('QUA-009: Zeitfenster', () => {
+	it('ist eine Warnung mit Zeile und nennt die Zeitzone', async () => {
+		const found = (
+			await findingsFor('source', {
+				'src/routes/+page.svelte': homePage(
+					'<Text key="start.titel" default="Willkommen" as="h1" />\n<Zeitfenster bis="2026-12-01T18:00:00"><p>Jetzt</p></Zeitfenster>',
+				),
+			})
+		).filter((f) => f.rule === 'QUA-009');
+		expect(found).toHaveLength(1);
+		expect(found[0]).toMatchObject({ severity: 'warning', file: 'src/routes/+page.svelte', line: 8 });
+		expect(found[0]!.message).toContain('hat keine Zeitzone');
+		expect(found[0]!.message).toContain('+01:00');
 	});
 });
 

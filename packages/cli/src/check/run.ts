@@ -7,6 +7,7 @@ import type { RuleImpl } from './rule.js';
 import { a11yOutputRules, a11ySourceRules } from './rules/a11y.js';
 import { privacyOutputRules, privacySourceRules } from './rules/privacy.js';
 import { qualityOutputRules, qualitySourceRules } from './rules/quality.js';
+import { scheduleSourceRules } from './rules/schedule.js';
 import { securityOutputRules, securitySourceRules } from './rules/security.js';
 import { structureRules } from './rules/structure.js';
 import type {
@@ -26,6 +27,7 @@ export const RULE_IMPLEMENTATIONS: readonly RuleImpl[] = [
 	...privacySourceRules,
 	...a11ySourceRules,
 	...qualitySourceRules,
+	...scheduleSourceRules,
 	...securityOutputRules,
 	...privacyOutputRules,
 	...a11yOutputRules,

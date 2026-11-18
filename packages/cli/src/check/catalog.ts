@@ -309,6 +309,13 @@ export const RULES: readonly RuleMeta[] = [
 		title: 'AGENTS.md-Block passt zur installierten SDK-Version',
 		fix: 'Führe `npx dealsystem sync` aus, damit die Agenten-Anleitung zur SDK-Version passt.',
 	},
+	{
+		id: 'QUA-009',
+		severity: 'warning',
+		stages: ['source'],
+		title: '`<Zeitfenster>`: `ab`/`bis` als feste Zeitpunkte mit Zeitzone, `ab` vor `bis`',
+		fix: 'Schreibe den Zeitpunkt als feste Zeichenkette mit Zeitzone, z. B. `bis="2026-12-01T18:00:00+01:00"` (Winterzeit, Sommerzeit `+02:00`). Keine Variable, sonst kann DealSystem zur Grenze nicht neu bauen.',
+	},
 	// ------------------------------------------------------------------ Inhalte
 	{
 		id: 'CNT-001',
