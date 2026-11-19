@@ -12,3 +12,5 @@ packages/create/template/svelte.config.js
 packages/create/template/vite.config.ts
 packages/create/.tmp
 packages/site/contract/ds-content.v1.json
+# Erzeugt von tests/attributionParamsContract.test.ts; der Core nutzt dieselbe Regel.
+packages/site/contract/attribution-params.v1.json

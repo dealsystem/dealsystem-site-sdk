@@ -1,3 +1,4 @@
+import { CLICK_PARAMS, isSensitiveParamName } from '../client/attribution.js';
 import { FIELD_NAME_PATTERN, KEBAB_KEY_MAX_LENGTH, KEBAB_KEY_PATTERN } from '../keys.js';
 import { validateExternal } from '../external/resolve.js';
 import { LEADMAGNET_CRM_HINT, LEADMAGNET_LABEL_MAX } from '../leadmagnet.js';
@@ -271,6 +272,11 @@ function checkHidden(field: Record<string, unknown>, path: string, problems: Con
 			problems.push({
 				path: `${path}.from.query`,
 				message: `UTM-Angaben holst du mit from: { utm: "${source.query.slice(4)}" }.`,
+			});
+		else if (source.query in CLICK_PARAMS || source.query === '_fbp' || isSensitiveParamName(source.query))
+			problems.push({
+				path: `${path}.from.query`,
+				message: `Den Parameter "${source.query}" gibt die Seite nie weiter: Klick-IDs und Namen mit einem geschützten Wortteil (z. B. email, name, token, code) bleiben draußen. Nimm einen anderen Namen.`,
 			});
 	} else if ('utm' in source) {
 		if (!(UTM_KEYS as readonly unknown[]).includes(source.utm))

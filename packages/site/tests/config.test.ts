@@ -191,3 +191,31 @@ describe('booking', () => {
 		expect(() => defineSite({ ...base, booking })).toThrow(/Höchstens 20 Terminbuchungen/);
 	});
 });
+
+describe('versteckte Felder: from.query', () => {
+	const withQuery = (query: string) =>
+		validateSiteConfig({
+			...valid,
+			funnels: {
+				kontakt: {
+					label: 'Kontakt',
+					fields: [
+						{ name: 'email', type: 'email', standardField: 'email', required: true },
+						{ name: 'quelle', type: 'hidden', from: { query } },
+					],
+				},
+			},
+		} as never).filter((p) => p.path.endsWith('.from.query'));
+
+	it('Parameter, die die Seite weitergibt, ohne Meldung (auch mit Begriff als Teilwort)', () => {
+		for (const query of ['partner', 'keyword', 'promocode', 'hotel', 'ref'])
+			expect(withQuery(query), query).toEqual([]);
+	});
+
+	it('Klick-IDs und geschützte Wortteile: Meldung statt stillem leerem Feld', () => {
+		for (const query of ['gclid', 'fbclid', '_fbp', 'email', 'api_key', 'firstName', 'code', 'promo_code']) {
+			const [problem] = withQuery(query);
+			expect(problem?.message, query).toContain(`Den Parameter "${query}" gibt die Seite nie weiter`);
+		}
+	});
+});
