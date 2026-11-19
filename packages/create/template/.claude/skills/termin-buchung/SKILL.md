@@ -53,6 +53,20 @@ Ausweichkontakt mit. Zeiten erscheinen in der Zeitzone des Besuchers, die des Ka
 Kein iframe, kein Calendly, kein eigenes `fetch`. Eigene Oberfläche: `createBookingClient()` (`termine.md`), dann
 selbst Ausweichkontakt, `<LeadHoneypot client={termin} />` und `slot_taken` (Zeiten neu laden) behandeln.
 
+## Bestätigungsmail an den Gast
+
+Nach jeder Buchung bekommt der Gast eine Bestätigung. Betreff und Text stimmst du mit dem Kunden ab, wie im Skill
+`formular-anbinden` (Abschnitt „Mails an Besucher“, auch zur Anrede Sie/Du, die für alle Mails der Website gilt).
+
+- Mit dem Konnektor: `update_website_booking` mit `confirmationSubject` und `confirmationBody` (reiner Text).
+  Erlaubt sind nur `{{firstName}}`, `{{lastName}}`, `{{eventName}}`, `{{dateTime}}` und `{{location}}` (Liste:
+  `confirmationPlaceholders` in `list_website_bookings`); andere lehnt DealSystem ab. Ein leerer Text heißt
+  Standardtext.
+- Unter dem Text stehen immer Zeit, Ort und die Links zum Verschieben und Absagen. Schreib sie nicht noch einmal
+  hinein.
+- Prüfen: `test_website_confirmation_mail` mit `bookingKey` schickt eine Testmail nur an ihn.
+- Ohne Konnektor stellt er den Text im CRM unter Eigene Website → Formulare, Abschnitt Terminbuchungen ein.
+
 ## 4. Prüfen und zeigen
 
 1. `npm run check`, `npm run build`, `npx dealsystem check --output build`.
