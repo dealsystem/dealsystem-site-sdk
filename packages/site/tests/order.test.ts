@@ -1,5 +1,5 @@
 // `position` der Slots: Reihenfolge des ersten Vorkommens beim Rendern, statisch aus dem Quelltext.
-import { slotPositions, type OrderInput } from '../src/lib/vite/order.js';
+import { slotOrder, slotPositions, type OrderInput } from '../src/lib/vite/order.js';
 import { scanSlots } from '../src/lib/vite/scan.js';
 
 const file = (path: string, markup: string, imports = ''): OrderInput => {
@@ -97,6 +97,31 @@ describe('slotPositions', () => {
 		expect(ordered(inputs)).toEqual(['kopf.titel', 'start.titel']);
 	});
 
+	it('erste Route nur für Komponenten einer Seite; Layout und seine Komponenten (Kopf, Fußzeile) bekommen keine', () => {
+		const inputs = [
+			...project(),
+			file(
+				'src/routes/kontakt/+layout.svelte',
+				`<Navi />{@render children()}`,
+				`import Navi from '$lib/Navi.svelte';`,
+			),
+			file('src/lib/Navi.svelte', text('navi.titel')),
+		];
+		const { firstRoutes } = slotOrder(inputs);
+		expect(Object.fromEntries(firstRoutes)).toEqual({
+			// Seite und Komponenten der Seite: erste Route (Hero auch auf /kontakt, zählt /).
+			'start.titel': '/',
+			'start.wenn': '/',
+			'start.liste': '/',
+			'hero.titel': '/',
+			'hero.text': '/',
+			'karte.titel': '/',
+			'kontakt.titel': '/kontakt',
+			'kontakt.text': '/kontakt',
+		});
+		// navi.*, kopf.*, fuss.*: nur aus Layouts erreicht; fehler.*, ungenutzt.*: von keiner Route.
+	});
+
 	it('Komponenten, die sich gegenseitig einbinden, führen nicht in eine Schleife', () => {
 		const inputs = [
 			file('src/routes/+page.svelte', '<A />', `import A from '$lib/A.svelte';`),
@@ -104,5 +129,40 @@ describe('slotPositions', () => {
 			file('src/lib/B.svelte', `${text('b.titel')}<A />`, `import A from './A.svelte';`),
 		];
 		expect(ordered(inputs)).toEqual(['a.titel', 'b.titel']);
+	});
+});
+
+describe('collectSlots: position und route im Manifest', () => {
+	it('route aus der Datei bleibt, Komponenten einer Seite bekommen die erste Route, Layout-Komponenten keine', async () => {
+		const { mkdtemp, mkdir, writeFile, rm } = await import('node:fs/promises');
+		const { tmpdir } = await import('node:os');
+		const { join } = await import('node:path');
+		const { collectSlots } = await import('../src/lib/vite/index.js');
+		const root = await mkdtemp(join(tmpdir(), 'ds-order-'));
+		try {
+			const write = async (path: string, input: OrderInput) => {
+				await mkdir(join(root, path, '..'), { recursive: true });
+				await writeFile(join(root, path), input.code);
+			};
+			await write(
+				'src/routes/+layout.svelte',
+				file('', `<Kopf />{@render children()}`, `import Kopf from '$lib/Kopf.svelte';`),
+			);
+			await write('src/lib/Kopf.svelte', file('', text('kopf.titel')));
+			await write(
+				'src/routes/kontakt/+page.svelte',
+				file('', `${text('kontakt.titel')}<Hero />`, `import Hero from '$lib/Hero.svelte';`),
+			);
+			await write('src/lib/Hero.svelte', file('', text('hero.titel')));
+			const { slots } = await collectSlots(root);
+			expect(slots.map(({ key, route, position }) => ({ key, route, position }))).toEqual([
+				{ key: 'hero.titel', route: '/kontakt', position: 3 },
+				{ key: 'kontakt.titel', route: '/kontakt', position: 2 },
+				{ key: 'kopf.titel', route: undefined, position: 1 },
+			]);
+			expect(slots.find((s) => s.key === 'kopf.titel')).not.toHaveProperty('route');
+		} finally {
+			await rm(root, { recursive: true, force: true });
+		}
 	});
 });

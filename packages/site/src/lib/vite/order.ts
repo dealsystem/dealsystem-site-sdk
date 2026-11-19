@@ -109,10 +109,24 @@ function chainOf(page: string, known: ReadonlySet<string>): string[] {
 	return chain;
 }
 
-/**
- * `position` je Slot-Schlüssel, ab 1, lückenlos: Reihenfolge des ersten Vorkommens beim Rendern. Siehe Kopf der Datei.
- */
+/** Ergebnis von `slotOrder`. */
+export interface SlotOrder {
+	/** `position` je Slot-Schlüssel, ab 1, lückenlos: Reihenfolge des ersten Vorkommens beim Rendern. */
+	positions: Map<string, number>;
+	/**
+	 * Erste Route je Slot, der in einer Komponente steht, die eine Seite einbindet (auch über weitere Komponenten).
+	 * Slots aus Layouts und aus Komponenten in Layouts stehen auf jeder Seite und bekommen keine (Kopf, Fußzeile).
+	 */
+	firstRoutes: Map<string, string>;
+}
+
+/** `position` je Slot-Schlüssel (siehe `slotOrder`). */
 export function slotPositions(inputs: readonly OrderInput[]): Map<string, number> {
+	return slotOrder(inputs).positions;
+}
+
+/** Reihenfolge beim Rendern und erste Route je Slot. Siehe Kopf der Datei. */
+export function slotOrder(inputs: readonly OrderInput[]): SlotOrder {
 	const byFile = new Map(inputs.map((input) => [input.file, input]));
 	const outlines = new Map<string, OutlineItem[]>();
 	const outline = (file: string): OutlineItem[] => {
@@ -126,23 +140,33 @@ export function slotPositions(inputs: readonly OrderInput[]): Map<string, number
 	};
 
 	const positions = new Map<string, number>();
-	const place = (key: string): void => {
+	const firstRoutes = new Map<string, string>();
+	const place = (key: string, pageRoute: string | null): void => {
 		if (!positions.has(key)) positions.set(key, positions.size + 1);
+		if (pageRoute !== null && !firstRoutes.has(key)) firstRoutes.set(key, pageRoute);
 	};
-	const emit = (file: string, rest: readonly string[], stack: Set<string>): void => {
+	/** `pageRoute`: Route der Seite, wenn `file` die Seite oder eine von ihr eingebundene Komponente ist. */
+	const emit = (
+		file: string,
+		rest: readonly string[],
+		stack: Set<string>,
+		route: string,
+		pageRoute: string | null,
+	): void => {
 		if (stack.has(file)) return; // Komponente bindet sich selbst ein
 		stack.add(file);
+		const next = () => emit(rest[0]!, rest.slice(1), stack, route, rest.length === 1 ? route : null);
 		let childrenRendered = rest.length === 0;
 		for (const item of outline(file)) {
-			if (item.kind === 'slot') place(item.key);
-			else if (item.kind === 'component') emit(item.file, [], stack);
+			if (item.kind === 'slot') place(item.key, pageRoute);
+			else if (item.kind === 'component') emit(item.file, [], stack, route, pageRoute);
 			else if (!childrenRendered) {
 				childrenRendered = true;
-				emit(rest[0]!, rest.slice(1), stack);
+				next();
 			}
 		}
 		// Layout ohne `{@render children()}`: die Seite trotzdem mitzählen, hinten.
-		if (!childrenRendered) emit(rest[0]!, rest.slice(1), stack);
+		if (!childrenRendered) next();
 		stack.delete(file);
 	};
 
@@ -154,13 +178,13 @@ export function slotPositions(inputs: readonly OrderInput[]): Map<string, number
 		.sort((a, b) => (a.route < b.route ? -1 : a.route > b.route ? 1 : a.file < b.file ? -1 : 1));
 	for (const page of pages) {
 		const [first, ...rest] = chainOf(page.file, known);
-		emit(first!, rest, new Set());
+		emit(first!, rest, new Set(), page.route, rest.length === 0 ? page.route : null);
 	}
 
 	// Von keiner Route aus erreichbar (Fehlerseite, nicht eingebundene Komponente): Datei, dann Stelle.
 	const rest = [...inputs]
 		.sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0))
 		.flatMap((input) => [...input.slots].sort((a, b) => (a.offset ?? 0) - (b.offset ?? 0)));
-	for (const slot of rest) place(slot.key);
-	return positions;
+	for (const slot of rest) place(slot.key, null);
+	return { positions, firstRoutes };
 }

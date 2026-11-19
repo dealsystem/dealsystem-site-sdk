@@ -27,7 +27,7 @@ import type {
 } from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { CONTENT_BLOCK_VERSION, CONTENT_PATCH_LIMITS } from '../contentBlock.js';
-import { slotPositions, type OrderInput } from './order.js';
+import { slotOrder, type OrderInput } from './order.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
 import { scheduleFrom } from '../schedule.js';
 import { scanZeitfenster } from './zeitfenster.js';
@@ -114,9 +114,14 @@ export async function collectSlots(root: string): Promise<CollectedSlots> {
 	for (const slot of found) {
 		if (slot.imageSource && !imageSources.has(slot.key)) imageSources.set(slot.key, slot.imageSource);
 	}
-	const positions = slotPositions(ordered);
+	const { positions, firstRoutes } = slotOrder(ordered);
 	return {
-		slots: mergeSlots(found).map((slot) => ({ ...slot, position: positions.get(slot.key)! })),
+		// `route` aus dem Code (Slot in einer +page/+layout-Datei) bleibt; Slots in Komponenten einer Seite bekommen
+		// die erste Route, in der sie vorkommen. Das CRM gruppiert danach.
+		slots: mergeSlots(found).map((slot) => {
+			const route = slot.route ?? firstRoutes.get(slot.key);
+			return { ...slot, ...(route !== undefined ? { route } : {}), position: positions.get(slot.key)! };
+		}),
 		routes: [...routes].sort(),
 		imageSources,
 		siteHeadInRootLayout,

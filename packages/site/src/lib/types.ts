@@ -424,7 +424,10 @@ export interface ContentSlotDef {
 	type: ContentSlotType;
 	label?: string;
 	group?: string;
-	/** Route, auf der der Slot vorkommt. */
+	/**
+	 * Route, auf der der Slot vorkommt: die der +page/+layout-Datei, in der er steht; bei einer Komponente, die eine
+	 * Seite einbindet, die erste solche Route. Komponenten in Layouts (Kopf, Fußzeile) haben keine.
+	 */
 	route?: string;
 	help?: string;
 	maxLength?: number;
