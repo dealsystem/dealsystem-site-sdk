@@ -26,6 +26,8 @@ export interface MockVersion {
 	/** Wie viele GETs bis zum Endzustand. */
 	pollsUntilSettled: number;
 	finalStatus: 'ready' | 'rejected' | 'failed';
+	/** Neubau mit den Rechtstexten: geht nach dem Build selbst live (wie `reportSelfSiteBuild` im Core). */
+	releaseOnReady?: boolean;
 }
 
 export interface MockState {
@@ -56,6 +58,9 @@ export interface MockState {
 	publishError: { status: number; code: string; message: string; [extra: string]: unknown } | null;
 	/** Wie der Core bei einer Version ohne Rechtstexte im Schnappschuss: 202, nichts live, Inhalts-Version `v-legal`. */
 	publishLegalRebuild: boolean;
+	/** Endzustand des Neubaus und wie viele Abrufe er braucht. */
+	legalRebuildFinal: 'ready' | 'rejected' | 'failed';
+	legalRebuildPolls: number;
 	refreshCount: number;
 	/** Quellpakete je Versions-ID für `…/source` und den signierten Download. */
 	sources: Record<string, MockSource>;
@@ -172,6 +177,8 @@ export async function startMockServer(): Promise<MockServer> {
 		logExcerpt: 'vite build: Fehler',
 		publishError: null,
 		publishLegalRebuild: false,
+		legalRebuildFinal: 'ready',
+		legalRebuildPolls: 2,
 		refreshCount: 0,
 		sources: {},
 		sourceError: null,
@@ -458,6 +465,7 @@ export async function startMockServer(): Promise<MockServer> {
 					if (version.status === 'rejected') version.checkResult = state.rejectedCheck;
 					if (version.status === 'ready')
 						version.checkResult = { passed: true, ruleSetVersion: '1', errors: [], warnings: [] };
+					if (version.status === 'ready' && version.releaseOnReady) site.liveVersionId = version.id;
 				}
 				return reply(200, { data: full(version) });
 			}
@@ -504,13 +512,31 @@ export async function startMockServer(): Promise<MockServer> {
 					});
 				const unchanged = site.liveVersionId === target.id;
 				if (state.publishLegalRebuild && !unchanged) {
+					// Wie der Core: eine Inhalts-Version mit demselben Code; ein zweiter Aufruf nimmt dieselbe.
+					let rebuilt = state.versions.find((v) => v.id === 'v-legal');
+					if (!rebuilt) {
+						rebuilt = {
+							...target,
+							id: 'v-legal',
+							number: state.versions.length + 1,
+							status: 'building',
+							trigger: 'content',
+							message: null,
+							previewUrl: null,
+							checkResult: null,
+							pollsUntilSettled: state.legalRebuildPolls,
+							finalStatus: state.legalRebuildFinal,
+							releaseOnReady: true,
+						};
+						state.versions.push(rebuilt);
+					}
 					return reply(202, {
 						data: {
 							site,
 							release: null,
 							legalRebuild: {
-								versionId: 'v-legal',
-								number: state.versions.length + 1,
+								versionId: rebuilt.id,
+								number: rebuilt.number,
 								message: 'Wir bauen deine Rechtstexte ein, die Seite geht in etwa einer Minute live.',
 								requestedVersion: { versionId: target.id, number: target.number, legalComplete: false },
 							},

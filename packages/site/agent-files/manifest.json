@@ -104,10 +104,11 @@
 		{
 			"target": ".claude/skills/veroeffentlichen/SKILL.md",
 			"source": "claude/skills/veroeffentlichen/SKILL.md",
-			"sha256": "e77a89ab87335263471448d8c952c74851b449e65084d8e313361533c0f206d3",
+			"sha256": "04ec46db1cc600eb598974085de6557cf4ec55a124481bcf35ae061446fe0168",
 			"previous": [
 				"899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694",
-				"bf0cafe73c95bf5851fff8f510a89b1968740c6d34108385eabfb82d157fe417"
+				"bf0cafe73c95bf5851fff8f510a89b1968740c6d34108385eabfb82d157fe417",
+				"e77a89ab87335263471448d8c952c74851b449e65084d8e313361533c0f206d3"
 			]
 		},
 		{

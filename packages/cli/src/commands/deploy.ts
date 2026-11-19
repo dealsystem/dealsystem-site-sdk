@@ -10,6 +10,7 @@ import { legalStatus, legalStatusLine } from '../api/legal.js';
 import {
 	SETTLED_VERSION_STATUSES,
 	type CheckFinding,
+	type ReleaseResult,
 	type Version,
 	type VersionSummary,
 } from '../api/types.js';
@@ -191,19 +192,11 @@ async function release(
 	const result = await ctx.api().publish(siteId, version.id);
 	const url = result.url ?? `https://${host}`;
 	if (result.legalRebuild) {
-		return {
-			exitCode: EXIT.ok,
-			data: {
-				published: false,
-				pending: true,
-				versionId: version.id,
-				number: version.number,
-				legalRebuild: result.legalRebuild,
-				url,
-				legal,
-			},
-			text: legalRebuildText(`Version ${version.number}`, result.legalRebuild, url),
-		};
+		return followLegalRebuild(ctx, siteId, 'publish', `Version ${version.number}`, result.legalRebuild, url, {
+			requestedVersionId: version.id,
+			requestedNumber: version.number,
+			legal,
+		});
 	}
 	return {
 		exitCode: EXIT.ok,
@@ -222,6 +215,86 @@ async function release(
 			legalStatusLine(legal),
 		].join('\n'),
 	};
+}
+
+/**
+ * Neubau mit den Rechtstexten verfolgen: Der Core schaltet die neue Version nach dem Build selbst live, das Ja des
+ * Menschen gilt dafür. Ohne `--no-wait` wartet der Befehl darauf (Zeitlimit `--timeout`, Standard 600 s) und meldet
+ * live, gescheitert oder noch nicht fertig. Fragt nie ein zweites Mal.
+ */
+async function followLegalRebuild(
+	ctx: CommandContext,
+	siteId: string,
+	kind: 'publish' | 'rollback',
+	requested: string,
+	rebuild: NonNullable<ReleaseResult['legalRebuild']>,
+	url: string,
+	extra: Record<string, unknown>,
+): Promise<CommandResult> {
+	const done = kind === 'publish' ? 'published' : 'rolledBack';
+	const pending = (status: string | null): CommandResult => ({
+		exitCode: EXIT.ok,
+		data: { [done]: false, pending: true, legalRebuild: rebuild, rebuildStatus: status, url, ...extra },
+		text: legalRebuildText(requested, rebuild, url),
+	});
+	if (ctx.flag('no-wait')) return pending(null);
+
+	const next = rebuild.number !== null ? `Version ${rebuild.number}` : 'Die neue Version';
+	ctx.progress(
+		`${requested} wurde vor den Rechtstexten gebaut. DealSystem baut sie mit den Rechtstexten als ${next.replace(/^Die/, 'die')} und schaltet sie danach selbst live. Warte …`,
+	);
+	const timeoutSec = Number(ctx.str('timeout') ?? DEFAULT_TIMEOUT_SEC);
+	const deadline =
+		ctx.io.now().getTime() +
+		(Number.isFinite(timeoutSec) && timeoutSec > 0 ? timeoutSec : DEFAULT_TIMEOUT_SEC) * 1000;
+	let last = '';
+	for (;;) {
+		const version = await ctx.api().getVersion(siteId, rebuild.versionId);
+		if (version.status !== last) {
+			ctx.progress(`Version ${version.number}: ${version.status}`);
+			last = version.status;
+		}
+		if (version.status === 'ready') {
+			// Der Core schaltet nach dem Build um; kurz darauf zeigt die Seite die neue Version als live.
+			const site = await ctx.api().getWebsite(siteId);
+			if (site.liveVersionId === rebuild.versionId) {
+				return {
+					exitCode: EXIT.ok,
+					data: {
+						[done]: true,
+						viaLegalRebuild: true,
+						versionId: rebuild.versionId,
+						number: version.number,
+						url,
+						...extra,
+					},
+					text: `Live: Version ${version.number} (${requested} mit den Rechtstexten) unter ${url}. Neue Inhalte erscheinen nach etwa 15 Sekunden.`,
+				};
+			}
+		} else if (SETTLED_VERSION_STATUSES.has(version.status)) {
+			return {
+				exitCode: EXIT.failed,
+				data: {
+					[done]: false,
+					pending: false,
+					legalRebuild: rebuild,
+					...versionData(version),
+					url,
+					...extra,
+				},
+				text: [
+					`Nichts ist live gegangen: ${next} mit den Rechtstexten wurde nicht fertig (${version.status}). Der bisherige Stand bleibt online.`,
+					...(version.checkResult?.errors.length
+						? version.checkResult.errors.map((e) => `  ${e.rule} ${e.file ?? ''}: ${e.message}`.trimEnd())
+						: []),
+					...logExcerptLines(version.logExcerpt ?? ''),
+					'Behebe den Fehler, lade mit `npx dealsystem deploy` neu hoch und zeig dem Menschen die neue Vorschau; das Ja galt dem alten Stand.',
+				].join('\n'),
+			};
+		}
+		if (ctx.io.now().getTime() >= deadline) return pending(version.status);
+		await ctx.io.sleep(POLL_INTERVAL_MS);
+	}
 }
 
 /**
@@ -415,16 +488,15 @@ export async function rollbackCommand(ctx: CommandContext): Promise<CommandResul
 	);
 	const result = await ctx.api().rollback(siteId, target?.id);
 	if (result.legalRebuild) {
-		const url = result.url ?? `https://${host}`;
-		return {
-			exitCode: EXIT.ok,
-			data: { rolledBack: false, pending: true, legalRebuild: result.legalRebuild, url },
-			text: legalRebuildText(
-				target ? `Version ${target.number}` : 'Die vorige Version',
-				result.legalRebuild,
-				url,
-			),
-		};
+		return followLegalRebuild(
+			ctx,
+			siteId,
+			'rollback',
+			target ? `Version ${target.number}` : 'Die vorige Version',
+			result.legalRebuild,
+			result.url ?? `https://${host}`,
+			{ requestedVersionId: target?.id ?? null },
+		);
 	}
 	return {
 		exitCode: EXIT.ok,
