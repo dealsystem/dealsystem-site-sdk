@@ -94,6 +94,11 @@ Workspace. Deshalb:
 - Nennt der Konnektor keinen `workspace` (älterer Server), prüf über `list_websites`, ob die Seite aus
   `status` dort auftaucht. Fehlt sie, gilt dasselbe wie bei einer Abweichung.
 
+Einrichten tut ihn der Mensch. Adresse und Anleitung je Programm zeigt das CRM unter Einstellungen →
+Integrationen & API-Schlüssel, Abschnitt „KI-Agent verbinden (MCP)“. In Claude Code kannst du den Eintrag selbst
+anlegen (`claude mcp add --transport http dealsystem https://app.dealsystem.io/api/mcp`); danach startet der Mensch
+Claude Code neu, ruft `/mcp` auf und bestätigt die Anmeldung im Browser mit dem Workspace der Seite.
+
 ## 3. Seite verbinden und Inhalte holen
 
 ```bash
