@@ -25,6 +25,8 @@ export class SlotScanError extends Error {
 export interface FoundSlot extends ContentSlotDef {
 	file: string;
 	line: number;
+	/** Stelle im Quelltext (Zeichen ab Dateianfang), für die Reihenfolge beim Rendern (`position`). */
+	offset?: number;
 	/**
 	 * Bild-Slots: woher das Standardbild kommt, wenn der Quelltext es sicher sagt. `static`: Pfad unter
 	 * `static/` (`default="/bilder/haus.jpg"`); `module`: Datei im Projekt, relativ zur Wurzel
@@ -289,7 +291,7 @@ export function scanSlots(code: string, file: string): FoundSlot[] {
 			fallback = value;
 		}
 
-		const slot: FoundSlot = { key, type, default: fallback, file, line };
+		const slot: FoundSlot = { key, type, default: fallback, file, line, offset: node.start ?? 0 };
 		const label = text('label');
 		const group = text('group');
 		const help = text('help');
@@ -389,5 +391,5 @@ export function mergeSlots(found: readonly FoundSlot[]): ContentSlotDef[] {
 	}
 	return [...byKey.values()]
 		.sort((a, b) => a.key.localeCompare(b.key))
-		.map(({ file: _file, line: _line, imageSource: _source, ...slot }) => slot);
+		.map(({ file: _file, line: _line, offset: _offset, imageSource: _source, ...slot }) => slot);
 }

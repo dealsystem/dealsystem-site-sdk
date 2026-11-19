@@ -431,6 +431,12 @@ export interface ContentSlotDef {
 	required?: boolean;
 	/** Frühere Schlüssel dieses Slots. Der Text des Kunden wandert mit. */
 	aliases?: string[];
+	/**
+	 * Reihenfolge des ersten Vorkommens beim Rendern, ab 1, lückenlos und eindeutig: Routen wie `routes`, je Route
+	 * Layouts, dann die Seite, eigene Komponenten an ihrer Stelle; Slots, die keine Route erreicht, danach. Das CRM
+	 * sortiert die Texte einer Seite danach. Die Liste `slots` selbst bleibt nach Schlüssel sortiert.
+	 */
+	position?: number;
 	/** Standardwert aus dem Code. `null`, wenn er sich nicht melden lässt (Bilder). */
 	default: string | ContentSlotLinkValue | null;
 	/**

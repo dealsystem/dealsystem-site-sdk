@@ -27,6 +27,7 @@ import type {
 } from '../types.js';
 import { SDK_VERSION } from '../version.js';
 import { CONTENT_BLOCK_VERSION, CONTENT_PATCH_LIMITS } from '../contentBlock.js';
+import { slotPositions, type OrderInput } from './order.js';
 import { mergeSlots, routeOfFile, scanSlots, type FoundSlot } from './scan.js';
 import { scheduleFrom } from '../schedule.js';
 import { scanZeitfenster } from './zeitfenster.js';
@@ -91,6 +92,7 @@ export function usesSiteHead(code: string): boolean {
 /** Sammelt die Slots aller `.svelte`-Dateien unter `src/`. */
 export async function collectSlots(root: string): Promise<CollectedSlots> {
 	const found: FoundSlot[] = [];
+	const ordered: OrderInput[] = [];
 	const grenzen: number[] = [];
 	const routes = new Set<string>();
 	let siteHeadInRootLayout = false;
@@ -102,7 +104,9 @@ export async function collectSlots(root: string): Promise<CollectedSlots> {
 		}
 		const code = await readFile(file, 'utf8');
 		if (shown === 'src/routes/+layout.svelte' && usesSiteHead(code)) siteHeadInRootLayout = true;
-		found.push(...scanSlots(code, shown));
+		const fileSlots = scanSlots(code, shown);
+		found.push(...fileSlots);
+		ordered.push({ file: shown, code, slots: fileSlots });
 		for (const fenster of scanZeitfenster(code))
 			for (const grenze of fenster.grenzen) if (grenze.ms !== null) grenzen.push(grenze.ms);
 	}
@@ -110,8 +114,9 @@ export async function collectSlots(root: string): Promise<CollectedSlots> {
 	for (const slot of found) {
 		if (slot.imageSource && !imageSources.has(slot.key)) imageSources.set(slot.key, slot.imageSource);
 	}
+	const positions = slotPositions(ordered);
 	return {
-		slots: mergeSlots(found),
+		slots: mergeSlots(found).map((slot) => ({ ...slot, position: positions.get(slot.key)! })),
 		routes: [...routes].sort(),
 		imageSources,
 		siteHeadInRootLayout,

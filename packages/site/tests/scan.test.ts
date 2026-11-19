@@ -3,6 +3,10 @@ import { compile } from 'svelte/compiler';
 import { defaultRichtextToHtml } from '../src/lib/richtext/server.js';
 import { mergeSlots, routeOfFile, scanSlots, SlotScanError } from '../src/lib/vite/scan.js';
 
+/** Die Stelle im Quelltext (`offset`) prüft order.test.ts. */
+const withoutOffset = <T extends { offset?: number }>(slots: T[]) =>
+	slots.map(({ offset: _o, ...slot }) => slot);
+
 const page = (markup: string, imports = 'Text, RichText, MediaImage, Link') => `<script lang="ts">
 	import { ${imports} } from '@dealsystem/site';
 	import hero from './hero.jpg?enhanced';
@@ -27,7 +31,7 @@ Zeile 2\`} multiline help="Zwei Zeilen" aliases={['start.text', 'start.intro']} 
 			'src/routes/+page.svelte',
 		);
 
-		expect(slots).toEqual([
+		expect(withoutOffset(slots)).toEqual([
 			{
 				key: 'start.hero.titel',
 				type: 'text',
@@ -75,7 +79,7 @@ Zeile 2\`} multiline help="Zwei Zeilen" aliases={['start.text', 'start.intro']} 
 <Text key="start.pflicht" default="x" required />`),
 			'src/lib/Hero.svelte',
 		);
-		expect(slots.map(({ file: _f, line: _l, ...slot }) => slot)).toEqual([
+		expect(slots.map(({ file: _f, line: _l, offset: _o, ...slot }) => slot)).toEqual([
 			{
 				key: 'start.hero.knopf',
 				type: 'link',
@@ -222,7 +226,7 @@ describe('austauschbares Bild (Beispiel aus komponenten.md)', () => {
 		expect(example).toBeDefined();
 		expect(() => compile(example!, { generate: 'server' })).not.toThrow();
 		const slots = scanSlots(example!, 'src/routes/ueber-uns/+page.svelte');
-		expect(slots).toEqual([
+		expect(withoutOffset(slots)).toEqual([
 			{
 				key: 'team.inhaber.foto',
 				type: 'image',
