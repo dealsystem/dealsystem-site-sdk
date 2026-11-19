@@ -36,3 +36,22 @@ LeadForm).
    der Download-Link.
 9. Nach dem Hochladen erscheint das Formular im CRM unter Eigene Website → Formulare. Dort legt der Kunde fest,
    was mit einer Anfrage geschieht (Liste, Deal, Benachrichtigung). Sag ihm das in einem Satz.
+
+## Mails an Besucher
+
+Die Eingangsbestätigung (Mail an den Absender) und ihre Anrede wählt der Kunde, nicht du. Frag ihn in einem
+Satz, ob seine Besucher „Sie“ oder „du“ lesen sollen; die Anrede der Mails passt zur Anrede auf der Seite.
+Einen Text schlägst du höchstens vor und übernimmst ihn erst nach seinem Okay; keine Zusagen, die er nicht
+gemacht hat.
+
+- **Anrede** (gilt für alle Mails der Website, auch die Terminbestätigung): mit dem Konnektor
+  `update_website_mail_salutation` (`sie` oder `du`; die aktuelle steht als `mailSalutation` in
+  `get_website_details`). Sie ändert die festen Teile und die Standardtexte, eigene Texte nicht: Die passt du
+  danach an.
+- **Eingangsbestätigung**: `update_website_funnel` mit `confirmationSubject` und `confirmationBody`. Erlaubt sind
+  nur die Platzhalter aus `confirmationPlaceholders` in `list_website_funnels`; ein leerer Text heißt
+  Standardtext.
+- **Prüfen**: `test_website_confirmation_mail` mit `funnelKey` schickt eine Testmail nur an ihn, mit
+  Beispieldaten. Bitte ihn, sie anzusehen.
+- Ohne Konnektor sag ihm in einem Satz: Anrede und Texte stellt er im CRM unter Eigene Website → Formulare
+  ein, dort steht auch „Testmail an mich“.
