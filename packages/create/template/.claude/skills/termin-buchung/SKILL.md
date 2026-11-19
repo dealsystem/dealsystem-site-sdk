@@ -24,7 +24,7 @@ Passen die Workspaces, legen `create_event_type`, `upsert_schedule` und `upsert_
 Buchen) an, was er dir genannt hat. Sollen die Fragen vor der Zeitwahl kommen (etwa damit nur passende Anfragen
 einen Termin bekommen), stell die Terminart mit `update_event_type` auf `bookingFlow: 'contact_first'`;
 `<Booker>` folgt dem von selbst. Ohne Konnektor sag ihm in einem Satz, dass er Terminart, Fragen und
-Reihenfolge im CRM unter Termine einstellt. Die Verbindung zu Google oder Outlook richtet er selbst ein (`get_calendar_connection_link` gibt den Link).
+Reihenfolge im CRM unter Kalender → Buchungsseiten einstellt (die Terminart heißt dort „Buchungsseite“, die Fragen „Buchungsfelder“). Die Verbindung zu Google oder Outlook richtet er selbst ein (`get_calendar_connection_link` gibt den Link).
 
 ## 2. Zuordnung in `dealsystem.config.ts`
 
@@ -63,4 +63,4 @@ selbst Ausweichkontakt, `<LeadHoneypot client={termin} />` und `slot_taken` (Zei
    nicht (Frage fehlt, falsche Reihenfolge), änderst du es an der Terminart und ihr testet noch einmal.
 4. Ohne Anmeldung zeigt `npm run dev` nur Probe-Zeiten (werktags 9 bis 16 Uhr), und nichts geht ans CRM.
 5. Erst auf der veröffentlichten Seite entsteht der Termin im Kalender, mit Kontakt im CRM und
-   Bestätigungsmail. Sag ihm in einem Satz, dass gebuchte Termine im CRM unter Termine erscheinen.
+   Bestätigungsmail. Sag ihm in einem Satz, dass gebuchte Termine im CRM unter Kalender erscheinen.
