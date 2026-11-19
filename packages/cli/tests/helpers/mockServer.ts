@@ -54,6 +54,8 @@ export interface MockState {
 	/** Log-Auszug abgelehnter Versionen. */
 	logExcerpt: string;
 	publishError: { status: number; code: string; message: string; [extra: string]: unknown } | null;
+	/** Wie der Core bei einer Version ohne Rechtstexte im Schnappschuss: 202, nichts live, Inhalts-Version `v-legal`. */
+	publishLegalRebuild: boolean;
 	refreshCount: number;
 	/** Quellpakete je Versions-ID für `…/source` und den signierten Download. */
 	sources: Record<string, MockSource>;
@@ -169,6 +171,7 @@ export async function startMockServer(): Promise<MockServer> {
 		legalMissing: [],
 		logExcerpt: 'vite build: Fehler',
 		publishError: null,
+		publishLegalRebuild: false,
 		refreshCount: 0,
 		sources: {},
 		sourceError: null,
@@ -500,6 +503,20 @@ export async function startMockServer(): Promise<MockServer> {
 						versionStatus: target?.status ?? 'unknown',
 					});
 				const unchanged = site.liveVersionId === target.id;
+				if (state.publishLegalRebuild && !unchanged) {
+					return reply(202, {
+						data: {
+							site,
+							release: null,
+							legalRebuild: {
+								versionId: 'v-legal',
+								number: state.versions.length + 1,
+								message: 'Wir bauen deine Rechtstexte ein, die Seite geht in etwa einer Minute live.',
+								requestedVersion: { versionId: target.id, number: target.number, legalComplete: false },
+							},
+						},
+					});
+				}
 				site.liveVersionId = target.id;
 				return reply(200, {
 					data: {

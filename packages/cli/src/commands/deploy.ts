@@ -190,6 +190,21 @@ async function release(
 	});
 	const result = await ctx.api().publish(siteId, version.id);
 	const url = result.url ?? `https://${host}`;
+	if (result.legalRebuild) {
+		return {
+			exitCode: EXIT.ok,
+			data: {
+				published: false,
+				pending: true,
+				versionId: version.id,
+				number: version.number,
+				legalRebuild: result.legalRebuild,
+				url,
+				legal,
+			},
+			text: legalRebuildText(`Version ${version.number}`, result.legalRebuild, url),
+		};
+	}
 	return {
 		exitCode: EXIT.ok,
 		data: {
@@ -207,6 +222,19 @@ async function release(
 			legalStatusLine(legal),
 		].join('\n'),
 	};
+}
+
+/**
+ * Die Version wurde vor den Rechtstexten gebaut: Der Core schaltet sie nicht live, sondern baut denselben Code mit den
+ * Rechtstexten als neue Version und schaltet die nach dem Build selbst live. Das Ja des Menschen gilt dafür weiter.
+ */
+function legalRebuildText(requested: string, rebuild: { number: number | null }, url: string): string {
+	const next = rebuild.number !== null ? `Version ${rebuild.number}` : 'eine neue Version';
+	return [
+		`${requested} ist noch nicht live: Sie wurde gebaut, bevor die Rechtstexte im CRM standen.`,
+		`DealSystem baut denselben Stand jetzt mit den Rechtstexten als ${next}. Sie geht nach dem Build ohne weitere Bestätigung live (meist nach ein bis zwei Minuten): ${url}.`,
+		'Das Ja des Menschen gilt dafür weiter; frag nicht neu. Prüfe mit `npx dealsystem status`, ob sie live ist.',
+	].join('\n');
 }
 
 export async function deployCommand(ctx: CommandContext): Promise<CommandResult> {
@@ -386,6 +414,18 @@ export async function rollbackCommand(ctx: CommandContext): Promise<CommandResul
 		{ host, versionId: target?.id ?? null },
 	);
 	const result = await ctx.api().rollback(siteId, target?.id);
+	if (result.legalRebuild) {
+		const url = result.url ?? `https://${host}`;
+		return {
+			exitCode: EXIT.ok,
+			data: { rolledBack: false, pending: true, legalRebuild: result.legalRebuild, url },
+			text: legalRebuildText(
+				target ? `Version ${target.number}` : 'Die vorige Version',
+				result.legalRebuild,
+				url,
+			),
+		};
+	}
 	return {
 		exitCode: EXIT.ok,
 		data: { rolledBack: true, liveVersionId: result.liveVersionId, url: result.url ?? `https://${host}` },

@@ -581,6 +581,31 @@ describe('publish, rollback, status', () => {
 		expect(r.json.data.versionId).toBe('v1');
 	});
 
+	// Persona-Test in Production: Version vor den Rechtstexten gebaut, Core antwortet 202 mit `legalRebuild`.
+	// Die CLI meldete „Version 1 war schon live“, obwohl die Seite noch 404 lieferte.
+	it('publish einer Version ohne Rechtstexte: nicht „schon live“, sondern Neubau, der selbst live geht', async () => {
+		await runCli(io, 'deploy', '--json');
+		server.state.publishLegalRebuild = true;
+		const text = await runCli(io, 'publish', '--confirm');
+		expect(text.code).toBe(0);
+		expect(text.stdout).not.toContain('war schon live');
+		expect(text.stdout).toContain('Version 1 ist noch nicht live');
+		expect(text.stdout).toContain('als Version 2');
+		expect(text.stdout).toContain('ohne weitere Bestätigung live');
+		expect(text.stdout).toContain('frag nicht neu');
+		expect(server.state.sites[0]!.liveVersionId).toBeNull();
+
+		const json = await runCli(io, 'publish', '--confirm', '--json');
+		expect(json.json.data).toMatchObject({
+			published: false,
+			pending: true,
+			legalRebuild: { versionId: 'v-legal', number: 2 },
+		});
+
+		const rollback = await runCli(io, 'rollback', '--version', 'v1', '--confirm', '--json');
+		expect(rollback.json.data).toMatchObject({ rolledBack: false, pending: true });
+	});
+
 	it('rollback braucht --confirm', async () => {
 		await runCli(io, 'deploy', '--publish', '--confirm');
 		const without = await runCli(io, 'rollback', '--json');
