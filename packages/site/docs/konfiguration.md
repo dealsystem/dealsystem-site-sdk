@@ -241,7 +241,7 @@ type StandardFieldKey =
 ### BookingDef
 
 Eine Terminbuchung in `dealsystem.config.ts` (`booking`). Die Terminart selbst (Dauer, Arbeitszeiten, Fragen)
-richtet der Kunde im CRM unter Termine ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
+richtet der Kunde im CRM unter Kalender → Buchungsseiten ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
 
 ```ts
 interface BookingDef {

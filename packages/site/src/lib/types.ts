@@ -206,7 +206,7 @@ export interface ResolvedExternal {
 
 /**
  * Eine Terminbuchung in `dealsystem.config.ts` (`booking`). Die Terminart selbst (Dauer, Arbeitszeiten, Fragen)
- * richtet der Kunde im CRM unter Termine ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
+ * richtet der Kunde im CRM unter Kalender → Buchungsseiten ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
  */
 export interface BookingDef {
 	/** Bezeichnung auf der Seite und im CRM, z. B. „Erstgespräch“. Ohne Angabe gilt der Name der Terminart. */
@@ -424,13 +424,22 @@ export interface ContentSlotDef {
 	type: ContentSlotType;
 	label?: string;
 	group?: string;
-	/** Route, auf der der Slot vorkommt. */
+	/**
+	 * Route, auf der der Slot vorkommt: die der +page/+layout-Datei, in der er steht; bei einer Komponente, die eine
+	 * Seite einbindet, die erste solche Route. Komponenten in Layouts (Kopf, Fußzeile) haben keine.
+	 */
 	route?: string;
 	help?: string;
 	maxLength?: number;
 	required?: boolean;
 	/** Frühere Schlüssel dieses Slots. Der Text des Kunden wandert mit. */
 	aliases?: string[];
+	/**
+	 * Reihenfolge des ersten Vorkommens beim Rendern, ab 1, lückenlos und eindeutig: Routen wie `routes`, je Route
+	 * Layouts, dann die Seite, eigene Komponenten an ihrer Stelle; Slots, die keine Route erreicht, danach. Das CRM
+	 * sortiert die Texte einer Seite danach. Die Liste `slots` selbst bleibt nach Schlüssel sortiert.
+	 */
+	position?: number;
 	/** Standardwert aus dem Code. `null`, wenn er sich nicht melden lässt (Bilder). */
 	default: string | ContentSlotLinkValue | null;
 	/**

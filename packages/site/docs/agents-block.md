@@ -1,6 +1,6 @@
 ## DealSystem-Website: Anleitung für KI-Agenten
 
-Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.5. DealSystem prüft, baut und hostet sie.
+Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.6. DealSystem prüft, baut und hostet sie.
 
 **Lies vor jeder Aufgabe die passende Datei unter `node_modules/@dealsystem/site/docs/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit üblich ist, wird hier abgelehnt.
 
@@ -14,6 +14,7 @@ Dein Auftraggeber ist kein Techniker, sondern führt einen Betrieb (Handwerk, Pr
 - Zeige keinen Code, keine Befehle, keine Fehlermeldungen: Er öffnet nur Links und trägt Dinge im CRM ein. Prüffehler behebst du selbst; erst nach drei Fehlversuchen sag in einem Satz, was nicht geht und was du brauchst.
 - Erfinde nichts über das Unternehmen: keine Adressen, Telefonnummern, Preise, Referenzen, Zahlen und keine Leistungsversprechen („keine Provision“, „Antwort in 24 Stunden“), die er nicht selbst genannt hat. Was du nicht weißt, erfragst du oder lässt du weg.
 - Nenne nur die Orte im CRM aus dieser Anleitung; erfinde keine Bereiche.
+- Anrede (Sie/Du) und Text der Mails an Besucher wählt er (Skill `formular-anbinden`).
 
 ### Fester Ablauf
 
@@ -44,10 +45,10 @@ Jede Regel mit Korrektur: `regeln.md`.
 
 - **Ein Workspace:** Der Konnektor (MCP) ist kein Muss. Weicht sein `workspace` (`get_website_guide`) von `status` ab, lass ihn mit dem richtigen Workspace neu verbinden; bis dahin nur CLI. Nie Terminarten, Pipelines, Tags eines anderen Workspaces.
 - Kein Server-Code (`+server.ts`, `hooks.server.ts`, Form-Actions; Ausnahmen in `regeln.md`). Keine Zugangsdaten, keine `.env`, kein eigenes `fetch`, kein `{@html}`.
-- Formulare mit `<LeadForm>` oder `createLeadClient`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos des Kunden mit `npx dealsystem image add`, ins CRM mit `image push` (Skill `bild-einbauen`).
+- Formulare mit `<LeadForm>` oder `createLeadClient`, Bilder nur mit `<MediaImage>` und beschreibendem `alt`. Fotos des Kunden: Skill `bild-einbauen`.
 - Jeder sichtbare Text als `<Text>`/`<RichText>` mit festem `key` und `default` (Schlüssel-Regeln: `komponenten.md`). Adresse, Telefon, E-Mail kommen als `data.site` aus dem CRM.
 - Schriften lokal, keine CDN-Links. Fremdes nur über `external` in `dealsystem.config.ts` und `<Embed>`/`<ExternalScript>` (Skill `extern-einbinden`).
-- Jede Seite: eine `h1`, Titel und Beschreibung über `<Seo>`, nicht als `<title>` in `<svelte:head>`. `<SiteHead />`, `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
+- Jede Seite: eine `h1`, Titel und Beschreibung über `<Seo>`, kein `<title>`. `<SiteHead />`, `<CookieBanner />` und `<SiteFooterLegal />` bleiben im Layout.
 - Titel, Vorschaubild, Favicon pflegt der Kunde unter Eigene Website → Einstellungen → Google und Teilen, nicht im Code (`seo.md`).
 - Barrierefrei bauen: `gestaltung.md`.
 - `svelte.config.js` und `vite.config.ts` nicht ändern (`npx dealsystem sync --fix-config`). Nur freigegebene Pakete (`npx dealsystem check --allowed`).
