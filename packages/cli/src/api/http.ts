@@ -382,13 +382,21 @@ export class HttpDeployApi implements DeployApi {
 		);
 	}
 
-	/** Antwort `{ site, release }`; `release` ist `null`, wenn die Version schon live war. */
+	/**
+	 * Antwort `{ site, release, legalRebuild }`. `release: null` heißt nur dann „war schon live“, wenn auch
+	 * `legalRebuild` fehlt; sonst ist nichts live gegangen und eine Version mit den Rechtstexten wird gebaut.
+	 */
 	private release(raw: unknown, fallbackVersion: string): ReleaseResult {
 		const o = obj(raw);
 		const site = normalizeWebsite(o.site);
+		const rebuild = o.legalRebuild ? obj(o.legalRebuild) : null;
+		const rebuildId = rebuild ? str(rebuild.versionId) : null;
 		return {
 			liveVersionId: site.liveVersionId ?? fallbackVersion,
 			changed: o.release !== null,
+			legalRebuild: rebuildId
+				? { versionId: rebuildId, number: num(rebuild!.number), message: str(rebuild!.message) }
+				: null,
 			url: site.primaryHost
 				? `https://${site.primaryHost}`
 				: site.defaultHost

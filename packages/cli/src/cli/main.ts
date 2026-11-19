@@ -36,6 +36,12 @@ interface CommandDef {
 	positionals?: boolean;
 }
 
+/** Wurde die Version vor den Rechtstexten gebaut, baut DealSystem sie neu und schaltet sie danach selbst live. */
+const REBUILD_FLAGS = [
+	'--no-wait  nicht auf den Neubau mit den Rechtstexten warten (sonst wartet der Befehl, bis er live ist)',
+	'--timeout <s>  höchstens so lange auf den Neubau warten (Standard 600)',
+];
+
 export const COMMANDS: Record<string, CommandDef> = {
 	login: {
 		summary: 'Anmelden per Gerätecode (Bestätigung im Browser)',
@@ -118,19 +124,34 @@ export const COMMANDS: Record<string, CommandDef> = {
 	},
 	publish: {
 		summary: 'Eine fertige Version live schalten (mit Bestätigung)',
-		usage: 'dealsystem publish [--version <id|nummer>] [--confirm]',
-		options: { version: { type: 'string' }, confirm: { type: 'boolean' } },
+		usage: 'dealsystem publish [--version <id|nummer>] [--confirm] [--no-wait] [--timeout <s>]',
+		options: {
+			version: { type: 'string' },
+			confirm: { type: 'boolean' },
+			'no-wait': { type: 'boolean' },
+			timeout: { type: 'string' },
+		},
 		flags: [
 			'--version <id|nummer>  Standard: neueste fertige Version',
 			'--confirm  der Nutzer hat zugestimmt',
+			...REBUILD_FLAGS,
 		],
 		run: publishCommand,
 	},
 	rollback: {
 		summary: 'Auf eine frühere Version zurückschalten (mit Bestätigung)',
-		usage: 'dealsystem rollback [--version <id|nummer>] [--confirm]',
-		options: { version: { type: 'string' }, confirm: { type: 'boolean' } },
-		flags: ['--version <id|nummer>  Standard: die vorige Freigabe', '--confirm  der Nutzer hat zugestimmt'],
+		usage: 'dealsystem rollback [--version <id|nummer>] [--confirm] [--no-wait] [--timeout <s>]',
+		options: {
+			version: { type: 'string' },
+			confirm: { type: 'boolean' },
+			'no-wait': { type: 'boolean' },
+			timeout: { type: 'string' },
+		},
+		flags: [
+			'--version <id|nummer>  Standard: die vorige Freigabe',
+			'--confirm  der Nutzer hat zugestimmt',
+			...REBUILD_FLAGS,
+		],
 		run: rollbackCommand,
 	},
 	pull: {

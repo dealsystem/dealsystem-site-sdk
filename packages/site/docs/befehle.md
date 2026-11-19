@@ -56,19 +56,23 @@ Prüfen, lokal bauen, hochladen, Vorschau-URL ausgeben.
 - `--no-wait` – nach dem Hochladen nicht auf den Build warten
 - `--timeout <s>` – höchstens so lange warten (Standard 600)
 
-## `dealsystem publish [--version <id|nummer>] [--confirm]`
+## `dealsystem publish [--version <id|nummer>] [--confirm] [--no-wait] [--timeout <s>]`
 
 Eine fertige Version live schalten (mit Bestätigung).
 
 - `--version <id|nummer>` – Standard: neueste fertige Version
 - `--confirm` – der Nutzer hat zugestimmt
+- `--no-wait` – nicht auf den Neubau mit den Rechtstexten warten (sonst wartet der Befehl, bis er live ist)
+- `--timeout <s>` – höchstens so lange auf den Neubau warten (Standard 600)
 
-## `dealsystem rollback [--version <id|nummer>] [--confirm]`
+## `dealsystem rollback [--version <id|nummer>] [--confirm] [--no-wait] [--timeout <s>]`
 
 Auf eine frühere Version zurückschalten (mit Bestätigung).
 
 - `--version <id|nummer>` – Standard: die vorige Freigabe
 - `--confirm` – der Nutzer hat zugestimmt
+- `--no-wait` – nicht auf den Neubau mit den Rechtstexten warten (sonst wartet der Befehl, bis er live ist)
+- `--timeout <s>` – höchstens so lange auf den Neubau warten (Standard 600)
 
 ## `dealsystem pull [ordner] [--site <id|slug>] [--version <nummer|id>]`
 

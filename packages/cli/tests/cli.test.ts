@@ -581,6 +581,81 @@ describe('publish, rollback, status', () => {
 		expect(r.json.data.versionId).toBe('v1');
 	});
 
+	// Persona-Test in Production: Version vor den Rechtstexten gebaut, Core antwortet 202 mit `legalRebuild`.
+	// Die CLI meldete „Version 1 war schon live“, obwohl die Seite noch 404 lieferte.
+	it('publish einer Version ohne Rechtstexte: nicht „schon live“, sondern Neubau, der selbst live geht', async () => {
+		await runCli(io, 'deploy', '--json');
+		server.state.publishLegalRebuild = true;
+		// --no-wait: sofort zurück, mit dem Hinweis, dass nichts neu zu fragen ist.
+		const text = await runCli(io, 'publish', '--confirm', '--no-wait');
+		expect(text.code).toBe(0);
+		expect(text.stdout).not.toContain('war schon live');
+		expect(text.stdout).toContain('Version 1 ist noch nicht live');
+		expect(text.stdout).toContain('als Version 2');
+		expect(text.stdout).toContain('ohne weitere Bestätigung live');
+		expect(text.stdout).toContain('frag nicht neu');
+		expect(server.state.sites[0]!.liveVersionId).toBeNull();
+
+		const json = await runCli(io, 'publish', '--confirm', '--no-wait', '--json');
+		expect(json.json.data).toMatchObject({
+			published: false,
+			pending: true,
+			legalRebuild: { versionId: 'v-legal', number: 2 },
+		});
+
+		const rollback = await runCli(io, 'rollback', '--version', 'v1', '--confirm', '--no-wait', '--json');
+		expect(rollback.json.data).toMatchObject({ rolledBack: false, pending: true });
+	});
+
+	it('publish wartet ohne zweites Ja auf den Neubau mit den Rechtstexten und meldet live', async () => {
+		await runCli(io, 'deploy', '--json');
+		server.state.publishLegalRebuild = true;
+		const r = await runCli(io, 'publish', '--confirm');
+		expect(r.code).toBe(0);
+		expect(r.stdout).toContain(
+			'Live: Version 2 (Version 1 mit den Rechtstexten) unter https://muster.sites.example',
+		);
+		expect(r.stderr).toContain('DealSystem baut sie mit den Rechtstexten als Version 2');
+		expect(server.state.sites[0]!.liveVersionId).toBe('v-legal');
+		// Nur ein Aufruf von publish, kein zweites Ja.
+		expect(server.requests.filter((q) => q.path.endsWith('/publish'))).toHaveLength(1);
+		expect(io.sleeps.length).toBeGreaterThan(0);
+		const json = await runCli(io, 'status', '--json');
+		expect(json.json.data.site.liveVersionId).toBe('v-legal');
+	});
+
+	it('publish --json nach dem Warten: published true, viaLegalRebuild', async () => {
+		await runCli(io, 'deploy', '--json');
+		server.state.publishLegalRebuild = true;
+		const r = await runCli(io, 'publish', '--confirm', '--json');
+		expect(r.json).toMatchObject({
+			ok: true,
+			data: { published: true, viaLegalRebuild: true, versionId: 'v-legal', number: 2, requestedNumber: 1 },
+		});
+	});
+
+	it('Neubau scheitert: Exit-Code 1, nichts live, Hinweis auf neues Hochladen und neues Ja', async () => {
+		await runCli(io, 'deploy', '--json');
+		server.state.publishLegalRebuild = true;
+		server.state.legalRebuildFinal = 'failed';
+		const r = await runCli(io, 'publish', '--confirm');
+		expect(r.code).toBe(1);
+		expect(r.stdout).toContain(
+			'Nichts ist live gegangen: Version 2 mit den Rechtstexten wurde nicht fertig (failed)',
+		);
+		expect(r.stdout).toContain('das Ja galt dem alten Stand');
+		expect(server.state.sites[0]!.liveVersionId).toBeNull();
+	});
+
+	it('Neubau nach dem Zeitlimit noch nicht fertig: Exit-Code 0, pending, Hinweis auf status', async () => {
+		await runCli(io, 'deploy', '--json');
+		server.state.publishLegalRebuild = true;
+		server.state.legalRebuildPolls = 1000;
+		const r = await runCli(io, 'rollback', '--version', 'v1', '--confirm', '--timeout', '10', '--json');
+		expect(r.code).toBe(0);
+		expect(r.json.data).toMatchObject({ rolledBack: false, pending: true, rebuildStatus: 'building' });
+	});
+
 	it('rollback braucht --confirm', async () => {
 		await runCli(io, 'deploy', '--publish', '--confirm');
 		const without = await runCli(io, 'rollback', '--json');

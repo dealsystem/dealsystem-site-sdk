@@ -27,6 +27,11 @@ auf seinem Rechner läufst, gehst du gleich über die Vorschau und sagst ihm das
    sie im CRM unter Eigene Website → Rechtliches ein. Du schreibst diese Texte nicht. Danach
    `npx dealsystem sync` und zurück zu Schritt 2: neu hochladen, die **neue** Vorschau nennen und **erneut
    fragen**. Das frühere Ja galt dem alten Stand.
+   Wurde die Version gebaut, bevor die Rechtstexte im CRM standen, baut DealSystem denselben Stand mit den
+   Rechtstexten neu und schaltet ihn selbst live; `publish` wartet darauf (meist ein bis zwei Minuten). Nicht neu
+   fragen und nicht neu hochladen. Endet es mit „Live: Version …“, weiter mit Schritt 7. Sagt es „noch nicht
+   live“, später mit `npx dealsystem status` prüfen. Nur bei „Nichts ist live gegangen“ neu hochladen und neu
+   fragen.
 7. Bestätige in einem Satz, dass die Seite online ist, und nenne die Adresse. Sie läuft zuerst unter einer
    Adresse wie `<name>.dealsystem.site`; eine eigene Domain verbindet er später unter Eigene Website → Domains
    (Skill `domain-verbinden`).
