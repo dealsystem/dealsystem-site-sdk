@@ -7,7 +7,9 @@ import { BOOKING_RANGE_MAX_DAYS, visitorTimeZone } from './bookingTime.js';
 import { createCaptchaSession } from './captchaSession.js';
 import {
 	siteApi,
+	type BookingAttendeeAddress,
 	type BookingInfo,
+	type BookingLocation,
 	type BookingLocationType,
 	type BookingQuestion,
 	type BookingSlot,
@@ -75,6 +77,43 @@ export interface BookingInput {
 	answers?: Record<string, string | number | boolean | readonly string[] | undefined>;
 	/** Gewählte Ort-Art aus `info.locations`; ohne Angabe die erste. */
 	locationType?: BookingLocationType;
+	/**
+	 * Adresse des Gasts. Pflicht, wenn die gewählte Ort-Art `attendeeInput: 'address'` hat (z. B. „Bei Ihnen vor
+	 * Ort“, siehe `needsAttendeeAddress`); sonst wird sie nicht mitgeschickt.
+	 */
+	attendeeAddress?: BookingAttendeeAddress;
+}
+
+/** Grenzen der Adresse nach dem Bereinigen, wie im Core. */
+const ADDRESS_LIMITS = { street: 200, postalCode: 10, city: 100 } as const;
+/** Postleitzahl wie im Core: Buchstaben, Ziffern, innen Leerzeichen und Bindestrich (DE, AT, CH, NL …). */
+const POSTAL_CODE = /^[A-Za-z0-9](?:[A-Za-z0-9 -]{1,8}[A-Za-z0-9])?$/;
+const ADDRESS_FIELDS = ['street', 'postalCode', 'city'] as const;
+const ADDRESS_LABELS: Record<(typeof ADDRESS_FIELDS)[number], string> = {
+	street: 'Straße und Hausnummer',
+	postalCode: 'PLZ',
+	city: 'Ort',
+};
+
+/** Steuerzeichen und mehrfachen Leerraum zusammenfassen, wie der Core vor dem Prüfen. */
+function cleanLine(value: unknown): string {
+	if (typeof value !== 'string') return '';
+	// eslint-disable-next-line no-control-regex
+	return value
+		.replace(/[\u0000-\u001F\u007F]/g, ' ')
+		.replace(/\s+/g, ' ')
+		.trim();
+}
+
+/**
+ * Braucht die gewählte Ort-Art eine Adresse des Gasts? Ohne `locationType` gilt die erste Ort-Art, wie beim Buchen.
+ */
+export function needsAttendeeAddress(
+	locations: readonly BookingLocation[],
+	locationType?: BookingLocationType | null,
+): boolean {
+	const chosen = locationType ? locations.find((l) => l.type === locationType) : locations[0];
+	return chosen?.attendeeInput === 'address';
 }
 
 /** Ergebnis von `book()`. */
@@ -141,10 +180,14 @@ export interface BookingClient<K extends string = string> {
 	info(): Promise<BookingInfoResult>;
 	/** Freie Zeiten ab `from` (Standard: jetzt) bis `to` (Standard: 7 Tage später, höchstens 31 Tage). */
 	slots(from?: Date | string, to?: Date | string): Promise<BookingSlotsResult>;
-	/** Prüft die Angaben wie der Server. Leeres Objekt = in Ordnung. */
+	/**
+	 * Prüft die Angaben wie der Server. Leeres Objekt = in Ordnung. Mit `locations` (aus `info()`) auch die Adresse,
+	 * wenn die gewählte Ort-Art eine verlangt: Fehler unter `attendeeAddress.street`, `.postalCode`, `.city`.
+	 */
 	validate(
 		input: Omit<BookingInput, 'start'>,
 		questions?: readonly BookingQuestion[],
+		locations?: readonly BookingLocation[],
 	): Record<string, string>;
 	/**
 	 * Bei „erst Angaben, dann Termin“ (`info.flow === 'contact_first'`): Passen die Antworten zur Terminart? Vor der
@@ -367,6 +410,7 @@ export function createBookingClient<K extends BookingKey>(
 	function validate(
 		input: Omit<BookingInput, 'start'>,
 		questions: readonly BookingQuestion[] = [],
+		locations: readonly BookingLocation[] = [],
 	): Record<string, string> {
 		const found: Record<string, string> = {};
 		const first = input.firstName?.trim() ?? '';
@@ -386,6 +430,18 @@ export function createBookingClient<K extends BookingKey>(
 			const message = checkAnswer(question, input.answers?.[question.key]);
 			if (message) found[`answers.${question.key}`] = message;
 		}
+		if (needsAttendeeAddress(locations, input.locationType)) {
+			for (const field of ADDRESS_FIELDS) {
+				const value = cleanLine(input.attendeeAddress?.[field]);
+				const label = ADDRESS_LABELS[field];
+				if (!value) found[`attendeeAddress.${field}`] = `Bitte geben Sie „${label}“ an.`;
+				else if (value.length > ADDRESS_LIMITS[field])
+					found[`attendeeAddress.${field}`] =
+						`„${label}“ ist zu lang. Erlaubt sind höchstens ${ADDRESS_LIMITS[field]} Zeichen.`;
+				else if (field === 'postalCode' && !POSTAL_CODE.test(value))
+					found['attendeeAddress.postalCode'] = 'Bitte geben Sie eine gültige Postleitzahl an, z. B. 04109.';
+			}
+		}
 		return found;
 	}
 
@@ -404,7 +460,8 @@ export function createBookingClient<K extends BookingKey>(
 		if (!definition) return unavailable();
 		const loaded = await info();
 		const questions = loaded.ok ? loaded.info.questions : [];
-		const found = validate(input, questions);
+		const locations = loaded.ok ? loaded.info.locations : [];
+		const found = validate(input, questions, locations);
 		if (!input.start || Number.isNaN(Date.parse(input.start))) found.start = 'Bitte wählen Sie eine Zeit.';
 		if (Object.keys(found).length > 0) {
 			return {
@@ -438,6 +495,16 @@ export function createBookingClient<K extends BookingKey>(
 			},
 			answers: answersOf(input),
 			...(input.locationType ? { locationType: input.locationType } : {}),
+			// Nur bei einer Ort-Art, die eine Adresse verlangt: ein älterer Core lehnt das Feld sonst ab.
+			...(needsAttendeeAddress(locations, input.locationType)
+				? {
+						attendeeAddress: {
+							street: cleanLine(input.attendeeAddress?.street),
+							postalCode: cleanLine(input.attendeeAddress?.postalCode),
+							city: cleanLine(input.attendeeAddress?.city),
+						},
+					}
+				: {}),
 			attribution: buildLeadAttribution(consent.granted(), consent.decidedAt),
 			captcha: payload,
 			website: honeypot.slice(0, 500),
@@ -470,6 +537,13 @@ export function createBookingClient<K extends BookingKey>(
 					fields[`answers.${name}`] = `Bitte prüfen Sie Ihre Angabe bei „${question?.label ?? name}“.`;
 				} else if (head === 'start') {
 					fields.start = 'Bitte wählen Sie eine Zeit.';
+				} else if (
+					head === 'attendeeAddress' &&
+					name &&
+					(ADDRESS_FIELDS as readonly string[]).includes(name)
+				) {
+					const label = ADDRESS_LABELS[name as keyof typeof ADDRESS_LABELS];
+					fields[`attendeeAddress.${name}`] = `Bitte prüfen Sie Ihre Angabe bei „${label}“.`;
 				}
 			}
 			return { ok: false, reason: 'validation', message: MESSAGES.validation, fields, fallback: null, error };

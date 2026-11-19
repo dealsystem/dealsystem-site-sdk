@@ -29,6 +29,16 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		submitLabel?: string;
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
+		/**
+		 * Beschriftungen der Adressfelder, wenn der Termin beim Gast stattfindet (Ort-Art mit Adresse). Standard
+		 * „Straße und Hausnummer“, „PLZ“, „Ort“.
+		 */
+		addressLabels?: { street?: string; postalCode?: string; city?: string };
+		/**
+		 * Eigene Bezeichnung je Ort-Art statt der aus dem CRM, z. B. `{ attendee_address: 'Bei dir vor Ort' }`, wenn die
+		 * Seite ihre Besucher duzt.
+		 */
+		locationLabels?: Partial<Record<BookingLocationType, string>>;
 		/** Eigene Anzeige nach der Buchung; bekommt Datum und Uhrzeit als Text. */
 		success?: Snippet<[{ when: string; dryRun: boolean }]>;
 		/** Wird nach der Buchung aufgerufen. */
@@ -39,7 +49,11 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
-	import { createBookingClient, type BookingFailure } from '../client/bookingClient.svelte.js';
+	import {
+		createBookingClient,
+		needsAttendeeAddress,
+		type BookingFailure,
+	} from '../client/bookingClient.svelte.js';
 	import {
 		BOOKING_RANGE_MAX_DAYS,
 		bookingRange,
@@ -60,6 +74,8 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		headingLevel = 2,
 		submitLabel = 'Termin buchen',
 		privacyHref = '/datenschutz',
+		addressLabels,
+		locationLabels,
 		success,
 		onbooked,
 		class: className,
@@ -99,6 +115,21 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	] as const;
 	let person = $state({ firstName: '', lastName: '', email: '', phone: '' });
 	let locationType = $state<BookingLocationType | null>(null);
+	let attendeeAddress = $state({ street: '', postalCode: '', city: '' });
+	/** Die gewählte Ort-Art verlangt eine Adresse des Gasts (z. B. „Bei Ihnen vor Ort“). */
+	const needsAddress = $derived(info ? needsAttendeeAddress(info.locations, locationType) : false);
+	const ADDRESS_FIELDS = $derived([
+		{
+			name: 'street',
+			label: addressLabels?.street ?? 'Straße und Hausnummer',
+			auto: 'street-address',
+			max: 200,
+		},
+		{ name: 'postalCode', label: addressLabels?.postalCode ?? 'PLZ', auto: 'postal-code', max: 10 },
+		{ name: 'city', label: addressLabels?.city ?? 'Ort', auto: 'address-level2', max: 100 },
+	] as const);
+	const locationLabel = (location: { type: BookingLocationType; label: string }) =>
+		locationLabels?.[location.type] ?? location.label;
 	let answers = $state<Record<string, string | boolean | string[]>>({});
 	let errors = $state<Record<string, string>>({});
 	let sending = $state(false);
@@ -240,7 +271,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		event.preventDefault();
 		if (!info) return;
 		problem = null;
-		errors = client.validate({ ...person, answers }, info.questions);
+		errors = client.validate({ ...person, answers, ...guestDetails() }, info.questions, info.locations);
 		if (errorCount > 0) return focusFirstInvalid();
 		if (qualifying) return;
 		// Die Sicherheitsprüfung läuft schon, während der Besucher die Zeit wählt.
@@ -267,22 +298,26 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		await focusHeading();
 	}
 
+	/** Ort-Art und, falls sie es verlangt, die Adresse des Gasts. */
+	function guestDetails() {
+		return {
+			...(locationType ? { locationType } : {}),
+			...(needsAddress ? { attendeeAddress: { ...attendeeAddress } } : {}),
+		};
+	}
+
 	async function onsubmit(event: SubmitEvent) {
 		event.preventDefault();
 		if (sending || !selected || !info) return;
 		problem = null;
-		const input = { ...person, answers };
-		errors = client.validate(input, info.questions);
+		const input = { ...person, answers, ...guestDetails() };
+		errors = client.validate(input, info.questions, info.locations);
 		if (errorCount > 0) {
 			if (step === 'confirm') step = 'details';
 			return focusFirstInvalid();
 		}
 		sending = true;
-		const result = await client.book({
-			...input,
-			start: selected.start,
-			...(locationType ? { locationType } : {}),
-		});
+		const result = await client.book({ ...input, start: selected.start });
 		sending = false;
 
 		if (result.ok) {
@@ -552,12 +587,33 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 					{#each info.locations as location (location.type)}
 						<label class="ds-booker__check">
 							<input type="radio" name="{uid}-location" value={location.type} bind:group={locationType} />
-							{location.label}
+							{locationLabel(location)}
 						</label>
 					{/each}
 				</fieldset>
 			{:else if info.locations.length === 1}
-				<p class="ds-booker__hint">Ort: {info.locations[0]!.label}</p>
+				<p class="ds-booker__hint">Ort: {locationLabel(info.locations[0]!)}</p>
+			{/if}
+
+			{#if needsAddress}
+				{#each ADDRESS_FIELDS as f (f.name)}
+					{@const id = `${uid}-address-${f.name}`}
+					{@const name = `attendeeAddress.${f.name}`}
+					<div class="ds-booker__field">
+						<label for={id}>{f.label}<span aria-hidden="true"> *</span></label>
+						<input
+							{id}
+							type="text"
+							autocomplete={f.auto}
+							required
+							maxlength={f.max}
+							bind:value={attendeeAddress[f.name]}
+							aria-invalid={!!errors[name]}
+							aria-describedby={errors[name] ? `${id}-error` : undefined}
+						/>
+						{@render fieldError(name, id)}
+					</div>
+				{/each}
 			{/if}
 
 			{#each info.questions as q (q.key)}

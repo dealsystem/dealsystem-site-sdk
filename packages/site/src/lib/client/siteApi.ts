@@ -99,7 +99,24 @@ export interface PageviewRequest {
 }
 
 /** Ort-Art eines Termins. Adresse, Telefonnummer oder Link nennt erst die Bestätigung. */
-export type BookingLocationType = 'google_meet' | 'in_person' | 'phone' | 'link';
+/** Ort-Art einer Terminart. `attendee_address`: Der Termin findet beim Gast statt (Handwerker, Besichtigung). */
+export type BookingLocationType = 'google_meet' | 'in_person' | 'phone' | 'link' | 'attendee_address';
+
+/** Eine Ort-Art, wie die Site-API sie meldet. */
+export interface BookingLocation {
+	type: BookingLocationType;
+	/** Bezeichnung aus dem CRM, z. B. „Bei Ihnen vor Ort“. */
+	label: string;
+	/** `address`: Wählt der Gast diese Art, gibt er Straße, PLZ und Ort an (`attendeeAddress`, dann Pflicht). */
+	attendeeInput: 'address' | null;
+}
+
+/** Adresse des Gasts bei einer Ort-Art mit `attendeeInput: 'address'`. */
+export interface BookingAttendeeAddress {
+	street: string;
+	postalCode: string;
+	city: string;
+}
 
 /** Eine Buchungsfrage der Terminart. Antworten gehen unter `answers[key]` mit. */
 export interface BookingQuestion {
@@ -123,7 +140,7 @@ export interface BookingInfo {
 	durationMinutes: number;
 	/** IANA-Zeitzone des Kalenders, z. B. `Europe/Berlin`. */
 	timezone: string;
-	locations: { type: BookingLocationType; label: string }[];
+	locations: BookingLocation[];
 	questions: BookingQuestion[];
 	/**
 	 * Reihenfolge im CRM: `calendar_first` (erst Zeit, dann Angaben) oder `contact_first` (erst Angaben und
@@ -161,6 +178,8 @@ export interface BookingRequest {
 	attendee: { firstName: string; lastName?: string; email: string; phone?: string };
 	answers?: Record<string, string | number | boolean | string[]>;
 	locationType?: BookingLocationType;
+	/** Pflicht, wenn die gewählte Ort-Art `attendeeInput: 'address'` hat; sonst weglassen (ein älterer Core lehnt das Feld ab). */
+	attendeeAddress?: BookingAttendeeAddress;
 	attribution?: LeadAttributionV2 | LeadAttributionV1;
 	captcha: string;
 	website?: string;
@@ -190,7 +209,13 @@ export type BookingQualification =
 			redirectUrl: string | null;
 	  };
 
-const LOCATION_TYPES: readonly BookingLocationType[] = ['google_meet', 'in_person', 'phone', 'link'];
+const LOCATION_TYPES: readonly BookingLocationType[] = [
+	'google_meet',
+	'in_person',
+	'phone',
+	'link',
+	'attendee_address',
+];
 
 function str(value: unknown): string | null {
 	return typeof value === 'string' ? value : null;
@@ -207,7 +232,13 @@ function normalizeBookingInfo(raw: unknown): BookingInfo | null {
 	const locations = Array.isArray(raw.locations)
 		? raw.locations.flatMap((l) =>
 				isRecord(l) && LOCATION_TYPES.includes(l.type as BookingLocationType) && typeof l.label === 'string'
-					? [{ type: l.type as BookingLocationType, label: l.label }]
+					? [
+							{
+								type: l.type as BookingLocationType,
+								label: l.label,
+								attendeeInput: l.attendeeInput === 'address' ? ('address' as const) : null,
+							},
+						]
 					: [],
 			)
 		: [];
