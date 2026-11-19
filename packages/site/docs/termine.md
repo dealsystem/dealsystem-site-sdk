@@ -7,7 +7,8 @@ Formular an die Site-API.
 
 ## Die Terminart kommt aus dem CRM
 
-Was gebucht werden kann, legt der Kunde im CRM unter Termine fest: Dauer, Arbeitszeiten, Buchungsfragen,
+Was gebucht werden kann, legt der Kunde im CRM unter Kalender → Buchungsseiten fest (dort heißt die Terminart
+„Buchungsseite“): Dauer, Arbeitszeiten, Buchungsfragen,
 Gastgeber, Ort (Telefon, Google Meet, vor Ort), Reihenfolge. **Erfinde keine Terminart, keine Dauer und keine
 Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
 
@@ -15,7 +16,7 @@ Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
 Angaben, dann Termin“ (`contact_first`), fragt `<Booker>` zuerst Kontaktdaten und Fragen ab und zeigt danach
 die freien Zeiten. Das passt, wenn die Fragen entscheiden, ob ein Termin sinnvoll ist. Eingestellt wird das an
 der Terminart, nicht im Code: über den Konnektor mit `update_event_type` (`bookingFlow: 'contact_first'`),
-sonst im CRM unter Termine. `info().flow` nennt die Einstellung für eigene Oberflächen.
+sonst im CRM unter Kalender → Buchungsseiten. `info().flow` nennt die Einstellung für eigene Oberflächen.
 
 Welche Terminarten wählbar sind, zeigt im DealSystem-Konnektor `list_website_bookings` mit der `websiteId` aus
 `npx dealsystem status`: Das Feld `eventTypes` (mit `slug`) enthält die aktiven Terminarten des Workspaces, zu

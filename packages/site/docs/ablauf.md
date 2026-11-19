@@ -244,6 +244,9 @@ Vorhandene Dateien überschreibt `sync` nicht; nur eine unveränderte ältere Fa
 | Angebote, Bilder                                    | CRM → CMS                                                 |
 | Tracking-Kennungen (Google, Meta)                   | CRM → Eigene Website → Einstellungen                      |
 | Domain eintragen, Einträge beim Anbieter setzen     | CRM → Eigene Website → Domains, dann beim Domain-Anbieter |
+| Website pausieren und fortsetzen                    | CRM → Eigene Website → Einstellungen                      |
+| Termine sperren (Urlaub)                            | CRM → Kalender (Verfügbarkeit, Buchungsseiten)            |
+| Besucherzahlen ansehen (ab dem Tag nach Livegang)   | CRM → Eigene Website → Statistik                          |
 
 ## Wenn etwas nicht klappt
 

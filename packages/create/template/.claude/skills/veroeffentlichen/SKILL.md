@@ -29,7 +29,9 @@ auf seinem Rechner läufst, gehst du gleich über die Vorschau und sagst ihm das
    fragen**. Das frühere Ja galt dem alten Stand.
 7. Bestätige in einem Satz, dass die Seite online ist, und nenne die Adresse. Sie läuft zuerst unter einer
    Adresse wie `<name>.dealsystem.site`; eine eigene Domain verbindet er später unter Eigene Website → Domains
-   (Skill `domain-verbinden`).
+   (Skill `domain-verbinden`). Besucherzahlen sieht er ab dem nächsten Tag unter Eigene Website → Statistik;
+   pausieren und fortsetzen kann er die Website unter Eigene Website → Einstellungen, Termine sperrt er im
+   Kalender. Einen Befehl dafür hast du nicht.
 
 **Jede neue Vorschau braucht ein neues ausdrückliches Ja.** Sobald du noch einmal hochlädst, ist die
 Zustimmung verbraucht, egal wie klein die Änderung war. Sag nie „ein neues Ja brauche ich nicht“.

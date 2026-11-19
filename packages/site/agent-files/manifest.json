@@ -94,19 +94,21 @@
 		{
 			"target": ".claude/skills/termin-buchung/SKILL.md",
 			"source": "claude/skills/termin-buchung/SKILL.md",
-			"sha256": "eb7bfaef8a0ea4e43520be6357c74d07786b9678c67718caf5fb62d35ff73dc6",
+			"sha256": "83c12011723b103a5563b8cb8a87cdb88970db6e2f8cd9822ceed4540378554e",
 			"previous": [
 				"cfa14b4c8a87ab3a8061b00d440f409d8ccca06146ffd7bdc6af121fcbc2f67e",
 				"d0d22e8cf29f7e5f629df920dd190de7df27284475aaa57014dbd37e86ba4c2f",
+				"eb7bfaef8a0ea4e43520be6357c74d07786b9678c67718caf5fb62d35ff73dc6",
 				"fd7063e796755293f301fa7ce17fa31ba3996cd31db517bba31d78fe19a6cbf4"
 			]
 		},
 		{
 			"target": ".claude/skills/veroeffentlichen/SKILL.md",
 			"source": "claude/skills/veroeffentlichen/SKILL.md",
-			"sha256": "bf0cafe73c95bf5851fff8f510a89b1968740c6d34108385eabfb82d157fe417",
+			"sha256": "cbda3307f88cd566c4019b6de691ea38e2ad2aad2fcd75afdb591a9980aaad8e",
 			"previous": [
-				"899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694"
+				"899d2cef2e5ea6b542d5687d5591c29a02a772226c4bf3b9dad6b3f5b6a9e694",
+				"bf0cafe73c95bf5851fff8f510a89b1968740c6d34108385eabfb82d157fe417"
 			]
 		},
 		{
