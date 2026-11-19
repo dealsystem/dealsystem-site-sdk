@@ -206,7 +206,7 @@ export interface ResolvedExternal {
 
 /**
  * Eine Terminbuchung in `dealsystem.config.ts` (`booking`). Die Terminart selbst (Dauer, Arbeitszeiten, Fragen)
- * richtet der Kunde im CRM unter Termine ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
+ * richtet der Kunde im CRM unter Kalender → Buchungsseiten ein, oder der Agent über die MCP-Werkzeuge; hier steht nur die Zuordnung.
  */
 export interface BookingDef {
 	/** Bezeichnung auf der Seite und im CRM, z. B. „Erstgespräch“. Ohne Angabe gilt der Name der Terminart. */

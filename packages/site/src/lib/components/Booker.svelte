@@ -8,7 +8,7 @@ Buchungsfragen, der Spam-Schutz und die Buchung im CRM sind eingebaut. Kein ifra
 ```
 
 Den Schlüssel trägst du in `dealsystem.config.ts` unter `booking` ein. Die Terminart (Dauer, Arbeitszeiten,
-Fragen, Reihenfolge) richtet der Kunde im CRM unter Termine ein; erfinde keine. Steht sie auf „erst Angaben,
+Fragen, Reihenfolge) richtet der Kunde im CRM unter Kalender → Buchungsseiten ein; erfinde keine. Steht sie auf „erst Angaben,
 dann Termin“ (`contact_first`), fragt der Baustein zuerst Kontaktdaten und Fragen ab und zeigt danach die freien
 Zeiten; sonst umgekehrt. Zeiten erscheinen in der Zeitzone des
 Besuchers, die des Kalenders steht als Hinweis dabei. Farben und Rundungen wie bei `<LeadForm>` über
