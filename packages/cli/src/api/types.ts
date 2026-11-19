@@ -87,9 +87,15 @@ export interface SourceDownload {
 
 export interface ReleaseResult {
 	liveVersionId: string;
-	/** `false`, wenn die Version schon live war (`release: null`). */
+	/** `true`, wenn der Live-Stand jetzt umgestellt wurde (`release` gesetzt). */
 	changed: boolean;
 	url: string | null;
+	/**
+	 * Gesetzt, wenn die Version vor den Rechtstexten gebaut wurde (Core antwortet 202): Nichts ist live gegangen.
+	 * Der Core baut denselben Code als neue Version mit den Rechtstexten, und die geht nach dem Build ohne
+	 * weitere Bestätigung live. Ohne `release` und ohne `legalRebuild` war die Version schon live.
+	 */
+	legalRebuild: { versionId: string; number: number | null; message: string | null } | null;
 }
 
 /** Workspace und Nutzer hinter dem Token (`GET /api/v1/meta/whoami`). */
