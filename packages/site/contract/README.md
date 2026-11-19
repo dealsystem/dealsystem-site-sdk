@@ -7,6 +7,7 @@ Gegen diese Dateien ist der Client des Pakets getestet (`tests/contract.test.ts`
 | `site-api.v1.json`         | **Kopie aus dem Core**, erzeugt mit `npm run openapi:site-api`. Nie von Hand ändern.                                                | Leads, Captcha, Seitenaufrufe, Sammlungen, Terminbuchung                                                                  |
 | `ds-content.v1.json`       | **SDK**, Quelle hier; erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/contentBlockContract.test.ts`                             | Inhaltsblock `ds-content`, Feld `contentPatch` samt Grenzen, Fälle „Artefakt vorher + Slot-Werte → nachher“ bzw. „bauen“  |
 | `external-presets.v1.json` | **SDK**, Quelle `src/lib/external/presets.ts`; erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/externalPresetsContract.test.ts` | Vorlagen für fremde Dienste (`external`): Kategorie, Anbieter, Hosts je Direktive. Der Core hält eine byte-gleiche Kopie. |
+| `slot-order.v1.json`       | **SDK**, erzeugt mit `UPDATE_CONTRACT=1 npx vitest run tests/slotOrderContract.test.ts`                                             | `position` und `route` der Content-Slots im Manifest: Regeln und ein Beispielprojekt mit den gemeldeten Slots             |
 
 `funnel-code-config.md` hält fest, was das SDK für Paket C2 im Manifest meldet (`hidden`, `crm`); der Core
 setzt es noch um.

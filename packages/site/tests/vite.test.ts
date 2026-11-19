@@ -108,6 +108,7 @@ describe('dealsystem() im Build', () => {
 				label: 'Überschrift',
 				group: 'Startseite',
 				route: '/',
+				position: 1,
 			},
 			{
 				key: 'start.leistungen',
@@ -115,12 +116,14 @@ describe('dealsystem() im Build', () => {
 				default: 'Standard',
 				route: '/',
 				aliases: ['start.angebot'],
+				position: 3,
 			},
 			{
 				key: 'start.ueber-uns',
 				type: 'richtext',
 				default: 'Seit **2010** in Leipzig. <img src=x onerror=alert(1)>',
 				route: '/',
+				position: 2,
 			},
 		]);
 		expect(manifest.collections).toEqual([

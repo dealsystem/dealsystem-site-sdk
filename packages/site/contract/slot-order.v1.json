@@ -1,0 +1,89 @@
+{
+	"$comment": "Vertrag position und route der Content-Slots (manifest.slots, manifestVersion 1). Quelle: SDK, erzeugt von packages/site/tests/slotOrderContract.test.ts (UPDATE_CONTRACT=1). Der Core übernimmt example in seinen Test.",
+	"rules": {
+		"position": [
+			"Ganzzahl ab 1, lückenlos und eindeutig, an jedem Eintrag von manifest.slots (flach neben key und type). Höchstens so groß wie die Zahl der Slots (Core-Grenze 2000).",
+			"Reihenfolge des ersten Vorkommens beim Rendern, statisch aus dem Quelltext: Routen in der Reihenfolge von manifest.routes; je Route Layouts von außen nach innen, die Seite an der Stelle von {@render children()}, eigene Komponenten ($lib/…, relative .svelte-Importe) an der Stelle ihrer Verwendung. Kommt ein Slot auf mehreren Seiten vor, zählt die erste.",
+			"Slots, die keine Route erreicht (+error.svelte, nicht eingebundene Komponenten), folgen danach in Datei- und Quelltext-Reihenfolge.",
+			"Die Liste manifest.slots bleibt nach Schlüssel sortiert (ds-content.v1 bindet die Richtext-Reihenfolge daran). Sortiert wird nach position.",
+			"Ein älteres SDK schickt kein position: dann gilt die Reihenfolge wie bisher."
+		],
+		"route": [
+			"Slot direkt in einer +page- oder +layout-Datei: deren Route (ein Slot im Haupt-Layout also /).",
+			"Slot in einer Komponente, die eine Seite einbindet (auch über weitere Komponenten): die erste Route, in der er vorkommt.",
+			"Ohne route: Slots in Komponenten, die nur ein Layout einbindet (Kopf, Fußzeile, Navigation), und Slots, die keine Route erreicht."
+		]
+	},
+	"example": {
+		"files": {
+			"src/routes/+layout.svelte": "<script lang=\"ts\">\n\timport { Text, RichText } from '@dealsystem/site';\n\timport Kopf from '$lib/Kopf.svelte';\n\tlet { children } = $props();\n</script>\n<Kopf />\n<main>{@render children()}</main>\n<footer><Text key=\"fuss.text\" default=\"© Muster GmbH\" /></footer>\n",
+			"src/lib/Kopf.svelte": "<script lang=\"ts\">\n\timport { Text, RichText } from '@dealsystem/site';\n\tlet { children } = $props();\n</script>\n<Text key=\"kopf.titel\" default=\"Muster GmbH\" />\n",
+			"src/routes/+page.svelte": "<script lang=\"ts\">\n\timport { Text, RichText } from '@dealsystem/site';\n\timport Hero from '$lib/Hero.svelte';\n\tlet { children } = $props();\n</script>\n<Text key=\"start.titel\" default=\"Willkommen\" as=\"h1\" />\n<Hero />\n<RichText key=\"start.ueber-uns\" default=\"Seit **2010** für Sie da.\" />\n",
+			"src/lib/Hero.svelte": "<script lang=\"ts\">\n\timport { Text, RichText } from '@dealsystem/site';\n\tlet { children } = $props();\n</script>\n<Text key=\"hero.titel\" default=\"Wir helfen schnell\" />\n<Text key=\"hero.text\" default=\"Rufen Sie an.\" />\n",
+			"src/routes/kontakt/+page.svelte": "<script lang=\"ts\">\n\timport { Text, RichText } from '@dealsystem/site';\n\timport Hero from '$lib/Hero.svelte';\n\tlet { children } = $props();\n</script>\n<Text key=\"kontakt.titel\" default=\"Kontakt\" as=\"h1\" />\n<Hero />\n",
+			"src/routes/+error.svelte": "<script lang=\"ts\">\n\timport { Text, RichText } from '@dealsystem/site';\n\tlet { children } = $props();\n</script>\n<Text key=\"fehler.titel\" default=\"Seite nicht gefunden\" />\n"
+		},
+		"manifest": {
+			"routes": [
+				"/",
+				"/kontakt"
+			],
+			"slots": [
+				{
+					"key": "fehler.titel",
+					"type": "text",
+					"default": "Seite nicht gefunden",
+					"position": 8
+				},
+				{
+					"key": "fuss.text",
+					"type": "text",
+					"default": "© Muster GmbH",
+					"route": "/",
+					"position": 6
+				},
+				{
+					"key": "hero.text",
+					"type": "text",
+					"default": "Rufen Sie an.",
+					"route": "/",
+					"position": 4
+				},
+				{
+					"key": "hero.titel",
+					"type": "text",
+					"default": "Wir helfen schnell",
+					"route": "/",
+					"position": 3
+				},
+				{
+					"key": "kontakt.titel",
+					"type": "text",
+					"default": "Kontakt",
+					"route": "/kontakt",
+					"position": 7
+				},
+				{
+					"key": "kopf.titel",
+					"type": "text",
+					"default": "Muster GmbH",
+					"position": 1
+				},
+				{
+					"key": "start.titel",
+					"type": "text",
+					"default": "Willkommen",
+					"route": "/",
+					"position": 2
+				},
+				{
+					"key": "start.ueber-uns",
+					"type": "richtext",
+					"default": "Seit **2010** für Sie da.",
+					"route": "/",
+					"position": 5
+				}
+			]
+		}
+	}
+}
