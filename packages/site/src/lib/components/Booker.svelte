@@ -271,7 +271,12 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		event.preventDefault();
 		if (!info) return;
 		problem = null;
-		errors = client.validate({ ...person, answers, ...guestDetails() }, info.questions, info.locations);
+		errors = client.validate(
+			{ ...person, answers, ...guestDetails() },
+			info.questions,
+			info.locations,
+			info.attendeePhone,
+		);
 		if (errorCount > 0) return focusFirstInvalid();
 		if (qualifying) return;
 		// Die Sicherheitsprüfung läuft schon, während der Besucher die Zeit wählt.
@@ -311,7 +316,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		if (sending || !selected || !info) return;
 		problem = null;
 		const input = { ...person, answers, ...guestDetails() };
-		errors = client.validate(input, info.questions, info.locations);
+		errors = client.validate(input, info.questions, info.locations, info.attendeePhone);
 		if (errorCount > 0) {
 			if (step === 'confirm') step = 'details';
 			return focusFirstInvalid();
@@ -563,15 +568,16 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 			{#each PERSON_FIELDS as f (f.name)}
 				{@const id = `${uid}-${f.name}`}
+				{@const required = f.required || (f.name === 'phone' && info.attendeePhone === 'required')}
 				<div class="ds-booker__field">
 					<label for={id}
-						>{f.label}{#if f.required}<span aria-hidden="true"> *</span>{/if}</label
+						>{f.label}{#if required}<span aria-hidden="true"> *</span>{/if}</label
 					>
 					<input
 						{id}
 						type={f.type}
 						autocomplete={f.auto}
-						required={f.required}
+						{required}
 						maxlength={f.max}
 						bind:value={person[f.name]}
 						aria-invalid={!!errors[f.name]}

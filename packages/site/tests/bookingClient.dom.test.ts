@@ -350,9 +350,9 @@ describe('createBookingClient: Termin beim Gast (Ort-Art mit Adresse)', () => {
 				[],
 				locations,
 			)['attendeeAddress.postalCode'];
-		for (const ok of ['04109', '1010', '8001', '1012 AB', 'A', 'SW1A 1AA'])
+		for (const ok of ['04109', '1010', '8001', '1012 AB', 'SW1A 1AA', '123'])
 			expect(check(ok), ok).toBeUndefined();
-		for (const bad of ['12', '-1234', '1234-', '<b>', '12345678901'])
+		for (const bad of ['A', '12', '-1234', '1234-', '<b>', '12345678901'])
 			expect(check(bad), bad).toMatch(/Postleitzahl|höchstens 10/);
 		const long = termin.validate(
 			{
@@ -405,5 +405,51 @@ describe('createBookingClient: Termin beim Gast (Ort-Art mit Adresse)', () => {
 			fields: { 'attendeeAddress.postalCode': 'Bitte prüfen Sie Ihre Angabe bei „PLZ“.' },
 		});
 		expect(JSON.stringify(result)).not.toContain('Server sagt nein');
+	});
+});
+
+describe('createBookingClient: Telefon des Gasts', () => {
+	it('Pflicht, wenn die Terminart es verlangt; sonst freiwillig; ein älterer Core meldet nichts = freiwillig', async () => {
+		infoData = { ...INFO, attendeePhone: 'required' };
+		const termin = createBookingClient('erstgespraech');
+		const loaded = await termin.info();
+		expect(loaded.ok && loaded.info.attendeePhone).toBe('required');
+		const missing = await termin.book({ ...VALID, phone: '  ' });
+		expect(missing).toMatchObject({
+			ok: false,
+			reason: 'validation',
+			fields: { phone: 'Bitte geben Sie Ihre Telefonnummer an.' },
+		});
+		expect(bookingBodies()).toHaveLength(0);
+		expect(await termin.book({ ...VALID, phone: '0341 1234567' })).toMatchObject({ ok: true });
+		expect(bookingBodies()[0].attendee.phone).toBe('0341 1234567');
+
+		infoData = INFO; // ohne attendeePhone
+		const old = await createBookingClient('erstgespraech').info();
+		expect(old.ok && old.info.attendeePhone).toBe('optional');
+	});
+
+	it('wie im Core kein Format, nur höchstens 50 Zeichen', async () => {
+		const termin = createBookingClient('erstgespraech');
+		expect(termin.validate({ ...VALID, phone: 'Büro: 0341/123, ab 9 Uhr' })).toEqual({});
+		expect(termin.validate({ ...VALID, phone: '1'.repeat(51) })).toEqual({
+			phone: '„Telefon“ ist zu lang. Erlaubt sind höchstens 50 Zeichen.',
+		});
+	});
+
+	it('422 attendee.phone: eigener Text am Feld Telefon', async () => {
+		bookingAnswer = () =>
+			jsonResponse(422, {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'attendee.phone', message: 'Bitte eine Telefonnummer angeben.' }],
+			});
+		expect(await createBookingClient('erstgespraech').book(VALID)).toMatchObject({
+			ok: false,
+			reason: 'validation',
+			fields: { phone: 'Bitte prüfen Sie Ihre Angabe bei „Telefon“.' },
+		});
 	});
 });

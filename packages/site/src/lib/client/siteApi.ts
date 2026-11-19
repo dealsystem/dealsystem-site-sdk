@@ -142,6 +142,8 @@ export interface BookingInfo {
 	timezone: string;
 	locations: BookingLocation[];
 	questions: BookingQuestion[];
+	/** Telefon des Gasts: `required` = Pflicht (an der Terminart im CRM). Ein älterer Core meldet nichts: `optional`. */
+	attendeePhone: 'optional' | 'required';
 	/**
 	 * Reihenfolge im CRM: `calendar_first` (erst Zeit, dann Angaben) oder `contact_first` (erst Angaben und
 	 * Fragen, dann Zeit). Fehlt das Feld, gilt `calendar_first`.
@@ -269,6 +271,7 @@ function normalizeBookingInfo(raw: unknown): BookingInfo | null {
 		locations,
 		questions,
 		flow: raw.flow === 'contact_first' ? 'contact_first' : 'calendar_first',
+		attendeePhone: raw.attendeePhone === 'required' ? 'required' : 'optional',
 	};
 }
 

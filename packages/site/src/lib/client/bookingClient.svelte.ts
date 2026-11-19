@@ -87,7 +87,9 @@ export interface BookingInput {
 /** Grenzen der Adresse nach dem Bereinigen, wie im Core. */
 const ADDRESS_LIMITS = { street: 200, postalCode: 10, city: 100 } as const;
 /** Postleitzahl wie im Core: Buchstaben, Ziffern, innen Leerzeichen und Bindestrich (DE, AT, CH, NL …). */
-const POSTAL_CODE = /^[A-Za-z0-9](?:[A-Za-z0-9 -]{1,8}[A-Za-z0-9])?$/;
+const POSTAL_CODE = /^[A-Za-z0-9][A-Za-z0-9 -]{1,8}[A-Za-z0-9]$/;
+/** Telefon des Gasts: wie im Core nur die Länge, kein Format (`attendee.phone`, höchstens 50). */
+const ATTENDEE_PHONE_MAX = 50;
 const ADDRESS_FIELDS = ['street', 'postalCode', 'city'] as const;
 const ADDRESS_LABELS: Record<(typeof ADDRESS_FIELDS)[number], string> = {
 	street: 'Straße und Hausnummer',
@@ -95,14 +97,14 @@ const ADDRESS_LABELS: Record<(typeof ADDRESS_FIELDS)[number], string> = {
 	city: 'Ort',
 };
 
+/** Steuerzeichen (U+0000 bis U+001F, U+007F) werden wie im Core zu Leerzeichen. */
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+
 /** Steuerzeichen und mehrfachen Leerraum zusammenfassen, wie der Core vor dem Prüfen. */
 function cleanLine(value: unknown): string {
 	if (typeof value !== 'string') return '';
-	// eslint-disable-next-line no-control-regex
-	return value
-		.replace(/[\u0000-\u001F\u007F]/g, ' ')
-		.replace(/\s+/g, ' ')
-		.trim();
+	return value.replace(CONTROL_CHARS, ' ').replace(/\s+/g, ' ').trim();
 }
 
 /**
@@ -182,12 +184,14 @@ export interface BookingClient<K extends string = string> {
 	slots(from?: Date | string, to?: Date | string): Promise<BookingSlotsResult>;
 	/**
 	 * Prüft die Angaben wie der Server. Leeres Objekt = in Ordnung. Mit `locations` (aus `info()`) auch die Adresse,
-	 * wenn die gewählte Ort-Art eine verlangt: Fehler unter `attendeeAddress.street`, `.postalCode`, `.city`.
+	 * wenn die gewählte Ort-Art eine verlangt: Fehler unter `attendeeAddress.street`, `.postalCode`, `.city`. Mit
+	 * `attendeePhone: 'required'` (aus `info()`) ist das Telefon Pflicht.
 	 */
 	validate(
 		input: Omit<BookingInput, 'start'>,
 		questions?: readonly BookingQuestion[],
 		locations?: readonly BookingLocation[],
+		attendeePhone?: BookingInfo['attendeePhone'],
 	): Record<string, string>;
 	/**
 	 * Bei „erst Angaben, dann Termin“ (`info.flow === 'contact_first'`): Passen die Antworten zur Terminart? Vor der
@@ -411,6 +415,7 @@ export function createBookingClient<K extends BookingKey>(
 		input: Omit<BookingInput, 'start'>,
 		questions: readonly BookingQuestion[] = [],
 		locations: readonly BookingLocation[] = [],
+		attendeePhone: BookingInfo['attendeePhone'] = 'optional',
 	): Record<string, string> {
 		const found: Record<string, string> = {};
 		const first = input.firstName?.trim() ?? '';
@@ -424,8 +429,9 @@ export function createBookingClient<K extends BookingKey>(
 		else if (!EMAIL.test(email) || email.length > 254)
 			found.email = 'Bitte geben Sie eine gültige E-Mail-Adresse ein, z. B. name@beispiel.de.';
 		const phone = input.phone?.trim() ?? '';
-		if (phone && !PHONE.test(phone))
-			found.phone = 'Bitte geben Sie eine gültige Telefonnummer ein, z. B. 0341 1234567.';
+		if (!phone && attendeePhone === 'required') found.phone = 'Bitte geben Sie Ihre Telefonnummer an.';
+		else if (phone.length > ATTENDEE_PHONE_MAX)
+			found.phone = `„Telefon“ ist zu lang. Erlaubt sind höchstens ${ATTENDEE_PHONE_MAX} Zeichen.`;
 		for (const question of questions) {
 			const message = checkAnswer(question, input.answers?.[question.key]);
 			if (message) found[`answers.${question.key}`] = message;
@@ -461,7 +467,7 @@ export function createBookingClient<K extends BookingKey>(
 		const loaded = await info();
 		const questions = loaded.ok ? loaded.info.questions : [];
 		const locations = loaded.ok ? loaded.info.locations : [];
-		const found = validate(input, questions, locations);
+		const found = validate(input, questions, locations, loaded.ok ? loaded.info.attendeePhone : 'optional');
 		if (!input.start || Number.isNaN(Date.parse(input.start))) found.start = 'Bitte wählen Sie eine Zeit.';
 		if (Object.keys(found).length > 0) {
 			return {

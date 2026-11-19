@@ -362,3 +362,24 @@ describe('<Booker>: Termin beim Gast (Ort-Art mit Adresse)', () => {
 		expect(screen.getByLabelText(/^Straße und Hausnummer/)).toBeInTheDocument();
 	});
 });
+
+describe('<Booker>: Telefon als Pflicht', () => {
+	it('Terminart verlangt Telefon: Sternchen, Fehler am Feld, nichts gesendet', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () => jsonResponse(200, { data: { ...INFO, attendeePhone: 'required' } });
+		await toDetails(user);
+		const phone = screen.getByRole('textbox', { name: /^Telefon/ });
+		expect(phone).toBeRequired();
+		expect(phone.closest('div')?.querySelector('label')?.textContent).toContain('*');
+		await fillAndBook(user);
+		await waitFor(() => expect(phone).toHaveFocus());
+		expect(phone).toHaveAccessibleDescription('Bitte geben Sie Ihre Telefonnummer an.');
+		expect(bookings()).toHaveLength(0);
+	});
+
+	it('ohne Pflicht bleibt Telefon freiwillig', async () => {
+		const user = userEvent.setup();
+		await toDetails(user);
+		expect(screen.getByRole('textbox', { name: /^Telefon/ })).not.toBeRequired();
+	});
+});
