@@ -1,0 +1,366 @@
+{
+	"$comment": "Vertrag eigene URL-Parameter (attribution.params, Fassung 2). Quelle: SDK packages/site/src/lib/client/attribution.ts, erzeugt von tests/attributionParamsContract.test.ts (UPDATE_CONTRACT=1). Der Core lehnt beim Speichern einer Zuordnung Parameter ab, die das SDK nie schickt.",
+	"key": {
+		"pattern": "^[A-Za-z0-9_.-]{1,64}$",
+		"maxLength": 64
+	},
+	"limits": {
+		"params": 20,
+		"valueMaxLength": 500
+	},
+	"excluded": {
+		"prefix": [
+			"utm_"
+		],
+		"names": [
+			"gclid",
+			"gbraid",
+			"wbraid",
+			"fbclid",
+			"msclkid",
+			"_fbp"
+		]
+	},
+	"sensitive": {
+		"rule": "Der Name wird in Wortteile zerlegt; ist ein Wortteil (klein geschrieben) genau einer der Begriffe, geht der Parameter nie mit. Teilwörter zählen nicht.",
+		"split": [
+			"Grenze vor einem Großbuchstaben, der auf einen Kleinbuchstaben oder eine Ziffer folgt (apiKey → api, key)",
+			"Grenze vor einem Großbuchstaben, auf den ein Kleinbuchstabe folgt, wenn davor ein Großbuchstabe steht (URLParam → url, param)",
+			"Trenner: Unterstrich, Punkt, Bindestrich",
+			"danach alles klein geschrieben, leere Teile entfallen"
+		],
+		"words": [
+			"pass",
+			"passwd",
+			"password",
+			"passwort",
+			"kennwort",
+			"pwd",
+			"pin",
+			"token",
+			"accesstoken",
+			"refreshtoken",
+			"idtoken",
+			"apitoken",
+			"secret",
+			"session",
+			"sessionid",
+			"sid",
+			"auth",
+			"authorization",
+			"oauth",
+			"key",
+			"apikey",
+			"code",
+			"otp",
+			"sig",
+			"signature",
+			"jwt",
+			"email",
+			"emailaddress",
+			"emailadresse",
+			"mail",
+			"phone",
+			"phonenumber",
+			"mobile",
+			"handy",
+			"tel",
+			"telefon",
+			"telefonnummer",
+			"name",
+			"firstname",
+			"lastname",
+			"fullname",
+			"username",
+			"vorname",
+			"nachname",
+			"iban"
+		]
+	},
+	"examples": {
+		"sent": [
+			{
+				"name": "partner",
+				"parts": [
+					"partner"
+				]
+			},
+			{
+				"name": "kampagne",
+				"parts": [
+					"kampagne"
+				]
+			},
+			{
+				"name": "ref",
+				"parts": [
+					"ref"
+				]
+			},
+			{
+				"name": "aff_id",
+				"parts": [
+					"aff",
+					"id"
+				]
+			},
+			{
+				"name": "keyword",
+				"parts": [
+					"keyword"
+				]
+			},
+			{
+				"name": "promocode",
+				"parts": [
+					"promocode"
+				]
+			},
+			{
+				"name": "gutscheincode",
+				"parts": [
+					"gutscheincode"
+				]
+			},
+			{
+				"name": "filialname",
+				"parts": [
+					"filialname"
+				]
+			},
+			{
+				"name": "hotel",
+				"parts": [
+					"hotel"
+				]
+			},
+			{
+				"name": "design",
+				"parts": [
+					"design"
+				]
+			},
+			{
+				"name": "newsletter",
+				"parts": [
+					"newsletter"
+				]
+			},
+			{
+				"name": "standort",
+				"parts": [
+					"standort"
+				]
+			},
+			{
+				"name": "sigma",
+				"parts": [
+					"sigma"
+				]
+			},
+			{
+				"name": "monkey",
+				"parts": [
+					"monkey"
+				]
+			},
+			{
+				"name": "passage",
+				"parts": [
+					"passage"
+				]
+			},
+			{
+				"name": "utmost",
+				"parts": [
+					"utmost"
+				]
+			}
+		],
+		"dropped": [
+			{
+				"name": "email",
+				"parts": [
+					"email"
+				]
+			},
+			{
+				"name": "e-mail",
+				"parts": [
+					"e",
+					"mail"
+				]
+			},
+			{
+				"name": "token",
+				"parts": [
+					"token"
+				]
+			},
+			{
+				"name": "auth_token",
+				"parts": [
+					"auth",
+					"token"
+				]
+			},
+			{
+				"name": "access_token",
+				"parts": [
+					"access",
+					"token"
+				]
+			},
+			{
+				"name": "accessToken",
+				"parts": [
+					"access",
+					"token"
+				]
+			},
+			{
+				"name": "api_key",
+				"parts": [
+					"api",
+					"key"
+				]
+			},
+			{
+				"name": "apiKey",
+				"parts": [
+					"api",
+					"key"
+				]
+			},
+			{
+				"name": "API_KEY",
+				"parts": [
+					"api",
+					"key"
+				]
+			},
+			{
+				"name": "session",
+				"parts": [
+					"session"
+				]
+			},
+			{
+				"name": "sessionId",
+				"parts": [
+					"session",
+					"id"
+				]
+			},
+			{
+				"name": "user.name",
+				"parts": [
+					"user",
+					"name"
+				]
+			},
+			{
+				"name": "firstName",
+				"parts": [
+					"first",
+					"name"
+				]
+			},
+			{
+				"name": "firstname",
+				"parts": [
+					"firstname"
+				]
+			},
+			{
+				"name": "vorname",
+				"parts": [
+					"vorname"
+				]
+			},
+			{
+				"name": "nachname",
+				"parts": [
+					"nachname"
+				]
+			},
+			{
+				"name": "telefon",
+				"parts": [
+					"telefon"
+				]
+			},
+			{
+				"name": "phone_number",
+				"parts": [
+					"phone",
+					"number"
+				]
+			},
+			{
+				"name": "tel",
+				"parts": [
+					"tel"
+				]
+			},
+			{
+				"name": "oauth_code",
+				"parts": [
+					"oauth",
+					"code"
+				]
+			},
+			{
+				"name": "code",
+				"parts": [
+					"code"
+				]
+			},
+			{
+				"name": "promo_code",
+				"parts": [
+					"promo",
+					"code"
+				]
+			},
+			{
+				"name": "password",
+				"parts": [
+					"password"
+				]
+			},
+			{
+				"name": "x-signature",
+				"parts": [
+					"x",
+					"signature"
+				]
+			},
+			{
+				"name": "sig",
+				"parts": [
+					"sig"
+				]
+			},
+			{
+				"name": "iban",
+				"parts": [
+					"iban"
+				]
+			}
+		],
+		"reserved": [
+			"utm_source",
+			"utm_campaign",
+			"gclid",
+			"fbclid",
+			"_fbp",
+			"ab c",
+			"kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+		]
+	},
+	"check": {
+		"sentAll": true,
+		"droppedNone": true
+	}
+}

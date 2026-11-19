@@ -89,16 +89,93 @@ interface Stored {
 
 const UTM_KEYS = ['source', 'medium', 'campaign', 'term', 'content'] as const;
 /** URL-Parameter für Klick-IDs. `fbclid` wird zu `fbc` im Meta-Format. */
-const CLICK_PARAMS = {
+/** URL-Parameter der Klick-IDs → Schlüssel in `clickIds`. Gehen nie als eigene Parameter mit. @internal */
+export const CLICK_PARAMS = {
 	gclid: 'gclid',
 	gbraid: 'gbraid',
 	wbraid: 'wbraid',
 	fbclid: 'fbc',
 	msclkid: 'msclkid',
 } as const;
-const PARAM_KEY = /^[A-Za-z0-9_.-]{1,64}$/;
-/** Eigene Parameter mit diesen Namen gehen nie mit: Sie tragen oft Zugangsdaten oder Personendaten. */
-const SENSITIVE_PARAM = /(pass|token|secret|session|auth|key|email|mail|phone|tel|name|code|sig)/i;
+/** Erlaubte Namen eigener Parameter. @internal */
+export const PARAM_KEY = /^[A-Za-z0-9_.-]{1,64}$/;
+/**
+ * Eigene Parameter gehen nie mit, wenn ein Wortteil ihres Namens einer dieser Begriffe ist: Sie tragen oft
+ * Zugangsdaten oder Personendaten. Verglichen werden ganze Wortteile (`paramNameParts`), nicht Teilwörter: `api_key`
+ * und `firstName` fallen, `keyword`, `promocode` und `hotel` nicht. Zusammengeschriebene Namen ohne Trenner
+ * (`firstname`, `telefonnummer`) stehen deshalb ausdrücklich in der Liste. Vertrag: `contract/attribution-params.v1.json`.
+ * @internal
+ */
+export const SENSITIVE_PARAM_WORDS: readonly string[] = [
+	// Zugangsdaten
+	'pass',
+	'passwd',
+	'password',
+	'passwort',
+	'kennwort',
+	'pwd',
+	'pin',
+	'token',
+	'accesstoken',
+	'refreshtoken',
+	'idtoken',
+	'apitoken',
+	'secret',
+	'session',
+	'sessionid',
+	'sid',
+	'auth',
+	'authorization',
+	'oauth',
+	'key',
+	'apikey',
+	'code',
+	'otp',
+	'sig',
+	'signature',
+	'jwt',
+	// Personendaten
+	'email',
+	'emailaddress',
+	'emailadresse',
+	'mail',
+	'phone',
+	'phonenumber',
+	'mobile',
+	'handy',
+	'tel',
+	'telefon',
+	'telefonnummer',
+	'name',
+	'firstname',
+	'lastname',
+	'fullname',
+	'username',
+	'vorname',
+	'nachname',
+	'iban',
+];
+const SENSITIVE_WORDS = new Set(SENSITIVE_PARAM_WORDS);
+
+/**
+ * Wortteile eines Parameternamens, klein geschrieben: getrennt an `_`, `.`, `-`, an Ziffernblöcken nicht, und an
+ * Großbuchstaben nach einem Kleinbuchstaben oder einer Ziffer (`apiKey` → `api`, `key`) sowie vor einem
+ * Großbuchstaben mit folgendem Kleinbuchstaben (`URLParam` → `url`, `param`).
+ * @internal
+ */
+export function paramNameParts(name: string): string[] {
+	return name
+		.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+		.replace(/([A-Z])([A-Z][a-z])/g, '$1 $2')
+		.split(/[\s_.-]+/)
+		.filter(Boolean)
+		.map((part) => part.toLowerCase());
+}
+
+/** Trägt der Name einen heiklen Wortteil (`SENSITIVE_PARAM_WORDS`)? @internal */
+export function isSensitiveParamName(name: string): boolean {
+	return paramNameParts(name).some((part) => SENSITIVE_WORDS.has(part));
+}
 const CLICK_ID_VALUE = /^[\x21-\x7e]+$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // eslint-disable-next-line no-control-regex -- Steuerzeichen gehören in keinen Wert
@@ -144,7 +221,7 @@ export function readParams(search: string): Record<string, string> {
 	for (const [key, raw] of new URLSearchParams(search)) {
 		if (Object.keys(out).length >= ATTRIBUTION_LIMITS.params) break;
 		if (!PARAM_KEY.test(key) || key.startsWith('utm_') || key in CLICK_PARAMS || key === '_fbp') continue;
-		if (SENSITIVE_PARAM.test(key) || key in out) continue;
+		if (isSensitiveParamName(key) || key in out) continue;
 		const value = clean(raw, ATTRIBUTION_LIMITS.paramValue);
 		if (value) out[key] = value;
 	}

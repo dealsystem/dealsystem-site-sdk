@@ -14,3 +14,5 @@ packages/create/.tmp
 packages/site/contract/ds-content.v1.json
 # Erzeugt von tests/slotOrderContract.test.ts; der Core übernimmt das Beispiel.
 packages/site/contract/slot-order.v1.json
+# Erzeugt von tests/attributionParamsContract.test.ts; der Core nutzt dieselbe Regel.
+packages/site/contract/attribution-params.v1.json
