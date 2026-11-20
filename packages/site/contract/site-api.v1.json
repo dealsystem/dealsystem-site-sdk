@@ -1690,7 +1690,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1728,7 +1728,7 @@
       "get": {
         "operationId": "listBookingSlots",
         "summary": "Freie Zeiten",
-        "description": "Freie Zeiten in UTC, berechnet wie auf der Buchungsseite der Termine-App (Arbeitszeiten, Vorlauf, Buchungsfenster, belegte Kalender). `from`/`to` als ISO-Zeitpunkt oder Datum, höchstens 31 Tage je Abfrage; fehlt `to`, sieben Tage; Vergangenheit beginnt jetzt. `timezone` ist die Zeitzone des Kalenders; zum Anzeigen in die Zone des Besuchers umrechnen. Cache 30 s.",
+        "description": "Freie Zeiten in UTC, berechnet wie auf der Buchungsseite der Kalender-App (Arbeitszeiten, Vorlauf, Buchungsfenster, belegte Kalender). `from`/`to` als ISO-Zeitpunkt oder Datum, höchstens 31 Tage je Abfrage; fehlt `to`, sieben Tage; Vergangenheit beginnt jetzt. `timezone` ist die Zeitzone des Kalenders; zum Anzeigen in die Zone des Besuchers umrechnen. Cache 30 s.",
         "tags": [
           "Site-API"
         ],
@@ -1846,7 +1846,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2024,7 +2024,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -2082,7 +2082,7 @@
       "post": {
         "operationId": "createBooking",
         "summary": "Termin buchen",
-        "description": "Bucht die Zeit über den Buchungskern der Termine-App: Kontakt (ein vorhandener wird nur ergänzt, nie überschrieben), Termin im Kalender des Gastgebers, Mail an die Gastgeber, Automationen. Die Bestätigung an den Buchenden kommt von DealSystem („<Firma> über DealSystem“) mit Links zum Absagen und Verschieben. Aus der Vorschau wird geprüft (Antworten, Zeit frei), aber nichts gebucht (`dryRun`, 200).\n\nAblauf: Rate-Limit → Body (höchstens 64 KB) → Bot-Falle → Body-Form → Captcha → Buchung der Seite → Antworten → Doppel-Einsendung (`submissionId`, 24 h) → Buchen. `start` am besten genau aus `…/slots`; Ende = Beginn + Dauer.",
+        "description": "Bucht die Zeit über den Buchungskern der Kalender-App: Kontakt (ein vorhandener wird nur ergänzt, nie überschrieben), Termin im Kalender des Gastgebers, Mail an die Gastgeber, Automationen. Die Bestätigung an den Buchenden kommt von DealSystem („<Firma> über DealSystem“) mit Links zum Absagen und Verschieben. Aus der Vorschau wird geprüft (Antworten, Zeit frei), aber nichts gebucht (`dryRun`, 200).\n\nAblauf: Rate-Limit → Body (höchstens 64 KB) → Bot-Falle → Body-Form → Captcha → Buchung der Seite → Antworten → Doppel-Einsendung (`submissionId`, 24 h) → Buchen. `start` am besten genau aus `…/slots`; Ende = Beginn + Dauer.",
         "tags": [
           "Site-API"
         ],
@@ -2766,7 +2766,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3894,7 +3894,7 @@
                   "calendar_first",
                   "contact_first"
                 ],
-                "description": "Ablauf: `calendar_first` = Zeit wählen → Daten und Fragen → buchen; `contact_first` = Daten → Fragen → `…/qualify` → Zeit wählen → buchen (wie die Buchungsseite der Termine-App)."
+                "description": "Ablauf: `calendar_first` = Zeit wählen → Daten und Fragen → buchen; `contact_first` = Daten → Fragen → `…/qualify` → Zeit wählen → buchen (wie die Buchungsseite der Kalender-App)."
               },
               "locations": {
                 "type": "array",
