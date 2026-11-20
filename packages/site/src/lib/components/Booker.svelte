@@ -41,8 +41,8 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		 */
 		addressLabels?: { street?: string; postalCode?: string; city?: string };
 		/**
-		 * Eigene Bezeichnung je Ort-Art statt der aus dem CRM, z. B. `{ attendee_address: 'Bei dir vor Ort' }`, wenn die
-		 * Seite ihre Besucher duzt.
+		 * Eigene Bezeichnung je Ort-Art statt der aus dem CRM, z. B. `{ attendee_address: 'Beim Kunden zu Hause' }`. Die
+		 * Bezeichnungen aus dem CRM folgen schon der Anrede der Website.
 		 */
 		locationLabels?: Partial<Record<BookingLocationType, string>>;
 		/** Eigene Anzeige nach der Buchung; bekommt Datum und Uhrzeit als Text. */
