@@ -12,10 +12,11 @@ ohne Wahl benutzbar. Die Wahl wird im Browser gespeichert; ändern lässt sie si
 <CookieBanner />
 ```
 
-Duzt die Seite ihre Besucher, schaltet `anrede="du"` alle Texte um. Einzelne Texte überschreibt `texts`:
+Die Anrede (Sie oder Du) kommt aus dem CRM, wie für die ganze Seite eingestellt; nichts zu tun. Einzelne
+Texte überschreibt `texts`:
 
 ```svelte
-<CookieBanner anrede="du" texts={{ title: 'Kurz zu Cookies' }} />
+<CookieBanner texts={{ title: 'Kurz zu Cookies' }} />
 ```
 
 Nutzt die Seite ein eigenes Banner (Cookiebot, Usercentrics …), steht in `dealsystem.config.ts`
@@ -37,7 +38,7 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 		categories?: readonly ConsentCategory[];
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
-		/** Anrede wie auf der übrigen Seite: `sie` (Standard) oder `du`. */
+		/** Nur ausnahmsweise: Anrede abweichend von der Einstellung im CRM (`sie` oder `du`). */
 		anrede?: Anrede;
 		/** Einzelne Texte statt der Standardtexte, z. B. `{ title: 'Kurz zu Cookies' }`. */
 		texts?: Partial<CookieBannerTexts>;
@@ -48,16 +49,13 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 	import { onMount, tick } from 'svelte';
 	import { CONSENT_CATEGORIES, consent } from '../consent/consent.svelte.js';
 	import { COOKIE_BANNER_TEXTS } from '../consent/bannerTexts.js';
-	import { ownConsentBanner } from '../internal/consentNeed.js';
+	import { ownConsentBanner, siteSalutation } from '../internal/consentNeed.js';
 	import { DEALSYSTEM_VISITS, declaredProviders, mergeProviders } from '../internal/providers.js';
 
-	let {
-		categories: fixed,
-		privacyHref = '/datenschutz',
-		anrede = 'sie',
-		texts,
-	}: CookieBannerProps = $props();
-	const t = $derived({ ...COOKIE_BANNER_TEXTS[anrede], ...texts });
+	let { categories: fixed, privacyHref = '/datenschutz', anrede, texts }: CookieBannerProps = $props();
+	// Anrede aus dem CRM (`site.salutation`); die Prop ist nur die Ausnahme.
+	const salutation = siteSalutation();
+	const t = $derived({ ...COOKIE_BANNER_TEXTS[anrede ?? salutation], ...texts });
 	// Eigenes Banner (`consent: { banner: 'own' }`): Es fragt selbst und meldet die Wahl mit `setConsent()`.
 	const own = ownConsentBanner();
 
@@ -110,6 +108,29 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 		return () => {
 			returnFocusTo?.focus();
 			returnFocusTo = null;
+		};
+	});
+
+	// Solange der Hinweis offen ist, hält die Seite unten seine Höhe frei: Man kann alles darüber scrollen, und ein
+	// Element, das per Tastatur den Fokus bekommt, scrollt über den Hinweis statt darunter (WCAG 2.4.11).
+	$effect(() => {
+		const element = dialog;
+		if (!visible || !element) return;
+		const html = document.documentElement.style;
+		const body = document.body.style;
+		const before = { scrollPadding: html.scrollPaddingBottom, padding: body.paddingBottom };
+		const reserve = () => {
+			const height = `${element.offsetHeight}px`;
+			html.scrollPaddingBottom = height;
+			body.paddingBottom = height;
+		};
+		reserve();
+		const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reserve);
+		observer?.observe(element);
+		return () => {
+			observer?.disconnect();
+			html.scrollPaddingBottom = before.scrollPadding;
+			body.paddingBottom = before.padding;
 		};
 	});
 

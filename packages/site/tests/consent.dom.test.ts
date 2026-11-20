@@ -150,6 +150,19 @@ describe('auf jeder Seite', () => {
 		expect(screen.queryByRole('dialog')).toBeNull();
 	});
 
+	it('hält unten seine Höhe frei, solange er offen ist, und gibt sie nach der Wahl zurück (WCAG 2.4.11)', async () => {
+		document.body.style.paddingBottom = '3px';
+		const user = userEvent.setup();
+		render(StarterLayoutHarness);
+		await screen.findByRole('dialog');
+		await waitFor(() => expect(document.documentElement.style.scrollPaddingBottom).toMatch(/px$/));
+		expect(document.body.style.paddingBottom).not.toBe('3px');
+		await user.click(screen.getByRole('button', { name: 'Alle ablehnen' }));
+		await waitFor(() => expect(document.body.style.paddingBottom).toBe('3px'));
+		expect(document.documentElement.style.scrollPaddingBottom).toBe('');
+		document.body.style.paddingBottom = '';
+	});
+
 	it('blockiert die Seite nicht: kein modaler Dialog, Inhalt bleibt erreichbar', async () => {
 		render(StarterLayoutHarness);
 		const dialog = await screen.findByRole('dialog');
@@ -160,15 +173,28 @@ describe('auf jeder Seite', () => {
 });
 
 describe('Anrede und Texte', () => {
-	it('duzt mit anrede="du"', async () => {
+	/** Seite mit Tracking und der Anrede aus dem CRM. */
+	function withSalutation(salutation: 'sie' | 'du') {
+		const data = testSiteData({ tracking: { metaPixelId: '1234567890', googleTagId: null } });
+		setSiteDataForTests({ ...data, site: { ...data.site, salutation } });
+	}
+
+	it('duzt, wenn im CRM „Du“ eingestellt ist', async () => {
+		withSalutation('du');
 		const user = userEvent.setup();
-		render(LayoutHarness, { props: { anrede: 'du', categories: ['marketing'] } });
+		render(LayoutHarness, { props: { categories: ['marketing'] } });
 		const dialog = await screen.findByRole('dialog');
 		expect(dialog).toHaveTextContent(COOKIE_BANNER_TEXTS.du.intro);
 		expect(dialog).toHaveTextContent(COOKIE_BANNER_TEXTS.du.change);
 		await user.click(screen.getByRole('button', { name: 'Einstellungen' }));
 		expect(screen.getByRole('group', { name: 'Deine Auswahl' })).toBeInTheDocument();
 		expect(dialog).not.toHaveTextContent(/\b(Sie|Ihre?[nrms]?)\b/);
+	});
+
+	it('die Prop anrede geht ausnahmsweise vor der Einstellung im CRM', async () => {
+		withSalutation('du');
+		render(LayoutHarness, { props: { anrede: 'sie', categories: ['marketing'] } });
+		expect(await screen.findByRole('dialog')).toHaveTextContent(COOKIE_BANNER_TEXTS.sie.intro);
 	});
 
 	it('siezt ohne Angabe, und einzelne Texte lassen sich überschreiben', async () => {

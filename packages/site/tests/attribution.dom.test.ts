@@ -161,6 +161,18 @@ describe('mit Einwilligung „Marketing“', () => {
 		expect(body.consent).toMatchObject({ marketing: true, at: expect.any(String) });
 	});
 
+	it('ohne „Marketing“ keine Besuchs-ID im Seitenaufruf, auch mit einer alten im Speicher', () => {
+		localStorage.setItem(
+			'ds-attr',
+			JSON.stringify({ v: 2, visitorId: { id: '0f8fad5b-d9cb-469f-a165-70867728950e', at: Date.now() } }),
+		);
+		consent.save(['statistics']);
+		trackPageview('/verkaufen');
+		const body = JSON.parse(String(fetchSpy.mock.calls[0]![1]!.body));
+		expect(body).not.toHaveProperty('visitorId');
+		expect(body.consent).toMatchObject({ marketing: false });
+	});
+
 	it('abgelaufene Klick-IDs fallen weg', () => {
 		localStorage.setItem(
 			'ds-attr',

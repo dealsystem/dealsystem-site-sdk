@@ -73,8 +73,10 @@ Eigene Website → Rechtliches einzutragen. Ein Feld, das dort leer ist, lässt 
   steht deshalb immer im Fußbereich. Dazu fragt er nach den Zwecken, die die Seite sonst braucht: Tracking-Kennungen
   im CRM, Dienste unter `external`, `<ConsentGate>`, `<MapEmbed>`, Videos anderer Anbieter.
 - Fest vorgeben lassen sich die Zwecke mit `<CookieBanner categories={['marketing']} />`.
-- Duzt die Seite ihre Besucher, schreib `<CookieBanner anrede="du" />`; sonst siezt der Hinweis. Einzelne Texte
-  ersetzt `texts={{ title: '…' }}`. Ablehnen bleibt dabei so deutlich wie Akzeptieren.
+- Sie oder Du übernimmt der Hinweis aus der Anrede, die im CRM für die Website eingestellt ist (dieselbe wie in
+  den Mails an Besucher). Setz sie nicht im Code. Nur wenn der Kunde für den Hinweis ausdrücklich etwas anderes
+  will: `<CookieBanner anrede="du" />`. Einzelne Texte ersetzt `texts={{ title: '…' }}`. Ablehnen bleibt dabei so
+  deutlich wie Akzeptieren.
 - **Eigenes Banner** (Cookiebot, Usercentrics …) nur, wenn der Kunde es ausdrücklich will. Dann in
   `dealsystem.config.ts` `consent: { banner: 'own' }`. Das SDK zeigt keinen eigenen Hinweis und keine
   „Cookie-Einstellungen“ mehr; das eigene Banner muss den Widerruf anbieten. Bis es meldet, gilt nichts als

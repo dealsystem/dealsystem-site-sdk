@@ -12,6 +12,7 @@ export function testSiteData(overrides: Partial<SiteData> = {}): SiteData {
 			name: 'Kunde Immobilien',
 			primaryHost: 'kunde.de',
 			locale: 'de',
+			salutation: 'sie',
 			url: 'https://kunde.de',
 		},
 		legal: {

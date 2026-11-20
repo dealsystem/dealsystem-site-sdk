@@ -534,12 +534,17 @@ export interface SeoConfig {
 }
 
 /** Angaben zur Seite. */
+/** Anrede der Besucher: `sie` (Standard) oder `du`. */
+export type Anrede = 'sie' | 'du';
+
 export interface SiteInfo {
 	id: string;
 	slug: string;
 	name: string;
 	primaryHost: string;
 	locale: string;
+	/** Anrede der Besucher aus dem CRM (Eigene Website → Einstellungen). Fehlt sie, gilt `sie`. */
+	salutation: Anrede;
 }
 
 /** Inhalts-Schnappschuss des Core (`snapshotVersion: 1`), nach dem Normalisieren. */

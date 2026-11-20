@@ -44,6 +44,7 @@ describe('normalizeSnapshot', () => {
 			name: 'Kunde',
 			primaryHost: 'kunde.de',
 			locale: 'de',
+			salutation: 'sie',
 		});
 		// Angaben zum Captcha im Schnappschuss werden nicht gelesen.
 		expect(snapshot).not.toHaveProperty('captcha');
@@ -79,6 +80,14 @@ describe('normalizeSnapshot', () => {
 		expect(resolveTextSlot(snapshot.slots, 'start.standard')).toBeNull();
 		expect(resolveTextSlot(snapshot.slots, 'start.widerspruch')).toBeNull();
 		expect(resolveTextSlot(snapshot.slots, 'start.ohne-wert')).toBeNull();
+	});
+
+	it('Anrede aus dem CRM: nur „du“ weicht ab, alles andere ist „sie“', () => {
+		const salutation = (value: unknown) => normalizeSnapshot({ site: { salutation: value } }).site.salutation;
+		expect(salutation('du')).toBe('du');
+		expect(salutation('sie')).toBe('sie');
+		for (const value of [undefined, null, 'Du', 'ihr', 1])
+			expect(salutation(value), String(value)).toBe('sie');
 	});
 
 	it('verträgt null, wo der Core nichts eingetragen hat', () => {

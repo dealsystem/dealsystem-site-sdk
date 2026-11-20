@@ -12,6 +12,9 @@ import { COOKIE_BANNER_TEXTS, type Anrede } from '../src/lib/consent/bannerTexts
 import { CONSENT_CATEGORIES, CONSENT_STORAGE_KEY } from '../src/lib/consent/consent.svelte.js';
 import { DEALSYSTEM_VISITS } from '../src/lib/internal/providers.js';
 
+/** Die Besuchs-ID hängt an genau einem Zweck. */
+const VISITOR_ID_CATEGORY = ATTRIBUTION_CONSENT.visitorId[0];
+
 const FILE = new URL('../contract/visit-consent.v1.json', import.meta.url);
 
 /** Überschrift des Bausteins. Der Core erkennt an ihr, ob der Baustein im Datenschutztext steht. */
@@ -75,7 +78,14 @@ function generate() {
 				revoke: '„Cookie-Einstellungen“ in <SiteFooterLegal /> auf jeder Seite und in <Datenschutz />',
 				revokeReloads: true,
 			},
-			anrede: { prop: 'anrede', default: 'sie', values: Object.keys(COOKIE_BANNER_TEXTS) },
+			anrede: {
+				source:
+					'site.salutation im Inhalts-Schnappschuss (GET /api/v1/websites/{id}/content), beim Build gelesen',
+				values: Object.keys(COOKIE_BANNER_TEXTS),
+				default: 'sie',
+				rule: "Nur 'du' weicht ab; fehlt das Feld oder ist der Wert unbekannt, gilt 'sie'.",
+				override: { prop: 'anrede', rule: 'Nur ausnahmsweise; geht vor der Einstellung im CRM.' },
+			},
 			overrides: { prop: 'texts', keys: Object.keys(COOKIE_BANNER_TEXTS.sie) },
 			texts: COOKIE_BANNER_TEXTS,
 		},
@@ -83,10 +93,12 @@ function generate() {
 			categories: CONSENT_CATEGORIES,
 			storage: { type: 'localStorage', key: CONSENT_STORAGE_KEY },
 			visitorId: {
-				category: ATTRIBUTION_CONSENT.visitorId,
+				category: VISITOR_ID_CATEGORY,
 				storage: 'localStorage',
 				storageKey: ATTRIBUTION_STORAGE_KEY,
 				durationDays: ATTRIBUTION_RETENTION_DAYS.visitorId,
+				sentWith: ['POST /s/{key}/track', 'POST /s/{key}/leads (attribution.visitorId)'],
+				rule: 'Der Seitenaufruf (track) und die Anfrage tragen eine visitorId nur mit Einwilligung „Marketing“, auch wenn noch eine alte im Speicher liegt.',
 			},
 			withoutConsent:
 				'Nur der aktuelle Besuch im Arbeitsspeicher; keine Besuchs-ID, nichts im Browser-Speicher. Seitenaufrufe zählt der Core ohne Wiedererkennung.',
@@ -116,13 +128,13 @@ function generate() {
 				provider: 'DealSystem',
 				role: 'Auftragsverarbeiter',
 				purpose: DEALSYSTEM_VISITS.purpose,
-				category: ATTRIBUTION_CONSENT.visitorId,
 				storage: 'localStorage',
 				storageKey: ATTRIBUTION_STORAGE_KEY,
 				durationDays: ATTRIBUTION_RETENTION_DAYS.visitorId,
-				campaignDurationDays: ATTRIBUTION_RETENTION_DAYS.clickIds,
-				thirdCountry: null,
+				category: VISITOR_ID_CATEGORY,
 			},
+			htmlRules:
+				'Nur <h2>, <p>, <ul>, <li>, <strong>, ohne Attribute und Links; beginnt mit <h2>{marker}</h2>. Der Core erkennt den Baustein am Marker (Tags entfernt, Groß-/Kleinschreibung und Leerraum egal).',
 			html: { sie: privacyHtml('sie'), du: privacyHtml('du') },
 		},
 	};
@@ -152,6 +164,18 @@ describe('Vertrag visit-consent.v1', () => {
 	});
 
 	it('die Besuchs-ID braucht genau „Marketing“', () => {
-		expect(contract.consent.visitorId.category).toEqual(['marketing']);
+		expect(ATTRIBUTION_CONSENT.visitorId).toEqual(['marketing']);
+		expect(contract.privacyBlock.facts.category).toBe('marketing');
+	});
+
+	it('der Baustein nutzt nur Tags, die der Core beim Speichern behält, ohne Attribute', () => {
+		for (const html of Object.values(contract.privacyBlock.html)) {
+			const tags = [...html.matchAll(/<\/?([a-z0-9]+)([^>]*)>/gi)];
+			for (const [, name, attrs] of tags) {
+				expect(['h2', 'p', 'ul', 'li', 'strong'], name).toContain(name);
+				expect(attrs!.trim(), name).toBe('');
+			}
+			expect(html).not.toMatch(/https?:|href/);
+		}
 	});
 });

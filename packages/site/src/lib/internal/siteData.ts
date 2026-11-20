@@ -26,7 +26,7 @@ export function getSiteData(): SiteData {
 export function emptySiteData(): SiteData {
 	return {
 		api: { baseUrl: '', siteKey: 'dev' },
-		site: { id: '', slug: '', name: '', primaryHost: '', locale: 'de', url: '' },
+		site: { id: '', slug: '', name: '', primaryHost: '', locale: 'de', salutation: 'sie', url: '' },
 		legal: { company: '', address: '', email: '', phone: '' },
 		tracking: { metaPixelId: null, googleTagId: null },
 		funnels: {},

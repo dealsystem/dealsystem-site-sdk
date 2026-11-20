@@ -1,4 +1,5 @@
 import type { ConsentCategory } from '../consent/consent.svelte.js';
+import type { Anrede } from '../types.js';
 import { getSiteData } from './siteData.js';
 
 /**
@@ -54,4 +55,16 @@ export function ownConsentBanner(): boolean {
  */
 export function siteUsesConsent(): boolean {
 	return !ownConsentBanner();
+}
+
+/**
+ * Anrede der Besucher aus dem CRM (`site.salutation` im Inhalts-Schnappschuss). Ohne Daten `sie`.
+ * @internal
+ */
+export function siteSalutation(): Anrede {
+	try {
+		return getSiteData().site.salutation === 'du' ? 'du' : 'sie';
+	} catch {
+		return 'sie';
+	}
 }

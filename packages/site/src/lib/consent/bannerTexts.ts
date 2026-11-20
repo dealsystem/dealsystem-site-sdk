@@ -1,8 +1,9 @@
 // Texte von `<CookieBanner>` in Sie- und Du-Form. Eine Quelle für das Banner und den Vertrag
 // `contract/visit-consent.v1.json`. Einzelne Texte lassen sich über `texts` überschreiben.
 
-/** Anrede der Seite: Sie (Standard) oder du. */
-export type Anrede = 'sie' | 'du';
+import type { Anrede } from '../types.js';
+
+export type { Anrede };
 
 /** Alle Texte des Cookie-Hinweises. */
 export interface CookieBannerTexts {

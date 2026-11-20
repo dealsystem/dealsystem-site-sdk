@@ -586,10 +586,11 @@ ohne Wahl benutzbar. Die Wahl wird im Browser gespeichert; ändern lässt sie si
 <CookieBanner />
 ```
 
-Duzt die Seite ihre Besucher, schaltet `anrede="du"` alle Texte um. Einzelne Texte überschreibt `texts`:
+Die Anrede (Sie oder Du) kommt aus dem CRM, wie für die ganze Seite eingestellt; nichts zu tun. Einzelne
+Texte überschreibt `texts`:
 
 ```svelte
-<CookieBanner anrede="du" texts={{ title: 'Kurz zu Cookies' }} />
+<CookieBanner texts={{ title: 'Kurz zu Cookies' }} />
 ```
 
 Nutzt die Seite ein eigenes Banner (Cookiebot, Usercentrics …), steht in `dealsystem.config.ts`
@@ -610,7 +611,7 @@ export interface CookieBannerProps {
   categories?: readonly ConsentCategory[];
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
-  /** Anrede wie auf der übrigen Seite: `sie` (Standard) oder `du`. */
+  /** Nur ausnahmsweise: Anrede abweichend von der Einstellung im CRM (`sie` oder `du`). */
   anrede?: Anrede;
   /** Einzelne Texte statt der Standardtexte, z. B. `{ title: 'Kurz zu Cookies' }`. */
   texts?: Partial<CookieBannerTexts>;

@@ -23,12 +23,17 @@
 			"revokeReloads": true
 		},
 		"anrede": {
-			"prop": "anrede",
-			"default": "sie",
+			"source": "site.salutation im Inhalts-Schnappschuss (GET /api/v1/websites/{id}/content), beim Build gelesen",
 			"values": [
 				"sie",
 				"du"
-			]
+			],
+			"default": "sie",
+			"rule": "Nur 'du' weicht ab; fehlt das Feld oder ist der Wert unbekannt, gilt 'sie'.",
+			"override": {
+				"prop": "anrede",
+				"rule": "Nur ausnahmsweise; geht vor der Einstellung im CRM."
+			}
 		},
 		"overrides": {
 			"prop": "texts",
@@ -116,12 +121,15 @@
 			"key": "ds-consent"
 		},
 		"visitorId": {
-			"category": [
-				"marketing"
-			],
+			"category": "marketing",
 			"storage": "localStorage",
 			"storageKey": "ds-attr",
-			"durationDays": 395
+			"durationDays": 395,
+			"sentWith": [
+				"POST /s/{key}/track",
+				"POST /s/{key}/leads (attribution.visitorId)"
+			],
+			"rule": "Der Seitenaufruf (track) und die Anfrage tragen eine visitorId nur mit Einwilligung „Marketing“, auch wenn noch eine alte im Speicher liegt."
 		},
 		"withoutConsent": "Nur der aktuelle Besuch im Arbeitsspeicher; keine Besuchs-ID, nichts im Browser-Speicher. Seitenaufrufe zählt der Core ohne Wiedererkennung."
 	},
@@ -157,15 +165,12 @@
 			"provider": "DealSystem",
 			"role": "Auftragsverarbeiter",
 			"purpose": "Erkennt wiederkehrende Besuche und ordnet sie einer Anfrage zu.",
-			"category": [
-				"marketing"
-			],
 			"storage": "localStorage",
 			"storageKey": "ds-attr",
 			"durationDays": 395,
-			"campaignDurationDays": 90,
-			"thirdCountry": null
+			"category": "marketing"
 		},
+		"htmlRules": "Nur <h2>, <p>, <ul>, <li>, <strong>, ohne Attribute und Links; beginnt mit <h2>{marker}</h2>. Der Core erkennt den Baustein am Marker (Tags entfernt, Groß-/Kleinschreibung und Leerraum egal).",
 		"html": {
 			"sie": "<h2>Wiedererkennung von Besuchen (DealSystem)</h2>\n<p>Wenn Sie im Cookie-Hinweis dieser Website „Marketing“ zustimmen, speichert die Website im lokalen Speicher Ihres Browsers (localStorage, Eintrag „ds-attr“) eine zufällige Besuchs-ID, den ersten und letzten Besuch sowie Kampagnen-Angaben wie Klick-IDs von Anzeigen. Damit erkennt sie wiederkehrende Besuche und ordnet sie einer Anfrage zu, die Sie über ein Formular dieser Website senden. DealSystem verarbeitet diese Daten in unserem Auftrag.</p>\n<p>Die Besuchs-ID wird höchstens 13 Monate (395 Tage) verwendet, Besuche und Klick-IDs 90 Tage. Ohne Zustimmung wird nichts davon gespeichert. Sie können Ihre Zustimmung jederzeit in den Cookie-Einstellungen dieser Website widerrufen; dann werden diese Angaben aus Ihrem Browser gelöscht.</p>",
 			"du": "<h2>Wiedererkennung von Besuchen (DealSystem)</h2>\n<p>Wenn du im Cookie-Hinweis dieser Website „Marketing“ zustimmst, speichert die Website im lokalen Speicher deines Browsers (localStorage, Eintrag „ds-attr“) eine zufällige Besuchs-ID, den ersten und letzten Besuch sowie Kampagnen-Angaben wie Klick-IDs von Anzeigen. Damit erkennt sie wiederkehrende Besuche und ordnet sie einer Anfrage zu, die du über ein Formular dieser Website sendest. DealSystem verarbeitet diese Daten in unserem Auftrag.</p>\n<p>Die Besuchs-ID wird höchstens 13 Monate (395 Tage) verwendet, Besuche und Klick-IDs 90 Tage. Ohne Zustimmung wird nichts davon gespeichert. Du kannst deine Zustimmung jederzeit in den Cookie-Einstellungen dieser Website widerrufen; dann werden diese Angaben aus deinem Browser gelöscht.</p>"

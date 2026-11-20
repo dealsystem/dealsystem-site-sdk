@@ -211,6 +211,8 @@ export function normalizeSnapshot(raw: unknown): ContentSnapshot {
 			name: str(site.name),
 			primaryHost: str(site.primaryHost),
 			locale: str(site.locale) || 'de',
+			// Nur `du` weicht ab; Fehlendes oder Unbekanntes ist die Standard-Anrede.
+			salutation: site.salutation === 'du' ? 'du' : 'sie',
 		},
 		legal: normalizeLegal(r.legal),
 		tracking: {
