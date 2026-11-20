@@ -43,6 +43,7 @@ export {
 } from './client/leadClient.svelte.js';
 export {
 	createBookingClient,
+	needsAttendeeAddress,
 	type BookingClient,
 	type BookingClientStatus,
 	type BookingFailure,
@@ -67,6 +68,8 @@ export type {
 	BookingFlow,
 	BookingQualification,
 	BookingInfo,
+	BookingAttendeeAddress,
+	BookingLocation,
 	BookingLocationType,
 	BookingQuestion,
 	BookingSlot,

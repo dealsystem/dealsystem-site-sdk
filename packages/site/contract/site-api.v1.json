@@ -3,7 +3,12 @@
   "info": {
     "title": "DealSystem Site-API (Self-Service-Websites)",
     "version": "1.0.0",
-    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen (Sammlungen), Captcha-Challenge holen, Formulare einreichen,\n  Seitenaufrufe zählen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`. `Retry-After` ist freigegeben (`Access-Control-Expose-Headers`); auch ein 429 des\n  IP-Limits vor der Schlüssel-Prüfung trägt den `Origin` zurück, damit der Browser es lesen kann.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`.\n\n## Medien\n\nBilder und Dateien aus dem CMS kommen als `MediaRef` mit **seitenrelativen, dauerhaften** URLs\n(`/_ds/media/<siteId>/<id>/<variante>.<endung>`). Sie werden vom selben Origin wie die Seite ausgeliefert (der\nEdge holt sie aus dem öffentlichen Medien-Speicher) — keine fremden Hosts, keine ablaufenden Links. Öffentlich wird\nnur, was im CMS veröffentlicht ist; nach dem Zurückziehen verschwinden die Dateien."
+    "description": "Öffentliche API für **selbst gebaute Websites** (Self-Service). Aufgerufen nur vom SDK `@dealsystem/site` im Browser.\n\n## Zugang\n\n- **Publishable Key** `dsp_…` im Pfad. Er ist **kein Geheimnis** — er steht in jeder ausgelieferten Seite und öffnet nur diese\n  Endpunkte für genau eine Seite: veröffentlichte Inhalte lesen (Sammlungen), Captcha-Challenge holen, Formulare einreichen,\n  Seitenaufrufe zählen.\n- **Origin** muss eine Domain der Seite sein: nachgewiesene, aktive eigene Domain, Standard-Host `<slug>.<SITES_DOMAIN>` oder\n  Vorschau-Host `<slug>--<token>.<SITES_DOMAIN>` einer gebauten Version (dann `dryRun`). Sonst 403 `origin_not_allowed`.\n- Keine Cookies, keine Sitzung. Antworten tragen `Access-Control-Allow-Origin: <Origin>`, `Vary: Origin`, nie\n  `Access-Control-Allow-Credentials`. `Retry-After` ist freigegeben (`Access-Control-Expose-Headers`); auch ein 429 des\n  IP-Limits vor der Schlüssel-Prüfung trägt den `Origin` zurück, damit der Browser es lesen kann.\n- Lokale Entwicklung läuft nicht hierüber, sondern über den Dev-Proxy der CLI (`dealsystem dev`).\n\n## Konventionen\n\nErfolg `{ \"data\": … }` (bewusste Ausnahme: `GET …/captcha` liefert die ALTCHA-Challenge ohne Hülle, weil das Widget die Antwort unverändert liest), Fehler `{ \"error\", \"message\", \"status\", \"code\" }` (bei 422 zusätzlich `details`). Unbekannte Felder im\nBody → 422. Keine internen IDs in Antworten. Breaking Changes nur über `/api/site/v2`.\n\n## Medien\n\nBilder und Dateien aus dem CMS kommen als `MediaRef` mit **seitenrelativen, dauerhaften** URLs\n(`/_ds/media/<siteId>/<id>/<variante>.<endung>`). Sie werden vom selben Origin wie die Seite ausgeliefert (der\nEdge holt sie aus dem öffentlichen Medien-Speicher) — keine fremden Hosts, keine ablaufenden Links. Öffentlich wird\nnur, was im CMS veröffentlicht ist; nach dem Zurückziehen verschwinden die Dateien.",
+    "x-dealsystem-limits": {
+      "funnelManifestFields": 50,
+      "leadDataFields": 60,
+      "hiddenFieldValue": 500
+    }
   },
   "servers": [
     {
@@ -1587,7 +1592,7 @@
       "get": {
         "operationId": "getBooking",
         "summary": "Terminart einer Buchung",
-        "description": "Titel, Dauer, Ort-Arten (ohne Adressen), Buchungsfragen und die Zeitzone des Kalenders. Rate-Limit 60/min je IP und Seite (mit `…/slots`).",
+        "description": "Titel, Dauer, Ablauf (`flow`), Ort-Arten (ohne Adressen), Buchungsfragen und die Zeitzone des Kalenders. Rate-Limit 60/min je IP und Seite (mit `…/slots`).",
         "tags": [
           "Site-API"
         ],
@@ -1639,12 +1644,20 @@
                     "description": null,
                     "durationMinutes": 30,
                     "timezone": "Europe/Berlin",
+                    "flow": "calendar_first",
                     "locations": [
                       {
                         "type": "google_meet",
-                        "label": "Videoanruf"
+                        "label": "Videoanruf",
+                        "attendeeInput": null
+                      },
+                      {
+                        "type": "attendee_address",
+                        "label": "Bei Ihnen vor Ort",
+                        "attendeeInput": "address"
                       }
                     ],
+                    "attendeePhone": "optional",
                     "questions": [
                       {
                         "key": "anliegen",
@@ -1677,7 +1690,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1715,7 +1728,7 @@
       "get": {
         "operationId": "listBookingSlots",
         "summary": "Freie Zeiten",
-        "description": "Freie Zeiten in UTC, berechnet wie auf der Buchungsseite der Termine-App (Arbeitszeiten, Vorlauf, Buchungsfenster, belegte Kalender). `from`/`to` als ISO-Zeitpunkt oder Datum, höchstens 31 Tage je Abfrage; fehlt `to`, sieben Tage; Vergangenheit beginnt jetzt. `timezone` ist die Zeitzone des Kalenders; zum Anzeigen in die Zone des Besuchers umrechnen. Cache 30 s.",
+        "description": "Freie Zeiten in UTC, berechnet wie auf der Buchungsseite der Kalender-App (Arbeitszeiten, Vorlauf, Buchungsfenster, belegte Kalender). `from`/`to` als ISO-Zeitpunkt oder Datum, höchstens 31 Tage je Abfrage; fehlt `to`, sieben Tage; Vergangenheit beginnt jetzt. `timezone` ist die Zeitzone des Kalenders; zum Anzeigen in die Zone des Besuchers umrechnen. Cache 30 s.",
         "tags": [
           "Site-API"
         ],
@@ -1833,7 +1846,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1877,11 +1890,199 @@
         }
       }
     },
+    "/s/{key}/booking/{bookingKey}/qualify": {
+      "post": {
+        "operationId": "qualifyBooking",
+        "summary": "Qualifizierung vor der Zeitwahl",
+        "description": "Prüft die Antworten auf die Buchungsfragen gegen die Qualifizierungsregeln der Terminart, bevor der Besucher eine Zeit wählt (`flow: contact_first`, wie die Buchungsseite). Schreibt nichts, auch nicht in der Vorschau; immer 200 mit dem Urteil. Ungültige Einzelantworten zählen als leer. Ist die Prüfung technisch nicht möglich, kommt `qualified: true` (das Buchen prüft verbindlich, 422 `not_qualified`). Kein Captcha.",
+        "tags": [
+          "Site-API"
+        ],
+        "security": [],
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "description": "Publishable Key der Seite (`dsp_…`, öffentlich).",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsp_[0-9a-hjkmnp-tv-z]{8}_[A-Za-z0-9_-]{24}$"
+            }
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Vom Browser gesetzt. Muss eine Domain der Seite sein.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bookingKey",
+            "in": "path",
+            "required": true,
+            "description": "Schlüssel der Buchung aus `booking` in `dealsystem.config.ts`.",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9-]{0,48}[a-z0-9]$|^[a-z0-9]$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "description": "Antworten auf die Buchungsfragen wie bei `…/bookings`; ungültige zählen als leer.",
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string",
+                      "maxLength": 100
+                    },
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "maxLength": 5000
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "maxItems": 50,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "maxLength": 500
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "additionalProperties": false
+              },
+              "example": {
+                "answers": {
+                  "budget": "klein"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Urteil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BookingQualification"
+                },
+                "example": {
+                  "data": {
+                    "qualified": false,
+                    "headline": "Leider passt es gerade nicht",
+                    "message": "Für diese Objektgröße bieten wir leider keine Beratung an.",
+                    "redirectUrl": null
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid_json`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`origin_not_allowed`: `Origin` fehlt oder gehört nicht zur Seite (aktive Domain, Standard-Host, Vorschau-Host einer gebauten Version). Ohne CORS-Header.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Forbidden",
+                  "message": "Anfragen sind nur von den Domains dieser Website erlaubt.",
+                  "status": 403,
+                  "code": "origin_not_allowed"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Not Found",
+                  "message": "Für diese Terminbuchung sind gerade keine Termine verfügbar. Bitte nimm auf anderem Weg Kontakt auf.",
+                  "status": 404,
+                  "code": "booking_unavailable"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`payload_too_large`: Body größer als 64 KB.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "`validation_error`: Body-Form (unbekanntes Feld, zu viele Antworten).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "`rate_limited`: 30/min je IP und Seite. Header `Retry-After` (Sekunden).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                },
+                "example": {
+                  "error": "Too Many Requests",
+                  "message": "Zu viele Anfragen. Bitte später erneut versuchen.",
+                  "status": 429,
+                  "code": "rate_limited"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/s/{key}/booking/{bookingKey}/bookings": {
       "post": {
         "operationId": "createBooking",
         "summary": "Termin buchen",
-        "description": "Bucht die Zeit über den Buchungskern der Termine-App: Kontakt (ein vorhandener wird nur ergänzt, nie überschrieben), Termin im Kalender des Gastgebers, Mail an die Gastgeber, Automationen. Die Bestätigung an den Buchenden kommt von DealSystem („<Firma> über DealSystem“) mit Links zum Absagen und Verschieben. Aus der Vorschau wird geprüft (Antworten, Zeit frei), aber nichts gebucht (`dryRun`, 200).\n\nAblauf: Rate-Limit → Body (höchstens 64 KB) → Bot-Falle → Body-Form → Captcha → Buchung der Seite → Antworten → Doppel-Einsendung (`submissionId`, 24 h) → Buchen. `start` am besten genau aus `…/slots`; Ende = Beginn + Dauer.",
+        "description": "Bucht die Zeit über den Buchungskern der Kalender-App: Kontakt (ein vorhandener wird nur ergänzt, nie überschrieben), Termin im Kalender des Gastgebers, Mail an die Gastgeber, Automationen. Die Bestätigung an den Buchenden kommt von DealSystem („<Firma> über DealSystem“) mit Links zum Absagen und Verschieben. Aus der Vorschau wird geprüft (Antworten, Zeit frei), aber nichts gebucht (`dryRun`, 200).\n\nAblauf: Rate-Limit → Body (höchstens 64 KB) → Bot-Falle → Body-Form → Captcha → Buchung der Seite → Antworten → Doppel-Einsendung (`submissionId`, 24 h) → Buchen. `start` am besten genau aus `…/slots`; Ende = Beginn + Dauer.",
         "tags": [
           "Site-API"
         ],
@@ -2007,8 +2208,33 @@
                       "google_meet",
                       "in_person",
                       "phone",
-                      "link"
+                      "link",
+                      "attendee_address"
                     ]
+                  },
+                  "attendeeAddress": {
+                    "description": "Adresse des Gasts, Pflicht bei der Ort-Art `attendee_address` („Beim Kunden vor Ort“, `locations[].attendeeInput: 'address'`). Straße höchstens 200, PLZ höchstens 10, Ort höchstens 100 Zeichen nach dem Bereinigen; Fehler als `details[].path` `attendeeAddress.street` usw.",
+                    "type": "object",
+                    "properties": {
+                      "street": {
+                        "type": "string",
+                        "maxLength": 500
+                      },
+                      "postalCode": {
+                        "type": "string",
+                        "maxLength": 50
+                      },
+                      "city": {
+                        "type": "string",
+                        "maxLength": 500
+                      }
+                    },
+                    "required": [
+                      "street",
+                      "postalCode",
+                      "city"
+                    ],
+                    "additionalProperties": false
                   },
                   "attribution": {
                     "anyOf": [
@@ -2540,7 +2766,7 @@
             }
           },
           "404": {
-            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Termine-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
+            "description": "`booking_unavailable`: Buchung unbekannt, ausgeschaltet, ohne Terminart, Terminart inaktiv oder Kalender-App aus — den Ausweichkontakt zeigen. `site_not_found`: Schlüssel unbekannt oder Seite pausiert.",
             "content": {
               "application/json": {
                 "schema": {
@@ -3662,6 +3888,14 @@
                 "type": "string",
                 "description": "IANA-Zeitzone des Kalenders."
               },
+              "flow": {
+                "type": "string",
+                "enum": [
+                  "calendar_first",
+                  "contact_first"
+                ],
+                "description": "Ablauf: `calendar_first` = Zeit wählen → Daten und Fragen → buchen; `contact_first` = Daten → Fragen → `…/qualify` → Zeit wählen → buchen (wie die Buchungsseite der Kalender-App)."
+              },
               "locations": {
                 "type": "array",
                 "items": {
@@ -3673,20 +3907,44 @@
                         "google_meet",
                         "in_person",
                         "phone",
-                        "link"
+                        "link",
+                        "attendee_address"
                       ]
                     },
                     "label": {
                       "type": "string"
+                    },
+                    "attendeeInput": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "enum": [
+                            "address"
+                          ]
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ],
+                      "description": "`address`: wählt der Gast diese Ort-Art, fragt die Seite Straße, PLZ und Ort ab und schickt sie als `attendeeAddress` mit (Pflicht)."
                     }
                   },
                   "required": [
                     "type",
-                    "label"
+                    "label",
+                    "attendeeInput"
                   ],
                   "additionalProperties": false
                 },
                 "description": "Ort-Arten ohne Adresse, Telefonnummer oder Link des Gastgebers."
+              },
+              "attendeePhone": {
+                "type": "string",
+                "enum": [
+                  "optional",
+                  "required"
+                ],
+                "description": "`required`: die Buchung braucht `attendee.phone` (nicht leer); sonst 422 `validation_error` mit `details[].path` `attendee.phone`. Neu; ältere Server schicken das Feld nicht, dann gilt `optional`."
               },
               "questions": {
                 "type": "array",
@@ -3745,7 +4003,9 @@
               "description",
               "durationMinutes",
               "timezone",
+              "flow",
               "locations",
+              "attendeePhone",
               "questions"
             ],
             "additionalProperties": false
@@ -3803,6 +4063,63 @@
               "slots"
             ],
             "additionalProperties": false
+          }
+        },
+        "required": [
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      "BookingQualification": {
+        "type": "object",
+        "properties": {
+          "data": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "qualified": {
+                    "type": "boolean",
+                    "const": true
+                  }
+                },
+                "required": [
+                  "qualified"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "qualified": {
+                    "type": "boolean",
+                    "const": false
+                  },
+                  "headline": {
+                    "type": "string",
+                    "description": "Überschrift der Absage (Text der Terminart)."
+                  },
+                  "message": {
+                    "type": "string",
+                    "description": "Text für den Besucher; ein Buchen ist dann nicht möglich."
+                  },
+                  "redirectUrl": {
+                    "description": "Regel mit Weiterleitung: geprüfte Adresse aus der Terminart, auf die der Besucher statt der Zeitwahl geht; sonst `null`.",
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "required": [
+                  "qualified",
+                  "headline",
+                  "message",
+                  "redirectUrl"
+                ],
+                "additionalProperties": false
+              }
+            ]
           }
         },
         "required": [

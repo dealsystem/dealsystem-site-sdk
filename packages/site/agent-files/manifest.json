@@ -95,9 +95,10 @@
 		{
 			"target": ".claude/skills/termin-buchung/SKILL.md",
 			"source": "claude/skills/termin-buchung/SKILL.md",
-			"sha256": "89a098a6ebc75c31dd47d6d7afab93cdadc1e9a74e413c1d196a3608069ca17f",
+			"sha256": "846ba7ae48344aac54d845852d37e70883dace540d0946eb60028cf65428928a",
 			"previous": [
 				"83c12011723b103a5563b8cb8a87cdb88970db6e2f8cd9822ceed4540378554e",
+				"89a098a6ebc75c31dd47d6d7afab93cdadc1e9a74e413c1d196a3608069ca17f",
 				"cfa14b4c8a87ab3a8061b00d440f409d8ccca06146ffd7bdc6af121fcbc2f67e",
 				"d0d22e8cf29f7e5f629df920dd190de7df27284475aaa57014dbd37e86ba4c2f",
 				"eb7bfaef8a0ea4e43520be6357c74d07786b9678c67718caf5fb62d35ff73dc6",

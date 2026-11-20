@@ -302,3 +302,89 @@ describe('<Booker> mit flow: contact_first (erst Angaben, dann Zeit)', () => {
 		).toBeInTheDocument();
 	});
 });
+
+describe('<Booker>: Termin beim Gast (Ort-Art mit Adresse)', () => {
+	const VOR_ORT = {
+		...INFO,
+		locations: [
+			{ type: 'phone', label: 'Telefon', attendeeInput: null },
+			{ type: 'attendee_address', label: 'Bei Ihnen vor Ort', attendeeInput: 'address' },
+		],
+	};
+
+	it('Adressfelder nur bei „Bei Ihnen vor Ort“, mit autocomplete; Pflicht geprüft; Adresse geht mit', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () => jsonResponse(200, { data: VOR_ORT });
+		await toDetails(user);
+		expect(screen.queryByLabelText(/^Straße und Hausnummer/)).not.toBeInTheDocument();
+		await user.click(screen.getByRole('radio', { name: 'Bei Ihnen vor Ort' }));
+		const street = screen.getByLabelText(/^Straße und Hausnummer/);
+		expect(street).toHaveAttribute('autocomplete', 'street-address');
+		expect(screen.getByLabelText(/^PLZ/)).toHaveAttribute('autocomplete', 'postal-code');
+		expect(screen.getByLabelText(/^Ort/)).toHaveAttribute('autocomplete', 'address-level2');
+		// Ortsart-Auswahl und Adresse als benannte Gruppen, wie auf der Buchungsseite im CRM.
+		expect(screen.getByRole('group', { name: 'Wie findet der Termin statt?' })).toBeInTheDocument();
+		const adresse = screen.getByRole('group', { name: 'Wo findet der Termin statt?' });
+		expect(within(adresse).getAllByRole('textbox')).toHaveLength(3);
+		expect(within(adresse).getByLabelText(/^Straße und Hausnummer/)).toBe(street);
+
+		await fillAndBook(user);
+		await waitFor(() => expect(street).toHaveFocus());
+		expect(street).toHaveAccessibleDescription('Bitte geben Sie „Straße und Hausnummer“ an.');
+		expect(bookings()).toHaveLength(0);
+
+		await user.type(street, 'Lindenweg 4');
+		await user.type(screen.getByLabelText(/^PLZ/), '04109');
+		await user.type(screen.getByLabelText(/^Ort/), 'Leipzig');
+		await user.click(screen.getByRole('button', { name: 'Termin buchen' }));
+		expect(await screen.findByRole('heading', { name: 'Ihr Termin ist gebucht' })).toBeInTheDocument();
+		expect(JSON.parse(String(bookings()[0]![1]!.body))).toMatchObject({
+			locationType: 'attendee_address',
+			attendeeAddress: { street: 'Lindenweg 4', postalCode: '04109', city: 'Leipzig' },
+		});
+	});
+
+	it('Beschriftungen und Ort-Bezeichnung lassen sich überschreiben (z. B. per du)', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () => jsonResponse(200, { data: VOR_ORT });
+		render(Booker, {
+			booking: 'erstgespraech',
+			addressLabels: { street: 'Deine Straße', postalCode: 'Postleitzahl', city: 'Stadt' },
+			locationLabels: { attendee_address: 'Bei dir vor Ort' },
+		});
+		await user.click(await screen.findByRole('button', { name: new RegExp(`${time(0)} Uhr$`) }));
+		await user.click(await screen.findByRole('radio', { name: 'Bei dir vor Ort' }));
+		expect(screen.queryByRole('radio', { name: 'Bei Ihnen vor Ort' })).not.toBeInTheDocument();
+		for (const label of [/^Deine Straße/, /^Postleitzahl/, /^Stadt/])
+			expect(screen.getByLabelText(label)).toBeInTheDocument();
+	});
+
+	it('nur eine Ort-Art, und die verlangt eine Adresse: Felder gleich da', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () => jsonResponse(200, { data: { ...VOR_ORT, locations: [VOR_ORT.locations[1]] } });
+		await toDetails(user);
+		expect(screen.getByText('Ort: Bei Ihnen vor Ort')).toBeInTheDocument();
+		expect(screen.getByLabelText(/^Straße und Hausnummer/)).toBeInTheDocument();
+	});
+});
+
+describe('<Booker>: Telefon als Pflicht', () => {
+	it('Terminart verlangt Telefon: Sternchen, Fehler am Feld, nichts gesendet', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () => jsonResponse(200, { data: { ...INFO, attendeePhone: 'required' } });
+		await toDetails(user);
+		const phone = screen.getByRole('textbox', { name: /^Telefon/ });
+		expect(phone).toBeRequired();
+		expect(phone.closest('div')?.querySelector('label')?.textContent).toContain('*');
+		await fillAndBook(user);
+		await waitFor(() => expect(phone).toHaveFocus());
+		expect(phone).toHaveAccessibleDescription('Bitte geben Sie Ihre Telefonnummer an.');
+		expect(bookings()).toHaveLength(0);
+	});
+
+	it('ohne Pflicht bleibt Telefon freiwillig', async () => {
+		const user = userEvent.setup();
+		await toDetails(user);
+		expect(screen.getByRole('textbox', { name: /^Telefon/ })).not.toBeRequired();
+	});
+});

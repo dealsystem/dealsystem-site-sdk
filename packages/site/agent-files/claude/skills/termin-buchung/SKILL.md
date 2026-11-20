@@ -20,6 +20,10 @@ Kennt der Konnektor die Seite nicht, oder weicht sein `workspace` (aus `get_webs
 `npx dealsystem status` ab, bitte den Kunden, den Konnektor neu zu verbinden und den Workspace der Seite zu
 wählen. Bis dahin schlägst du keine Terminart vor.
 
+Kommt der Kunde zum Besucher (Handwerk, Besichtigung), stellt er bei der Buchungsseite den Ort „Beim Kunden vor Ort“
+ein; `<Booker>` fragt dann die Adresse ab. Duzt die Seite, gib `locationLabels={{ attendee_address: 'Bei dir vor Ort' }}`
+mit.
+
 Passen die Workspaces, legen `create_event_type`, `upsert_schedule` und `upsert_booking_field` (Fragen beim
 Buchen) an, was er dir genannt hat. Sollen die Fragen vor der Zeitwahl kommen (etwa damit nur passende Anfragen
 einen Termin bekommen), stell die Terminart mit `update_event_type` auf `bookingFlow: 'contact_first'`;

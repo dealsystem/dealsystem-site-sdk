@@ -409,6 +409,16 @@ export interface BookerProps {
   submitLabel?: string;
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
+  /**
+   * Beschriftungen der Adressfelder, wenn der Termin beim Gast stattfindet (Ort-Art mit Adresse). Standard
+   * „Straße und Hausnummer“, „PLZ“, „Ort“.
+   */
+  addressLabels?: { street?: string; postalCode?: string; city?: string };
+  /**
+   * Eigene Bezeichnung je Ort-Art statt der aus dem CRM, z. B. `{ attendee_address: 'Bei dir vor Ort' }`, wenn die
+   * Seite ihre Besucher duzt.
+   */
+  locationLabels?: Partial<Record<BookingLocationType, string>>;
   /** Eigene Anzeige nach der Buchung; bekommt Datum und Uhrzeit als Text. */
   success?: Snippet<[{ when: string; dryRun: boolean }]>;
   /** Wird nach der Buchung aufgerufen. */
@@ -1143,6 +1153,11 @@ interface BookingInput {
 	answers?: Record<string, string | number | boolean | readonly string[] | undefined>;
 	/** Gewählte Ort-Art aus `info.locations`; ohne Angabe die erste. */
 	locationType?: BookingLocationType;
+	/**
+	 * Adresse des Gasts. Pflicht, wenn die gewählte Ort-Art `attendeeInput: 'address'` hat (z. B. „Bei Ihnen vor
+	 * Ort“, siehe `needsAttendeeAddress`); sonst wird sie nicht mitgeschickt.
+	 */
+	attendeeAddress?: BookingAttendeeAddress;
 }
 ```
 
