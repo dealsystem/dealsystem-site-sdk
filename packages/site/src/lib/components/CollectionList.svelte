@@ -27,6 +27,7 @@ ohne `limit` die neuesten 20, mit `limit` bis zu 100.
 -->
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
+	import type { CollectionListTexts } from '../texts/list.js';
 	import type { CollectionEntry, CollectionKey } from '../types.js';
 
 	export interface CollectionListProps<K extends CollectionKey> {
@@ -40,14 +41,19 @@ ohne `limit` die neuesten 20, mit `limit` bis zu 100.
 		item: Snippet<[CollectionEntry<K>]>;
 		/** Anzeige, wenn es keine Einträge gibt. */
 		empty?: Snippet;
+		/** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+		texts?: Partial<CollectionListTexts>;
 		class?: string;
 	}
 </script>
 
 <script lang="ts" generics="K extends CollectionKey">
 	import { loadCollection } from '../client/collections.js';
+	import { COLLECTION_LIST_TEXTS } from '../texts/list.js';
+	import { pickTexts } from '../texts/resolve.js';
 
-	let { collection, entries, limit, item, empty, class: className }: CollectionListProps<K> = $props();
+	let { collection, entries, limit, item, empty, texts, class: className }: CollectionListProps<K> = $props();
+	const t = $derived(pickTexts(COLLECTION_LIST_TEXTS, texts));
 
 	let loaded = $state.raw<CollectionEntry<K>[] | null>(null);
 	let loadState = $state<'idle' | 'loading' | 'error'>('idle');
@@ -90,15 +96,15 @@ ohne `limit` die neuesten 20, mit `limit` bis zu 100.
 		{#if empty}
 			{@render empty()}
 		{:else}
-			<p>Zurzeit gibt es hier keine Einträge.</p>
+			<p>{t.empty}</p>
 		{/if}
 	{/if}
 	<div aria-live="polite">
 		{#if loadState === 'error'}
-			<p>Die Einträge konnten nicht geladen werden.</p>
-			<button type="button" onclick={() => attempt++}>Erneut versuchen</button>
+			<p>{t.failed}</p>
+			<button type="button" onclick={() => attempt++}>{t.retry}</button>
 		{:else if pending && loadState === 'loading'}
-			<p>Einträge werden geladen.</p>
+			<p>{t.loading}</p>
 		{/if}
 	</div>
 </div>

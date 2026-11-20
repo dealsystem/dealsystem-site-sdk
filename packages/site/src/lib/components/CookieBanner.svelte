@@ -49,13 +49,13 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 	import { onMount, tick } from 'svelte';
 	import { CONSENT_CATEGORIES, consent } from '../consent/consent.svelte.js';
 	import { COOKIE_BANNER_TEXTS } from '../consent/bannerTexts.js';
-	import { ownConsentBanner, siteSalutation } from '../internal/consentNeed.js';
+	import { ownConsentBanner } from '../internal/consentNeed.js';
+	import { pickTexts } from '../texts/resolve.js';
 	import { DEALSYSTEM_VISITS, declaredProviders, mergeProviders } from '../internal/providers.js';
 
 	let { categories: fixed, privacyHref = '/datenschutz', anrede, texts }: CookieBannerProps = $props();
 	// Anrede aus dem CRM (`site.salutation`); die Prop ist nur die Ausnahme.
-	const salutation = siteSalutation();
-	const t = $derived({ ...COOKIE_BANNER_TEXTS[anrede ?? salutation], ...texts });
+	const t = $derived(pickTexts(COOKIE_BANNER_TEXTS, texts, anrede));
 	// Eigenes Banner (`consent: { banner: 'own' }`): Es fragt selbst und meldet die Wahl mit `setConsent()`.
 	const own = ownConsentBanner();
 

@@ -11,6 +11,8 @@ import { consent } from '../consent/consent.svelte.js';
 import { getSiteData } from '../internal/siteData.js';
 import { usageError } from '../internal/usage.js';
 import { leadmagnetSuccessMessage, normalizeLeadmagnet } from '../leadmagnet.js';
+import { FORM_TEXTS, type FormTexts } from '../texts/form.js';
+import { fillText, pickTexts } from '../texts/resolve.js';
 import type { FunnelFieldDef, FunnelKey, FunnelLeadmagnetConfig, LeadValues } from '../types.js';
 
 /** Ausweichkontakt aus den Firmendaten im CRM. Leere Angaben sind `null`. Zeig ihn bei jedem Fehler außer `validation`. */
@@ -71,6 +73,11 @@ export interface LeadClientOptions {
 	captchaElement?: () => HTMLElement | null;
 	/** Wie der Aufruf in Fehlermeldungen heißt. @internal */
 	caller?: string;
+	/**
+	 * Einzelne Texte für Besucher statt der Standardtexte, z. B. `{ success: 'Danke, wir rufen zurück.' }`. Die
+	 * Anrede (Sie oder Du) kommt aus dem CRM. Platzhalter wie `{label}` setzt das SDK ein.
+	 */
+	texts?: Partial<FormTexts>;
 }
 
 /** Ein Client für ein Formular aus `dealsystem.config.ts`. */
@@ -112,28 +119,29 @@ export interface LeadClient<K extends string = string> {
 	destroy(): void;
 }
 
-/** Standard-Erfolgstext ohne Leadmagnet (auch in `<LeadForm>`). */
-export const DEFAULT_SUCCESS_MESSAGE = 'Vielen Dank. Ihre Anfrage ist bei uns angekommen.';
 const HIDDEN_MAX = 500;
 
-const MESSAGES = {
-	validation: 'Bitte prüfen Sie Ihre Angaben.',
-	reachable: 'Bitte geben Sie eine E-Mail-Adresse oder eine Telefonnummer an.',
-	captcha: 'Die Sicherheitsprüfung konnte nicht durchgeführt werden. Bitte versuchen Sie es später erneut.',
-	unavailable: 'Dieses Formular ist zurzeit nicht verfügbar.',
-} as const;
-
-function captchaError(): SiteApiError {
+function captchaError(message: string): SiteApiError {
 	return {
 		kind: 'captcha_failed',
 		status: null,
 		code: null,
-		message: MESSAGES.captcha,
+		message,
 		retryAfterSeconds: null,
 		invalidFields: [],
 		invalidPaths: [],
 		formInvalid: false,
 	};
+}
+
+/** Text für Besucher je Fehler, aus den Texten des Formulars. */
+function failureMessage(error: SiteApiError, t: FormTexts): string {
+	// Ohne Status: im Browser gescheitert; mit Status: vom Server abgelehnt.
+	if (error.kind === 'captcha_failed') return error.status === null ? t.captcha : t.captchaFailed;
+	if (error.kind === 'rate_limited') return t.rateLimited;
+	if (error.kind === 'network') return t.network;
+	if (error.kind === 'not_found' || error.kind === 'gone') return t.unavailable;
+	return t.failed;
 }
 
 function reasonOf(error: SiteApiError): Exclude<LeadFailureReason, 'validation'> {
@@ -197,6 +205,8 @@ export function createLeadClient<K extends FunnelKey>(
 	const hidden = allFields.filter((f) => f.type === 'hidden');
 	const fallback: LeadFallback = { phone: site.legal.phone || null, email: site.legal.email || null };
 	const leadmagnet = normalizeLeadmagnet(definition?.leadmagnet);
+	// Texte in der Anrede der Seite, einzelne aus `options.texts`.
+	const t = pickTexts(FORM_TEXTS, options.texts);
 
 	let status = $state<LeadClientStatus>('idle');
 	let honeypot = '';
@@ -230,6 +240,7 @@ export function createLeadClient<K extends FunnelKey>(
 			const message = validateField(
 				field,
 				Array.isArray(value) ? [...value] : (value as FieldValue | undefined),
+				t,
 			);
 			if (message) found[field.name] = message;
 		}
@@ -242,14 +253,14 @@ export function createLeadClient<K extends FunnelKey>(
 			return {
 				ok: false,
 				reason: 'validation',
-				message: MESSAGES.validation,
+				message: t.checkInputs,
 				fields: found,
 				fallback: null,
 				error: null,
 			};
 		}
 		if (!definition || definition.active === false) {
-			const error: SiteApiError = { ...captchaError(), kind: 'not_found', message: MESSAGES.unavailable };
+			const error: SiteApiError = { ...captchaError(t.unavailable), kind: 'not_found' };
 			return {
 				ok: false,
 				reason: 'unavailable',
@@ -264,7 +275,7 @@ export function createLeadClient<K extends FunnelKey>(
 		status = 'captcha';
 		const payload = await captcha.solution();
 		if (!payload) {
-			const error = captchaError();
+			const error = captchaError(t.captcha);
 			return {
 				ok: false,
 				reason: 'captcha',
@@ -307,10 +318,9 @@ export function createLeadClient<K extends FunnelKey>(
 			for (const field of visible) {
 				// Text vom Server wird nie angezeigt: eigene Meldung je Feld.
 				if (error.invalidFields.includes(field.name))
-					fields[field.name] = `Bitte prüfen Sie Ihre Angabe bei „${labelOf(field)}“.`;
+					fields[field.name] = fillText(t.checkField, { label: labelOf(field) });
 			}
-			const message =
-				Object.keys(fields).length === 0 && error.formInvalid ? MESSAGES.reachable : MESSAGES.validation;
+			const message = Object.keys(fields).length === 0 && error.formInvalid ? t.reachable : t.checkInputs;
 			return {
 				ok: false,
 				reason: 'validation',
@@ -320,14 +330,15 @@ export function createLeadClient<K extends FunnelKey>(
 				error: { ...error, message },
 			};
 		}
+		const message = failureMessage(error, t);
 		return {
 			ok: false,
 			reason: reasonOf(error),
-			message: error.message,
+			message,
 			fields: {},
 			fallback,
 			retryAfterSeconds: error.retryAfterSeconds,
-			error,
+			error: { ...error, message },
 		};
 	}
 
@@ -338,7 +349,7 @@ export function createLeadClient<K extends FunnelKey>(
 		fields: visible,
 		fallback,
 		leadmagnet,
-		successMessage: leadmagnet ? leadmagnetSuccessMessage(leadmagnet.label) : DEFAULT_SUCCESS_MESSAGE,
+		successMessage: leadmagnet ? leadmagnetSuccessMessage(leadmagnet.label, t.successLeadmagnet) : t.success,
 		get status() {
 			return status;
 		},

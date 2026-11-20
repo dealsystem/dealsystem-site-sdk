@@ -21,6 +21,19 @@ Die Bausteine von DealSystem (Formular, Cookie-Hinweis) 체bernehmen die Farben �
 `--ds-color-on-primary`, `--ds-color-text`, `--ds-color-surface`, `--ds-color-border`, `--ds-color-error`,
 `--ds-color-focus` und `--ds-radius`. Der Starter verbindet sie in `app.css` mit den Farben der Seite.
 
+## Texte der Bausteine und Anrede
+
+Die Bausteine von DealSystem bringen ihre Texte f체r Besucher mit: Hinweise, Pr체f- und Fehlermeldungen,
+Erfolg, Platzhalter vor Karten und Videos. Sie siezen oder duzen so, wie im CRM f체r die Website eingestellt
+(dieselbe Anrede wie in den Mails an Besucher). Setz die Anrede nicht im Code.
+
+Einen einzelnen Text ersetzt die Prop `texts` des Bausteins, z. B.
+`<LeadForm funnel="kontakt" texts={{ success: 'Danke, wir rufen dich zur체ck.' }} />`. Die Namen der Texte
+nennen die Typen `FormTexts`, `CookieBannerTexts`, `MapEmbedTexts`, `EmbedTexts`, `MediaVideoTexts` und
+`CollectionListTexts`. Platzhalter wie `{label}` oder `{count}` setzt das SDK ein; lass sie im eigenen Text
+stehen. Ein eigener Text muss zur Anrede der Seite passen. `createLeadClient(funnel, { texts })` nimmt
+dieselben Texte wie `<LeadForm>`.
+
 ## Schriften
 
 Schriften liegen immer lokal im Projekt. Nie von Google Fonts oder einem CDN laden (`PRV-002`).

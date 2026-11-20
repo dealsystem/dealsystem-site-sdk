@@ -26,6 +26,10 @@ export { default as Tracking } from './components/Tracking.svelte';
 
 export { consent, setConsent, type ConsentCategory, type ConsentProvider } from './consent/consent.svelte.js';
 export type { Anrede, CookieBannerTexts } from './consent/bannerTexts.js';
+export type { FormTexts } from './texts/form.js';
+export type { RequestTexts } from './texts/request.js';
+export type { EmbedTexts, MapEmbedTexts, MediaVideoTexts } from './texts/embeds.js';
+export type { CollectionListTexts } from './texts/list.js';
 export type { ExternalScriptAttrs } from './client/externalScript.js';
 export { loadCollection, loadEntry, type LoadedCollection } from './client/collections.js';
 export { getCampaignParam } from './client/attribution.js';

@@ -5,6 +5,8 @@ import { safeHttpUrl } from '../internal/navigate.js';
 import { getSiteData } from '../internal/siteData.js';
 import type { LeadAttributionV2, Touch } from './attribution.js';
 import { normalizeEntry } from '../snapshot.js';
+import { REQUEST_TEXTS } from '../texts/request.js';
+import { pickTexts } from '../texts/resolve.js';
 import type { RawCollectionEntry } from '../types.js';
 
 /** Art eines Fehlers der Site-API, zum Verzweigen in der Oberfläche. */
@@ -259,21 +261,6 @@ export interface SiteApiOptions {
 	timeoutMs?: number;
 }
 
-const MESSAGES: Record<SiteApiErrorKind, string> = {
-	network:
-		'Die Verbindung ist fehlgeschlagen. Bitte prüfen Sie Ihre Internetverbindung und versuchen Sie es erneut.',
-	rate_limited: 'Im Moment gehen zu viele Anfragen ein. Bitte versuchen Sie es in ein paar Minuten erneut.',
-	validation: 'Bitte prüfen Sie Ihre Angaben.',
-	captcha_failed: 'Die Sicherheitsprüfung ist fehlgeschlagen. Bitte versuchen Sie es erneut.',
-	rejected: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-	not_found: 'Der angefragte Inhalt ist nicht verfügbar.',
-	conflict: 'Diese Zeit ist leider nicht mehr frei. Bitte wählen Sie eine andere.',
-	gone: 'Dieser Termin hat bereits begonnen oder ist vorbei.',
-	forbidden: 'Die Anfrage wurde abgelehnt.',
-	server: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-	invalid_response: 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -291,7 +278,8 @@ function fail(
 			kind,
 			status,
 			code: extra.code ?? null,
-			message: MESSAGES[kind],
+			// Text für Besucher in der Anrede der Seite (`texts/request.ts`).
+			message: pickTexts(REQUEST_TEXTS)[kind],
 			retryAfterSeconds: extra.retryAfterSeconds ?? null,
 			invalidFields: extra.invalidFields ?? [],
 			formInvalid: extra.formInvalid ?? false,

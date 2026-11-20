@@ -22,11 +22,8 @@
 		/>
 
 		<!-- Die Felder stehen in dealsystem.config.ts unter funnels.kontakt. -->
-		<LeadForm
-			funnel="kontakt"
-			submitLabel="Nachricht senden"
-			successMessage="Vielen Dank für Ihre Nachricht. Wir melden uns bei Ihnen."
-		/>
+		<!-- Hinweise, Fehler und Erfolgstext folgen der Anrede aus dem CRM (Sie oder Du). -->
+		<LeadForm funnel="kontakt" submitLabel="Nachricht senden" />
 	</div>
 </section>
 

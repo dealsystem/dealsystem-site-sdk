@@ -191,6 +191,14 @@ describe('Anrede und Texte', () => {
 		expect(dialog).not.toHaveTextContent(/\b(Sie|Ihre?[nrms]?)\b/);
 	});
 
+	it('auch der Platzhalter der Karte duzt, wenn im CRM „Du“ eingestellt ist', async () => {
+		const data = testSiteData();
+		setSiteDataForTests({ ...data, site: { ...data.site, salutation: 'du' } });
+		render(StarterLayoutHarness, { props: { map: true, head: false } });
+		expect(await screen.findByText(/zum Beispiel deine IP-Adresse/)).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Karte anzeigen' })).toBeInTheDocument();
+	});
+
 	it('die Prop anrede geht ausnahmsweise vor der Einstellung im CRM', async () => {
 		withSalutation('du');
 		render(LayoutHarness, { props: { anrede: 'sie', categories: ['marketing'] } });

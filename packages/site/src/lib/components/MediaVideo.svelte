@@ -9,6 +9,7 @@ anderen Anbieter, wird es erst nach der Einwilligung „Externe Inhalte“ gelad
 ```
 -->
 <script lang="ts" module>
+	import type { MediaVideoTexts } from '../texts/embeds.js';
 	import type { MediaRef } from '../types.js';
 
 	export interface MediaVideoProps {
@@ -16,6 +17,8 @@ anderen Anbieter, wird es erst nach der Einwilligung „Externe Inhalte“ gelad
 		media: MediaRef | null | undefined;
 		/** Kurzer Name des Videos, z. B. „Rundgang“. */
 		title: string;
+		/** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+		texts?: Partial<MediaVideoTexts>;
 		class?: string;
 	}
 </script>
@@ -24,8 +27,11 @@ anderen Anbieter, wird es erst nach der Einwilligung „Externe Inhalte“ gelad
 	import { onMount } from 'svelte';
 	import { consent } from '../consent/consent.svelte.js';
 	import { usageError } from '../internal/usage.js';
+	import { MEDIA_VIDEO_TEXTS } from '../texts/embeds.js';
+	import { fillText, pickTexts } from '../texts/resolve.js';
 
-	let { media, title, class: className }: MediaVideoProps = $props();
+	let { media, title, texts, class: className }: MediaVideoProps = $props();
+	const t = $derived(pickTexts(MEDIA_VIDEO_TEXTS, texts));
 
 	const video = $derived(media?.kind === 'video' ? (media.video ?? null) : null);
 	/** Adressen außerhalb der eigenen Seite brauchen die Einwilligung. */
@@ -60,11 +66,8 @@ anderen Anbieter, wird es erst nach der Einwilligung „Externe Inhalte“ gelad
 			></video>
 		{:else if consent.ready}
 			<div class="ds-video__gate">
-				<p>
-					Das Video „{title}“ wird von einem anderen Anbieter geladen. Dabei werden Daten an diesen Anbieter
-					übertragen.
-				</p>
-				<button type="button" onclick={() => consent.grant('media')}>Video laden</button>
+				<p>{fillText(t.notice, { title })}</p>
+				<button type="button" onclick={() => consent.grant('media')}>{t.load}</button>
 			</div>
 		{/if}
 	</div>
