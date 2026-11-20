@@ -379,6 +379,37 @@ describe('Vertrag Site-API v1: Terminbuchung (Kopie aus dem Core)', () => {
 		).toBe(false);
 	});
 
+	it('Termin beim Gast und Telefon-Pflicht: Body mit Adresse, Antwort mit attendeeInput und attendeePhone', async () => {
+		const vorOrt = booking({
+			locationType: 'attendee_address',
+			attendeeAddress: { street: 'Lindenweg 4', postalCode: '04109', city: 'Leipzig' },
+		});
+		expect(validateBookingBody(vorOrt), JSON.stringify(validateBookingBody.errors)).toBe(true);
+		expect(
+			validateBookingBody({ ...vorOrt, attendeeAddress: { ...vorOrt.attendeeAddress, land: 'DE' } }),
+		).toBe(false);
+
+		const infoExample = exampleOf(bookingInfoOperation.responses['200']) as { data: Record<string, unknown> };
+		const info = {
+			data: {
+				...infoExample.data,
+				attendeePhone: 'required',
+				locations: [
+					{ type: 'phone', label: 'Telefon', attendeeInput: null },
+					{ type: 'attendee_address', label: 'Bei Ihnen vor Ort', attendeeInput: 'address' },
+				],
+			},
+		};
+		expect(coreSchema('BookingInfo')(info), JSON.stringify(coreSchema('BookingInfo').errors)).toBe(true);
+		const read = await recordingApi(() => jsonResponse(200, info)).api.getBooking(BOOKING);
+		expect(read.ok && read.data.attendeePhone).toBe('required');
+		expect(read.ok && read.data.locations[1]).toEqual({
+			type: 'attendee_address',
+			label: 'Bei Ihnen vor Ort',
+			attendeeInput: 'address',
+		});
+	});
+
 	it('der Client versteht die Beispielantworten, und sie erfüllen ihr Schema', async () => {
 		const infoExample = exampleOf(bookingInfoOperation.responses['200']);
 		expect(coreSchema('BookingInfo')(infoExample)).toBe(true);
