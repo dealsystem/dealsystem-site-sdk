@@ -12,8 +12,8 @@ import { COOKIE_BANNER_TEXTS, type Anrede } from '../src/lib/consent/bannerTexts
 import { CONSENT_CATEGORIES, CONSENT_STORAGE_KEY } from '../src/lib/consent/consent.svelte.js';
 import { DEALSYSTEM_VISITS } from '../src/lib/internal/providers.js';
 
-/** Die Besuchs-ID hängt an genau einem Zweck. */
-const VISITOR_ID_CATEGORY = ATTRIBUTION_CONSENT.visitorId[0];
+/** Zwecke, die die Besuchs-ID erlauben (Liste wie `ATTRIBUTION_CONSENT`; heute nur „Marketing“). */
+const VISITOR_ID_CATEGORY = ATTRIBUTION_CONSENT.visitorId;
 
 const FILE = new URL('../contract/visit-consent.v1.json', import.meta.url);
 
@@ -165,7 +165,8 @@ describe('Vertrag visit-consent.v1', () => {
 
 	it('die Besuchs-ID braucht genau „Marketing“', () => {
 		expect(ATTRIBUTION_CONSENT.visitorId).toEqual(['marketing']);
-		expect(contract.privacyBlock.facts.category).toBe('marketing');
+		expect(contract.privacyBlock.facts.category).toEqual(['marketing']);
+		expect(contract.consent.visitorId.category).toEqual(['marketing']);
 	});
 
 	it('der Baustein nutzt nur Tags, die der Core beim Speichern behält, ohne Attribute', () => {

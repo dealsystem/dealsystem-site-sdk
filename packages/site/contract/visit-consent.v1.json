@@ -121,7 +121,9 @@
 			"key": "ds-consent"
 		},
 		"visitorId": {
-			"category": "marketing",
+			"category": [
+				"marketing"
+			],
 			"storage": "localStorage",
 			"storageKey": "ds-attr",
 			"durationDays": 395,
@@ -168,7 +170,9 @@
 			"storage": "localStorage",
 			"storageKey": "ds-attr",
 			"durationDays": 395,
-			"category": "marketing"
+			"category": [
+				"marketing"
+			]
 		},
 		"htmlRules": "Nur <h2>, <p>, <ul>, <li>, <strong>, ohne Attribute und Links; beginnt mit <h2>{marker}</h2>. Der Core erkennt den Baustein am Marker (Tags entfernt, Groß-/Kleinschreibung und Leerraum egal).",
 		"html": {
