@@ -589,7 +589,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 			{#if info.locations.length > 1}
 				<fieldset class="ds-booker__field">
-					<legend>Wie möchten Sie sprechen?</legend>
+					<legend>Wie findet der Termin statt?</legend>
 					{#each info.locations as location (location.type)}
 						<label class="ds-booker__check">
 							<input type="radio" name="{uid}-location" value={location.type} bind:group={locationType} />
@@ -602,24 +602,28 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			{/if}
 
 			{#if needsAddress}
-				{#each ADDRESS_FIELDS as f (f.name)}
-					{@const id = `${uid}-address-${f.name}`}
-					{@const name = `attendeeAddress.${f.name}`}
-					<div class="ds-booker__field">
-						<label for={id}>{f.label}<span aria-hidden="true"> *</span></label>
-						<input
-							{id}
-							type="text"
-							autocomplete={f.auto}
-							required
-							maxlength={f.max}
-							bind:value={attendeeAddress[f.name]}
-							aria-invalid={!!errors[name]}
-							aria-describedby={errors[name] ? `${id}-error` : undefined}
-						/>
-						{@render fieldError(name, id)}
-					</div>
-				{/each}
+				<!-- Gruppe wie auf der Buchungsseite im CRM: Screenreader nennen den Zusammenhang der drei Felder. -->
+				<fieldset data-testid="attendee-address">
+					<legend>Wo findet der Termin statt?</legend>
+					{#each ADDRESS_FIELDS as f (f.name)}
+						{@const id = `${uid}-address-${f.name}`}
+						{@const name = `attendeeAddress.${f.name}`}
+						<div class="ds-booker__field">
+							<label for={id}>{f.label}<span aria-hidden="true"> *</span></label>
+							<input
+								{id}
+								type="text"
+								autocomplete={f.auto}
+								required
+								maxlength={f.max}
+								bind:value={attendeeAddress[f.name]}
+								aria-invalid={!!errors[name]}
+								aria-describedby={errors[name] ? `${id}-error` : undefined}
+							/>
+							{@render fieldError(name, id)}
+						</div>
+					{/each}
+				</fieldset>
 			{/if}
 
 			{#each info.questions as q (q.key)}

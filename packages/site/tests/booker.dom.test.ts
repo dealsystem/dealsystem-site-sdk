@@ -322,6 +322,11 @@ describe('<Booker>: Termin beim Gast (Ort-Art mit Adresse)', () => {
 		expect(street).toHaveAttribute('autocomplete', 'street-address');
 		expect(screen.getByLabelText(/^PLZ/)).toHaveAttribute('autocomplete', 'postal-code');
 		expect(screen.getByLabelText(/^Ort/)).toHaveAttribute('autocomplete', 'address-level2');
+		// Ortsart-Auswahl und Adresse als benannte Gruppen, wie auf der Buchungsseite im CRM.
+		expect(screen.getByRole('group', { name: 'Wie findet der Termin statt?' })).toBeInTheDocument();
+		const adresse = screen.getByRole('group', { name: 'Wo findet der Termin statt?' });
+		expect(within(adresse).getAllByRole('textbox')).toHaveLength(3);
+		expect(within(adresse).getByLabelText(/^Straße und Hausnummer/)).toBe(street);
 
 		await fillAndBook(user);
 		await waitFor(() => expect(street).toHaveFocus());
