@@ -1,6 +1,7 @@
 // Texte für Besucher: je Baustein eine Quelle in Sie- und Du-Form, Anrede aus dem CRM, einzelne Texte überschreibbar.
 import { COOKIE_BANNER_TEXTS } from '../src/lib/consent/bannerTexts.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
+import { BOOKER_TEXTS } from '../src/lib/texts/booker.js';
 import { EMBED_TEXTS, MAP_EMBED_TEXTS, MEDIA_VIDEO_TEXTS } from '../src/lib/texts/embeds.js';
 import { FORM_TEXTS } from '../src/lib/texts/form.js';
 import { COLLECTION_LIST_TEXTS } from '../src/lib/texts/list.js';
@@ -13,6 +14,7 @@ import { testSiteData } from './helpers.js';
 const SOURCES = {
 	CookieBanner: COOKIE_BANNER_TEXTS,
 	LeadForm: FORM_TEXTS,
+	Booker: BOOKER_TEXTS,
 	SiteApi: REQUEST_TEXTS,
 	MapEmbed: MAP_EMBED_TEXTS,
 	Embed: EMBED_TEXTS,

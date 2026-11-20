@@ -29,10 +29,10 @@ Erfolg, Platzhalter vor Karten und Videos. Sie siezen oder duzen so, wie im CRM 
 
 Einen einzelnen Text ersetzt die Prop `texts` des Bausteins, z. B.
 `<LeadForm funnel="kontakt" texts={{ success: 'Danke, wir rufen dich zurück.' }} />`. Die Namen der Texte
-nennen die Typen `FormTexts`, `CookieBannerTexts`, `MapEmbedTexts`, `EmbedTexts`, `MediaVideoTexts` und
+nennen die Typen `FormTexts`, `BookerTexts`, `CookieBannerTexts`, `MapEmbedTexts`, `EmbedTexts`, `MediaVideoTexts` und
 `CollectionListTexts`. Platzhalter wie `{label}` oder `{count}` setzt das SDK ein; lass sie im eigenen Text
 stehen. Ein eigener Text muss zur Anrede der Seite passen. `createLeadClient(funnel, { texts })` nimmt
-dieselben Texte wie `<LeadForm>`.
+dieselben Texte wie `<LeadForm>`, `createBookingClient(booking, { texts })` dieselben wie `<Booker>`.
 
 ## Schriften
 

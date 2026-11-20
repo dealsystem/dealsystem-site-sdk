@@ -18,6 +18,8 @@ import {
 import { consent } from '../consent/consent.svelte.js';
 import { getSiteData } from '../internal/siteData.js';
 import { usageError } from '../internal/usage.js';
+import { BOOKER_TEXTS, type BookerTexts } from '../texts/booker.js';
+import { fillText, pickTexts } from '../texts/resolve.js';
 import type { BookingKey } from '../types.js';
 import type { LeadFallback } from './leadClient.svelte.js';
 
@@ -91,11 +93,6 @@ const POSTAL_CODE = /^[A-Za-z0-9][A-Za-z0-9 -]{1,8}[A-Za-z0-9]$/;
 /** Telefon des Gasts: wie im Core nur die Länge, kein Format (`attendee.phone`, höchstens 50). */
 const ATTENDEE_PHONE_MAX = 50;
 const ADDRESS_FIELDS = ['street', 'postalCode', 'city'] as const;
-const ADDRESS_LABELS: Record<(typeof ADDRESS_FIELDS)[number], string> = {
-	street: 'Straße und Hausnummer',
-	postalCode: 'PLZ',
-	city: 'Ort',
-};
 
 /** Steuerzeichen (U+0000 bis U+001F, U+007F) werden wie im Core zu Leerzeichen. */
 // eslint-disable-next-line no-control-regex
@@ -168,6 +165,11 @@ export interface BookingClientOptions {
 	captchaElement?: () => HTMLElement | null;
 	/** Wie der Aufruf in Fehlermeldungen heißt. @internal */
 	caller?: string;
+	/**
+	 * Einzelne Texte für Besucher statt der Standardtexte, z. B. `{ phone: 'Mobilnummer' }`. Die Anrede (Sie oder
+	 * Du) kommt aus dem CRM. Platzhalter wie `{label}` setzt das SDK ein.
+	 */
+	texts?: Partial<BookerTexts>;
 }
 
 /** Ein Client für eine Terminbuchung aus `dealsystem.config.ts`. */
@@ -218,22 +220,6 @@ const PHONE = /^[+0-9][0-9 ()/.-]{4,29}$/;
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ATTENDEE_FIELDS = ['firstName', 'lastName', 'email', 'phone'] as const;
 
-const MESSAGES = {
-	validation: 'Bitte prüfen Sie Ihre Angaben.',
-	captcha: 'Die Sicherheitsprüfung konnte nicht durchgeführt werden. Bitte versuchen Sie es später erneut.',
-	unavailable: 'Die Terminbuchung ist zurzeit nicht verfügbar.',
-	slot_taken: 'Diese Zeit ist leider nicht mehr frei. Bitte wählen Sie eine andere.',
-	not_qualified:
-		'Für diesen Termin passt Ihre Anfrage leider nicht. Bitte nehmen Sie direkt Kontakt auf, wir helfen gern weiter.',
-} as const;
-
-const LABELS: Record<(typeof ATTENDEE_FIELDS)[number], string> = {
-	firstName: 'Vorname',
-	lastName: 'Nachname',
-	email: 'E-Mail',
-	phone: 'Telefon',
-};
-
 function apiError(kind: SiteApiError['kind'], message: string): SiteApiError {
 	return {
 		kind,
@@ -266,33 +252,29 @@ function isEmpty(value: unknown): boolean {
 }
 
 /** Meldung zu einer Buchungsfrage oder `null`. Regeln wie `validateBookingFieldAnswers` im Core. */
-function checkAnswer(question: BookingQuestion, value: unknown): string | null {
-	const label = question.label;
+function checkAnswer(question: BookingQuestion, value: unknown, t: BookerTexts): string | null {
+	const say = (template: string) => fillText(template, { label: question.label, max: 5000 });
 	if (isEmpty(value) || (question.type === 'boolean' && value === false && question.required)) {
 		if (!question.required) return null;
-		if (question.type === 'boolean') return `Bitte bestätigen Sie „${label}“.`;
-		if (question.type === 'select' || question.type === 'multiselect')
-			return `Bitte wählen Sie bei „${label}“ etwas aus.`;
-		return `Bitte füllen Sie das Feld „${label}“ aus.`;
+		if (question.type === 'boolean') return say(t.confirmRequired);
+		if (question.type === 'select' || question.type === 'multiselect') return say(t.chooseRequired);
+		return say(t.fillRequired);
 	}
 	if (question.type === 'multiselect') {
 		if (!Array.isArray(value) || value.some((v) => question.options && !question.options.includes(v)))
-			return `Bitte wählen Sie bei „${label}“ etwas aus.`;
+			return say(t.chooseRequired);
 		return null;
 	}
-	if (question.type === 'boolean')
-		return typeof value === 'boolean' ? null : `Bitte bestätigen Sie „${label}“.`;
+	if (question.type === 'boolean') return typeof value === 'boolean' ? null : say(t.confirmRequired);
 	const text = String(value).trim();
-	if (text.length > 5000) return `„${label}“ ist zu lang. Erlaubt sind höchstens 5000 Zeichen.`;
-	if (question.type === 'email' && !EMAIL.test(text))
-		return 'Bitte geben Sie eine gültige E-Mail-Adresse ein, z. B. name@beispiel.de.';
-	if (question.type === 'phone' && !PHONE.test(text))
-		return 'Bitte geben Sie eine gültige Telefonnummer ein, z. B. 0341 1234567.';
+	if (text.length > 5000) return say(t.tooLong);
+	if (question.type === 'email' && !EMAIL.test(text)) return say(t.invalidEmail);
+	if (question.type === 'phone' && !PHONE.test(text)) return say(t.invalidPhone);
 	if (question.type === 'number' && !Number.isFinite(Number(text.replace(',', '.'))))
-		return `Bitte geben Sie bei „${label}“ eine Zahl an.`;
-	if (question.type === 'date' && !DATE.test(text)) return `Bitte geben Sie bei „${label}“ ein Datum an.`;
+		return say(t.invalidNumber);
+	if (question.type === 'date' && !DATE.test(text)) return say(t.invalidDate);
 	if (question.type === 'select' && question.options?.length && !question.options.includes(text))
-		return `Bitte wählen Sie bei „${label}“ etwas aus.`;
+		return say(t.chooseRequired);
 	return null;
 }
 
@@ -362,6 +344,9 @@ export function createBookingClient<K extends BookingKey>(
 		);
 	}
 	const fallback: LeadFallback = { phone: site.legal.phone || null, email: site.legal.email || null };
+	// Texte in der Anrede der Seite (`texts/booker.ts`), einzelne aus `options.texts`.
+	const t = pickTexts(BOOKER_TEXTS, options.texts);
+	const tooLong = (label: string, max: number) => fillText(t.tooLong, { label, max });
 	const captcha = createCaptchaSession({ name: `booking-${booking}`, element: options.captchaElement });
 
 	let status = $state<BookingClientStatus>('idle');
@@ -390,11 +375,11 @@ export function createBookingClient<K extends BookingKey>(
 								: 'unavailable');
 		const message =
 			own === 'slot_taken'
-				? MESSAGES.slot_taken
+				? t.slotTaken
 				: own === 'not_qualified'
-					? MESSAGES.not_qualified
+					? t.notQualified
 					: own === 'unavailable' && error.kind === 'not_found'
-						? MESSAGES.unavailable
+						? t.unavailable
 						: error.message;
 		return {
 			ok: false,
@@ -408,7 +393,7 @@ export function createBookingClient<K extends BookingKey>(
 	}
 
 	function unavailable(): BookingFailure {
-		return failure(apiError('not_found', MESSAGES.unavailable), 'unavailable');
+		return failure(apiError('not_found', t.unavailable), 'unavailable');
 	}
 
 	function validate(
@@ -419,33 +404,28 @@ export function createBookingClient<K extends BookingKey>(
 	): Record<string, string> {
 		const found: Record<string, string> = {};
 		const first = input.firstName?.trim() ?? '';
-		if (!first) found.firstName = 'Bitte geben Sie Ihren Vornamen an.';
-		else if (first.length > 100)
-			found.firstName = '„Vorname“ ist zu lang. Erlaubt sind höchstens 100 Zeichen.';
-		if ((input.lastName?.trim().length ?? 0) > 100)
-			found.lastName = '„Nachname“ ist zu lang. Erlaubt sind höchstens 100 Zeichen.';
+		if (!first) found.firstName = t.firstNameRequired;
+		else if (first.length > 100) found.firstName = tooLong(t.firstName, 100);
+		if ((input.lastName?.trim().length ?? 0) > 100) found.lastName = tooLong(t.lastName, 100);
 		const email = input.email?.trim() ?? '';
-		if (!email) found.email = 'Bitte geben Sie Ihre E-Mail-Adresse an.';
-		else if (!EMAIL.test(email) || email.length > 254)
-			found.email = 'Bitte geben Sie eine gültige E-Mail-Adresse ein, z. B. name@beispiel.de.';
+		if (!email) found.email = t.emailRequired;
+		else if (!EMAIL.test(email) || email.length > 254) found.email = t.invalidEmail;
 		const phone = input.phone?.trim() ?? '';
-		if (!phone && attendeePhone === 'required') found.phone = 'Bitte geben Sie Ihre Telefonnummer an.';
-		else if (phone.length > ATTENDEE_PHONE_MAX)
-			found.phone = `„Telefon“ ist zu lang. Erlaubt sind höchstens ${ATTENDEE_PHONE_MAX} Zeichen.`;
+		if (!phone && attendeePhone === 'required') found.phone = t.phoneRequired;
+		else if (phone.length > ATTENDEE_PHONE_MAX) found.phone = tooLong(t.phone, ATTENDEE_PHONE_MAX);
 		for (const question of questions) {
-			const message = checkAnswer(question, input.answers?.[question.key]);
+			const message = checkAnswer(question, input.answers?.[question.key], t);
 			if (message) found[`answers.${question.key}`] = message;
 		}
 		if (needsAttendeeAddress(locations, input.locationType)) {
 			for (const field of ADDRESS_FIELDS) {
 				const value = cleanLine(input.attendeeAddress?.[field]);
-				const label = ADDRESS_LABELS[field];
-				if (!value) found[`attendeeAddress.${field}`] = `Bitte geben Sie „${label}“ an.`;
+				const label = t[field];
+				if (!value) found[`attendeeAddress.${field}`] = fillText(t.addressRequired, { label });
 				else if (value.length > ADDRESS_LIMITS[field])
-					found[`attendeeAddress.${field}`] =
-						`„${label}“ ist zu lang. Erlaubt sind höchstens ${ADDRESS_LIMITS[field]} Zeichen.`;
+					found[`attendeeAddress.${field}`] = tooLong(label, ADDRESS_LIMITS[field]);
 				else if (field === 'postalCode' && !POSTAL_CODE.test(value))
-					found['attendeeAddress.postalCode'] = 'Bitte geben Sie eine gültige Postleitzahl an, z. B. 04109.';
+					found['attendeeAddress.postalCode'] = t.invalidPostalCode;
 			}
 		}
 		return found;
@@ -468,12 +448,12 @@ export function createBookingClient<K extends BookingKey>(
 		const questions = loaded.ok ? loaded.info.questions : [];
 		const locations = loaded.ok ? loaded.info.locations : [];
 		const found = validate(input, questions, locations, loaded.ok ? loaded.info.attendeePhone : 'optional');
-		if (!input.start || Number.isNaN(Date.parse(input.start))) found.start = 'Bitte wählen Sie eine Zeit.';
+		if (!input.start || Number.isNaN(Date.parse(input.start))) found.start = t.pickTime;
 		if (Object.keys(found).length > 0) {
 			return {
 				ok: false,
 				reason: 'validation',
-				message: MESSAGES.validation,
+				message: t.checkInputs,
 				fields: found,
 				fallback: null,
 				error: null,
@@ -483,7 +463,7 @@ export function createBookingClient<K extends BookingKey>(
 
 		status = 'captcha';
 		const payload = await captcha.solution();
-		if (!payload) return failure(apiError('captcha_failed', MESSAGES.captcha), 'captcha');
+		if (!payload) return failure(apiError('captcha_failed', t.captcha), 'captcha');
 
 		status = 'sending';
 		if (!submission || submission.start !== input.start)
@@ -537,22 +517,22 @@ export function createBookingClient<K extends BookingKey>(
 				// Text vom Server wird nie angezeigt: eigene Meldung je Feld.
 				const [head, name] = path.split('.');
 				if (head === 'attendee' && name && (ATTENDEE_FIELDS as readonly string[]).includes(name)) {
-					fields[name] = `Bitte prüfen Sie Ihre Angabe bei „${LABELS[name as keyof typeof LABELS]}“.`;
+					fields[name] = fillText(t.checkField, { label: t[name as (typeof ATTENDEE_FIELDS)[number]] });
 				} else if (head === 'answers' && name) {
 					const question = questions.find((q) => q.key === name);
-					fields[`answers.${name}`] = `Bitte prüfen Sie Ihre Angabe bei „${question?.label ?? name}“.`;
+					fields[`answers.${name}`] = fillText(t.checkField, { label: question?.label ?? name });
 				} else if (head === 'start') {
-					fields.start = 'Bitte wählen Sie eine Zeit.';
+					fields.start = t.pickTime;
 				} else if (
 					head === 'attendeeAddress' &&
 					name &&
 					(ADDRESS_FIELDS as readonly string[]).includes(name)
 				) {
-					const label = ADDRESS_LABELS[name as keyof typeof ADDRESS_LABELS];
-					fields[`attendeeAddress.${name}`] = `Bitte prüfen Sie Ihre Angabe bei „${label}“.`;
+					const label = t[name as (typeof ADDRESS_FIELDS)[number]];
+					fields[`attendeeAddress.${name}`] = fillText(t.checkField, { label });
 				}
 			}
-			return { ok: false, reason: 'validation', message: MESSAGES.validation, fields, fallback: null, error };
+			return { ok: false, reason: 'validation', message: t.checkInputs, fields, fallback: null, error };
 		}
 		return failure(error);
 	}
@@ -583,7 +563,7 @@ export function createBookingClient<K extends BookingKey>(
 			const start = from === undefined ? Date.now() : msOf(from);
 			const end = to === undefined ? start + 7 * 86_400_000 : msOf(to);
 			if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
-				return failure(apiError('rejected', 'Der Zeitraum ist ungültig.'), 'unavailable');
+				return failure(apiError('rejected', t.rangeInvalid), 'unavailable');
 			}
 			status = 'loading';
 			try {
@@ -608,8 +588,8 @@ export function createBookingClient<K extends BookingKey>(
 				return {
 					ok: true,
 					qualified: false,
-					headline: result.data.headline || 'Dafür bieten wir leider keinen Termin an',
-					message: result.data.message || MESSAGES.not_qualified,
+					headline: result.data.headline || t.notQualifiedHeadline,
+					message: result.data.message || t.notQualified,
 					redirectUrl: result.data.redirectUrl,
 					fallback,
 				};

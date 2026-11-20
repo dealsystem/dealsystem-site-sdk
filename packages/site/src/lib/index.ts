@@ -27,6 +27,7 @@ export { default as Tracking } from './components/Tracking.svelte';
 export { consent, setConsent, type ConsentCategory, type ConsentProvider } from './consent/consent.svelte.js';
 export type { Anrede, CookieBannerTexts } from './consent/bannerTexts.js';
 export type { FormTexts } from './texts/form.js';
+export type { BookerTexts } from './texts/booker.js';
 export type { RequestTexts } from './texts/request.js';
 export type { EmbedTexts, MapEmbedTexts, MediaVideoTexts } from './texts/embeds.js';
 export type { CollectionListTexts } from './texts/list.js';

@@ -410,8 +410,13 @@ export interface BookerProps {
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
   /**
+   * Einzelne Texte statt der Standardtexte, z. B. `{ phone: 'Mobilnummer' }`. Alle Texte folgen der Anrede aus
+   * dem CRM (Sie oder Du); Platzhalter wie `{label}` setzt das SDK ein.
+   */
+  texts?: Partial<BookerTexts>;
+  /**
    * Beschriftungen der Adressfelder, wenn der Termin beim Gast stattfindet (Ort-Art mit Adresse). Standard
-   * „Straße und Hausnummer“, „PLZ“, „Ort“.
+   * „Straße und Hausnummer“, „PLZ“, „Ort“. Kurzform für `texts={{ street, postalCode, city }}`.
    */
   addressLabels?: { street?: string; postalCode?: string; city?: string };
   /**

@@ -16,6 +16,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 -->
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
+	import type { BookerTexts } from '../texts/booker.js';
 	import type { BookingKey } from '../types.js';
 
 	export interface BookerProps {
@@ -30,8 +31,13 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
 		/**
+		 * Einzelne Texte statt der Standardtexte, z. B. `{ phone: 'Mobilnummer' }`. Alle Texte folgen der Anrede aus
+		 * dem CRM (Sie oder Du); Platzhalter wie `{label}` setzt das SDK ein.
+		 */
+		texts?: Partial<BookerTexts>;
+		/**
 		 * Beschriftungen der Adressfelder, wenn der Termin beim Gast stattfindet (Ort-Art mit Adresse). Standard
-		 * „Straße und Hausnummer“, „PLZ“, „Ort“.
+		 * „Straße und Hausnummer“, „PLZ“, „Ort“. Kurzform für `texts={{ street, postalCode, city }}`.
 		 */
 		addressLabels?: { street?: string; postalCode?: string; city?: string };
 		/**
@@ -66,14 +72,17 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	import type { BookingInfo, BookingLocationType, BookingSlot } from '../client/siteApi.js';
 	import { consent } from '../consent/consent.svelte.js';
 	import { navigateTo } from '../internal/navigate.js';
+	import { BOOKER_TEXTS } from '../texts/booker.js';
+	import { fillText, pickTexts } from '../texts/resolve.js';
 	import LeadHoneypot from './LeadHoneypot.svelte';
 
 	let {
 		booking,
 		days = 14,
 		headingLevel = 2,
-		submitLabel = 'Termin buchen',
+		submitLabel,
 		privacyHref = '/datenschutz',
+		texts,
 		addressLabels,
 		locationLabels,
 		success,
@@ -83,10 +92,19 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 	const uid = $props.id();
 	let captchaElement = $state<HTMLElement | null>(null);
+	// Texte in der Anrede der Seite (`texts/booker.ts`); `addressLabels` ist eine Kurzform für drei davon.
+	// svelte-ignore state_referenced_locally
+	const overrides: Partial<BookerTexts> = {
+		...texts,
+		...Object.fromEntries(Object.entries(addressLabels ?? {}).filter(([, v]) => typeof v === 'string')),
+	};
+	const t = pickTexts(BOOKER_TEXTS, overrides);
+	const [requiredBefore, requiredAfter = ''] = t.requiredHint.split('{star}');
 	// svelte-ignore state_referenced_locally
 	const client = createBookingClient(booking, {
 		captchaElement: () => captchaElement,
 		caller: `<Booker booking="${booking}">`,
+		texts: overrides,
 	});
 	const zone = visitorTimeZone();
 	// svelte-ignore state_referenced_locally
@@ -108,26 +126,21 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	let notice = $state('');
 
 	const PERSON_FIELDS = [
-		{ name: 'firstName', label: 'Vorname', type: 'text', auto: 'given-name', required: true, max: 100 },
-		{ name: 'lastName', label: 'Nachname', type: 'text', auto: 'family-name', required: false, max: 100 },
-		{ name: 'email', label: 'E-Mail', type: 'email', auto: 'email', required: true, max: 254 },
-		{ name: 'phone', label: 'Telefon', type: 'tel', auto: 'tel', required: false, max: 50 },
+		{ name: 'firstName', label: t.firstName, type: 'text', auto: 'given-name', required: true, max: 100 },
+		{ name: 'lastName', label: t.lastName, type: 'text', auto: 'family-name', required: false, max: 100 },
+		{ name: 'email', label: t.email, type: 'email', auto: 'email', required: true, max: 254 },
+		{ name: 'phone', label: t.phone, type: 'tel', auto: 'tel', required: false, max: 50 },
 	] as const;
 	let person = $state({ firstName: '', lastName: '', email: '', phone: '' });
 	let locationType = $state<BookingLocationType | null>(null);
 	let attendeeAddress = $state({ street: '', postalCode: '', city: '' });
 	/** Die gewählte Ort-Art verlangt eine Adresse des Gasts (z. B. „Bei Ihnen vor Ort“). */
 	const needsAddress = $derived(info ? needsAttendeeAddress(info.locations, locationType) : false);
-	const ADDRESS_FIELDS = $derived([
-		{
-			name: 'street',
-			label: addressLabels?.street ?? 'Straße und Hausnummer',
-			auto: 'street-address',
-			max: 200,
-		},
-		{ name: 'postalCode', label: addressLabels?.postalCode ?? 'PLZ', auto: 'postal-code', max: 10 },
-		{ name: 'city', label: addressLabels?.city ?? 'Ort', auto: 'address-level2', max: 100 },
-	] as const);
+	const ADDRESS_FIELDS = [
+		{ name: 'street', label: t.street, auto: 'street-address', max: 200 },
+		{ name: 'postalCode', label: t.postalCode, auto: 'postal-code', max: 10 },
+		{ name: 'city', label: t.city, auto: 'address-level2', max: 100 },
+	] as const;
 	const locationLabel = (location: { type: BookingLocationType; label: string }) =>
 		locationLabels?.[location.type] ?? location.label;
 	let answers = $state<Record<string, string | boolean | string[]>>({});
@@ -148,10 +161,15 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		loadedUntil !== null && loadedUntil.getTime() < Date.now() + HORIZON_DAYS * 86_400_000,
 	);
 	const errorCount = $derived(Object.keys(errors).length);
+	/** Name und E-Mail des Gasts für „Ihre Angaben: …“. */
+	const personLine = $derived(
+		`${[person.firstName, person.lastName].filter((v) => v.trim()).join(' ')}, ${person.email}`,
+	);
 	const zoneNote = $derived(
-		calendarZone && calendarZone !== zone
-			? `Zeiten in Ihrer Zeitzone: ${timeZoneLabel(zone)}. Der Kalender des Anbieters führt ${timeZoneLabel(calendarZone)}.`
-			: `Zeiten in Ihrer Zeitzone: ${timeZoneLabel(zone)}${calendarZone ? ', wie der Kalender des Anbieters' : ''}.`,
+		fillText(calendarZone ? (calendarZone !== zone ? t.zoneDiffers : t.zoneSame) : t.zoneOnly, {
+			zone: timeZoneLabel(zone),
+			calendarZone: calendarZone ? timeZoneLabel(calendarZone) : '',
+		}),
 	);
 	const headingTag = $derived(`h${headingLevel}`);
 	/** Erst Angaben, dann Zeit (an der Terminart im CRM eingestellt). */
@@ -198,7 +216,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			return;
 		}
 		step = 'pick';
-		notice = groups.length > 0 ? '' : 'In diesem Zeitraum ist kein Termin frei.';
+		notice = groups.length > 0 ? '' : t.noSlots;
 	}
 
 	onMount(() => {
@@ -214,10 +232,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		const ok = await load(loadedUntil, true);
 		loadingMore = false;
 		if (!ok) return;
-		notice =
-			groups.length > before
-				? `${groups.length - before} weitere Tage mit freien Terminen.`
-				: 'Im nächsten Zeitraum ist kein Termin frei.';
+		notice = groups.length > before ? fillText(t.moreDays, { count: groups.length - before }) : t.noSlotsNext;
 		if (!selectedDay) selectedDay = groups[0]?.date ?? null;
 	}
 
@@ -299,7 +314,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			return;
 		}
 		step = 'pick';
-		notice = groups.length > 0 ? '' : 'In diesem Zeitraum ist kein Termin frei.';
+		notice = groups.length > 0 ? '' : t.noSlots;
 		await focusHeading();
 	}
 
@@ -360,23 +375,23 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	const contact = $derived(client.fallback);
 	const live = $derived(
 		step === 'loading'
-			? 'Freie Termine werden geladen.'
+			? t.loadingLive
 			: step === 'not_qualified' && rejection
 				? rejection.headline
 				: qualifying
-					? 'Ihre Angaben werden geprüft.'
+					? t.checking
 					: step === 'done' && booked
 						? booked.dryRun
-							? `Vorschau: Termin am ${booked.when} geprüft, nicht gebucht.`
-							: `Termin gebucht: ${booked.when}.`
+							? fillText(t.dryRunLive, { when: booked.when })
+							: fillText(t.bookedLive, { when: booked.when })
 						: sending
 							? client.status === 'captcha'
-								? 'Die Sicherheitsprüfung läuft. Ihr Termin wird gleich gebucht.'
-								: 'Ihr Termin wird gebucht.'
+								? t.captchaRunning
+								: t.sendingLive
 							: errorCount > 0
 								? errorCount === 1
-									? 'Bitte prüfen Sie das markierte Feld.'
-									: `Bitte prüfen Sie die ${errorCount} markierten Felder.`
+									? t.errorOne
+									: fillText(t.errorMany, { count: errorCount })
 								: notice,
 	);
 </script>
@@ -384,12 +399,12 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 {#snippet contactFallback()}
 	{#if contact.phone || contact.email}
 		<p class="ds-booker__contact">
-			Sie erreichen uns auch direkt:
+			{t.contactDirect}
 			{#if contact.phone}
 				<a href="tel:{contact.phone.replace(/[^+0-9]/g, '')}">{contact.phone}</a>
 			{/if}
 			{#if contact.phone && contact.email}
-				oder
+				{t.contactOr}
 			{/if}
 			{#if contact.email}
 				<a href="mailto:{contact.email}">{contact.email}</a>
@@ -406,15 +421,15 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 {#snippet privacy()}
 	<p class="ds-booker__privacy">
-		Ihre Angaben verwenden wir, um den Termin zu vereinbaren. Mehr dazu in der
-		<a href={privacyHref}>Datenschutzerklärung</a>.
+		{t.privacy}
+		<a href={privacyHref}>{t.privacyLink}</a>.
 	</p>
 {/snippet}
 
 {#snippet failureBox()}
 	{#if problem}
 		<div class="ds-booker__failure" role="alert" tabindex="-1" bind:this={problemElement}>
-			<p><strong>Der Termin wurde nicht gebucht.</strong> {problem.message}</p>
+			<p><strong>{t.notBooked}</strong> {problem.message}</p>
 			{@render contactFallback()}
 		</div>
 	{/if}
@@ -422,7 +437,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 {#snippet submitButton()}
 	<button type="submit" class="ds-booker__submit" aria-disabled={sending}>
-		{sending ? 'Wird gebucht …' : submitLabel}
+		{sending ? t.booking : (submitLabel ?? t.submit)}
 	</button>
 {/snippet}
 
@@ -436,10 +451,10 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	<div class="ds-booker__live" aria-live="polite" aria-atomic="true">{live}</div>
 
 	{#if step === 'loading'}
-		<p class="ds-booker__hint">Freie Termine werden geladen …</p>
+		<p class="ds-booker__hint">{t.loading}</p>
 	{:else if step === 'unavailable'}
 		<div class="ds-booker__notice" role="alert" tabindex="-1" bind:this={problemElement}>
-			<p>{problem?.message ?? 'Die Terminbuchung ist zurzeit nicht verfügbar.'}</p>
+			<p>{problem?.message ?? t.unavailable}</p>
 			{@render contactFallback()}
 		</div>
 	{:else if step === 'not_qualified' && rejection}
@@ -447,39 +462,36 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			{@render stepHeading(rejection.headline)}
 			<p>{rejection.message}</p>
 			{#if rejection.redirectUrl}
-				<p><a href={rejection.redirectUrl}>Weiter</a></p>
+				<p><a href={rejection.redirectUrl}>{t.continue}</a></p>
 			{:else}
 				{@render contactFallback()}
 			{/if}
-			<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
+			<button type="button" class="ds-booker__link" onclick={backToDetails}>{t.changeDetails}</button>
 		</div>
 	{:else if step === 'done' && booked}
 		<div class="ds-booker__done">
-			{@render stepHeading(booked.dryRun ? 'Vorschau: Termin geprüft' : 'Ihr Termin ist gebucht')}
+			{@render stepHeading(booked.dryRun ? t.dryRunHeading : t.bookedHeading)}
 			{#if success}
 				{@render success(booked)}
 			{:else}
 				<p>
-					{booked.when}{info ? ` · ${info.durationMinutes} Minuten` : ''}.
+					{booked.when}{info ? ` · ${fillText(t.minutes, { minutes: info.durationMinutes })}` : ''}.
 					{#if !booked.dryRun}
-						Sie erhalten gleich eine Bestätigung per E-Mail, darin auch Links zum Absagen oder Verschieben.
+						{t.confirmationMail}
 					{/if}
 				</p>
 			{/if}
 			{#if booked.dryRun}
-				<p class="ds-booker__hint">
-					Vorschau: Die Buchung wurde geprüft, aber nicht angelegt. Es geht keine Mail raus.
-				</p>
+				<p class="ds-booker__hint">{t.dryRunNote}</p>
 			{/if}
 		</div>
 	{:else if step === 'pick' && info}
-		{@render stepHeading(`${info.label}: Tag und Uhrzeit wählen`)}
-		<p class="ds-booker__hint">{info.durationMinutes} Minuten. {zoneNote}</p>
+		{@render stepHeading(fillText(t.pickHeading, { label: info.label }))}
+		<p class="ds-booker__hint">{fillText(t.minutes, { minutes: info.durationMinutes })}. {zoneNote}</p>
 		{#if contactFirst}
 			<p class="ds-booker__chosen">
-				Ihre Angaben: {person.firstName}
-				{person.lastName}, {person.email}
-				<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
+				{fillText(t.yourDetails, { details: personLine })}
+				<button type="button" class="ds-booker__link" onclick={backToDetails}>{t.changeDetails}</button>
 			</p>
 		{/if}
 
@@ -493,16 +505,16 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		{/if}
 
 		{#if groups.length === 0}
-			<p>In diesem Zeitraum ist kein Termin frei.</p>
+			<p>{t.noSlots}</p>
 			{@render contactFallback()}
 		{:else}
-			<div class="ds-booker__days" role="group" aria-label="Tag wählen">
+			<div class="ds-booker__days" role="group" aria-label={t.chooseDay}>
 				{#each groups as g (g.date)}
 					<button
 						type="button"
 						class="ds-booker__day"
 						aria-pressed={g.date === selectedDay}
-						aria-label="{g.long}, {g.slots.length} freie Zeiten"
+						aria-label={fillText(t.dayLabel, { day: g.long, count: g.slots.length })}
 						onclick={() => chooseDay(g.date)}
 					>
 						{g.short}
@@ -533,19 +545,18 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 		{#if canLoadMore}
 			<button type="button" class="ds-booker__more" aria-disabled={loadingMore} onclick={loadMore}>
-				{loadingMore ? 'Termine werden geladen …' : 'Weitere Termine'}
+				{loadingMore ? t.loadingMore : t.moreSlots}
 			</button>
 		{/if}
 	{:else if step === 'confirm' && info && selected}
-		{@render stepHeading('Termin bestätigen')}
+		{@render stepHeading(t.confirmHeading)}
 		<p class="ds-booker__chosen">
-			<strong>{selected.label}</strong>, {info.durationMinutes} Minuten
-			<button type="button" class="ds-booker__link" onclick={backToPick}>Andere Zeit wählen</button>
+			<strong>{selected.label}</strong>, {fillText(t.minutes, { minutes: info.durationMinutes })}
+			<button type="button" class="ds-booker__link" onclick={backToPick}>{t.otherTime}</button>
 		</p>
 		<p class="ds-booker__chosen">
-			Für {person.firstName}
-			{person.lastName}, {person.email}
-			<button type="button" class="ds-booker__link" onclick={backToDetails}>Angaben ändern</button>
+			{fillText(t.forPerson, { details: personLine })}
+			<button type="button" class="ds-booker__link" onclick={backToDetails}>{t.changeDetails}</button>
 		</p>
 		<form bind:this={form} novalidate {onsubmit} aria-busy={sending}>
 			{@render privacy()}
@@ -553,18 +564,20 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			{@render submitButton()}
 		</form>
 	{:else if step === 'details' && info && (selected || contactFirst)}
-		{@render stepHeading(contactFirst ? `${info.label}: Ihre Angaben` : 'Ihre Angaben')}
+		{@render stepHeading(
+			contactFirst ? fillText(t.detailsHeadingFirst, { label: info.label }) : t.detailsHeading,
+		)}
 		{#if selected && !contactFirst}
 			<p class="ds-booker__chosen">
-				<strong>{selected.label}</strong>, {info.durationMinutes} Minuten
-				<button type="button" class="ds-booker__link" onclick={backToPick}>Andere Zeit wählen</button>
+				<strong>{selected.label}</strong>, {fillText(t.minutes, { minutes: info.durationMinutes })}
+				<button type="button" class="ds-booker__link" onclick={backToPick}>{t.otherTime}</button>
 			</p>
 		{:else}
-			<p class="ds-booker__hint">{info.durationMinutes} Minuten. Danach wählen Sie Tag und Uhrzeit.</p>
+			<p class="ds-booker__hint">{fillText(t.durationThenPick, { minutes: info.durationMinutes })}</p>
 		{/if}
 
 		<form bind:this={form} novalidate onsubmit={contactFirst ? toPick : onsubmit} aria-busy={sending}>
-			<p class="ds-booker__hint">Pflichtfelder sind mit <span aria-hidden="true">*</span> markiert.</p>
+			<p class="ds-booker__hint">{requiredBefore}<span aria-hidden="true">*</span>{requiredAfter}</p>
 
 			{#each PERSON_FIELDS as f (f.name)}
 				{@const id = `${uid}-${f.name}`}
@@ -589,7 +602,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 
 			{#if info.locations.length > 1}
 				<fieldset class="ds-booker__field">
-					<legend>Wie findet der Termin statt?</legend>
+					<legend>{t.locationLegend}</legend>
 					{#each info.locations as location (location.type)}
 						<label class="ds-booker__check">
 							<input type="radio" name="{uid}-location" value={location.type} bind:group={locationType} />
@@ -598,13 +611,15 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 					{/each}
 				</fieldset>
 			{:else if info.locations.length === 1}
-				<p class="ds-booker__hint">Ort: {locationLabel(info.locations[0]!)}</p>
+				<p class="ds-booker__hint">
+					{fillText(t.locationSingle, { location: locationLabel(info.locations[0]!) })}
+				</p>
 			{/if}
 
 			{#if needsAddress}
 				<!-- Gruppe wie auf der Buchungsseite im CRM: Screenreader nennen den Zusammenhang der drei Felder. -->
 				<fieldset data-testid="attendee-address">
-					<legend>Wo findet der Termin statt?</legend>
+					<legend>{t.addressLegend}</legend>
 					{#each ADDRESS_FIELDS as f (f.name)}
 						{@const id = `${uid}-address-${f.name}`}
 						{@const name = `attendeeAddress.${f.name}`}
@@ -688,7 +703,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 								aria-invalid={invalid}
 								aria-describedby={described}
 							>
-								<option value="">Bitte wählen</option>
+								<option value="">{t.choose}</option>
 								{#each q.options ?? [] as option (option)}
 									<option value={option}>{option}</option>
 								{/each}
@@ -729,7 +744,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 					</div>
 				{/if}
 				<button type="submit" class="ds-booker__submit" aria-disabled={qualifying}>
-					{qualifying ? 'Wird geprüft …' : 'Weiter zur Terminwahl'}
+					{qualifying ? t.qualifying : t.toTimes}
 				</button>
 			{:else}
 				{@render failureBox()}
@@ -742,7 +757,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	<div bind:this={captchaElement} hidden></div>
 
 	<noscript>
-		<p>Die Terminbuchung braucht JavaScript.</p>
+		<p>{t.noScript}</p>
 		{@render contactFallback()}
 	</noscript>
 </div>
