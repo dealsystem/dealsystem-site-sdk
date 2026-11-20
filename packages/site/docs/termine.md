@@ -12,6 +12,17 @@ Was gebucht werden kann, legt der Kunde im CRM unter Kalender → Buchungsseiten
 Gastgeber, Ort (Telefon, Google Meet, vor Ort), Reihenfolge. **Erfinde keine Terminart, keine Dauer und keine
 Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
 
+**Termin beim Besucher** (Handwerk, Gutachten, Besichtigung): Hat die Terminart im CRM den Ort „Beim Kunden vor
+Ort“, fragt `<Booker>` Straße und Hausnummer, PLZ und Ort ab, sobald der Besucher diesen Ort wählt (oder es der
+einzige ist). Die Adresse steht dann im Termin, in den Mails und am Kontakt. Die Site-API nennt den Ort
+„Bei Ihnen vor Ort“; duzt die Seite ihre Besucher, gib `locationLabels={{ attendee_address: 'Bei dir vor Ort' }}`
+mit, eigene Feldnamen über `addressLabels`. Eigene Oberfläche: `needsAttendeeAddress(info.locations, locationType)`
+sagt, ob die Adresse nötig ist; sie geht als `attendeeAddress` an `book()`.
+
+**Telefon als Pflicht:** Stellt der Kunde an der Terminart im CRM ein, dass Besucher ihre Telefonnummer angeben
+müssen, markiert `<Booker>` das Feld als Pflicht und prüft es (`info().attendeePhone === 'required'`). Ein Format
+prüft weder die Seite noch DealSystem.
+
 **Reihenfolge:** Standard ist „erst Termin, dann Angaben“ (`calendar_first`). Steht die Terminart auf „erst
 Angaben, dann Termin“ (`contact_first`), fragt `<Booker>` zuerst Kontaktdaten und Fragen ab und zeigt danach
 die freien Zeiten. Das passt, wenn die Fragen entscheiden, ob ein Termin sinnvoll ist. Eingestellt wird das an

@@ -1,7 +1,7 @@
 // createBookingClient gegen eine Attrappe der Site-API: Terminart, freie Zeiten, Buchen mit Captcha und
 // Bot-Falle, Vorschau, `slot_taken`, doppeltes Abschicken, Fehler als Werte mit deutschem Text.
 import { resetAttributionForTests } from '../src/lib/client/attribution.js';
-import { createBookingClient } from '../src/lib/client/bookingClient.svelte.js';
+import { createBookingClient, needsAttendeeAddress } from '../src/lib/client/bookingClient.svelte.js';
 import { setCaptchaAdapterForTests } from '../src/lib/client/captcha.js';
 import { consent } from '../src/lib/consent/consent.svelte.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
@@ -28,12 +28,15 @@ const bookingBodies = () =>
 		.filter((c) => c.url.pathname.endsWith('/bookings'))
 		.map((c) => JSON.parse(String(c.init.body)));
 let captchaRuns = 0;
+/** Terminart, die die Attrappe meldet; je Test austauschbar. */
+let infoData: unknown = INFO;
 
 beforeEach(() => {
 	localStorage.clear();
 	consent.resetForTests();
 	resetAttributionForTests();
 	captchaRuns = 0;
+	infoData = INFO;
 	setCaptchaAdapterForTests(async (_el, _url, callbacks) => {
 		captchaRuns++;
 		queueMicrotask(() => callbacks.onSolved(`loesung-${captchaRuns}`));
@@ -60,7 +63,7 @@ beforeEach(() => {
 			});
 		}
 		if (url.pathname.endsWith('/bookings')) return bookingAnswer(url, init!);
-		return jsonResponse(200, { data: INFO });
+		return jsonResponse(200, { data: infoData });
 	});
 	vi.stubGlobal('fetch', fetchSpy);
 	setSiteDataForTests(testSiteData());
@@ -293,5 +296,160 @@ describe('createBookingClient: buchen', () => {
 		const result = await createBookingClient('erstgespraech').book(VALID);
 		expect(result).toMatchObject({ ok: false, reason: 'captcha' });
 		expect(bookingBodies()).toHaveLength(0);
+	});
+});
+
+describe('createBookingClient: Termin beim Gast (Ort-Art mit Adresse)', () => {
+	const VOR_ORT = {
+		...INFO,
+		locations: [
+			{ type: 'phone', label: 'Telefon', attendeeInput: null },
+			{ type: 'attendee_address', label: 'Bei Ihnen vor Ort', attendeeInput: 'address' },
+		],
+	};
+	const ADRESSE = { street: '  Lindenweg\t 4 ', postalCode: '04109', city: 'Leipzig' };
+
+	it('liest attendeeInput; unbekannte Werte werden null', async () => {
+		infoData = {
+			...VOR_ORT,
+			locations: [...VOR_ORT.locations, { type: 'link', label: 'Link', attendeeInput: 'etwas' }],
+		};
+		const result = await createBookingClient('erstgespraech').info();
+		expect(result.ok && result.info.locations).toEqual([
+			{ type: 'phone', label: 'Telefon', attendeeInput: null },
+			{ type: 'attendee_address', label: 'Bei Ihnen vor Ort', attendeeInput: 'address' },
+			{ type: 'link', label: 'Link', attendeeInput: null },
+		]);
+		expect(needsAttendeeAddress(VOR_ORT.locations as never, 'attendee_address')).toBe(true);
+		expect(needsAttendeeAddress(VOR_ORT.locations as never, 'phone')).toBe(false);
+		// Ohne Wahl gilt die erste Ort-Art, wie beim Buchen.
+		expect(needsAttendeeAddress(VOR_ORT.locations as never)).toBe(false);
+		expect(needsAttendeeAddress([...VOR_ORT.locations].reverse() as never)).toBe(true);
+	});
+
+	it('Adresse verlangt: fehlt sie, wird nichts gesendet; PLZ wie im Core (DE, AT, CH, NL)', async () => {
+		infoData = VOR_ORT;
+		const termin = createBookingClient('erstgespraech');
+		const missing = await termin.book({ ...VALID, locationType: 'attendee_address' });
+		expect(missing).toMatchObject({
+			ok: false,
+			reason: 'validation',
+			fields: {
+				'attendeeAddress.street': 'Bitte geben Sie „Straße und Hausnummer“ an.',
+				'attendeeAddress.postalCode': 'Bitte geben Sie „PLZ“ an.',
+				'attendeeAddress.city': 'Bitte geben Sie „Ort“ an.',
+			},
+		});
+		expect(bookingBodies()).toHaveLength(0);
+
+		const loaded = await termin.info();
+		const locations = loaded.ok ? loaded.info.locations : [];
+		const check = (postalCode: string) =>
+			termin.validate(
+				{ ...VALID, locationType: 'attendee_address', attendeeAddress: { ...ADRESSE, postalCode } },
+				[],
+				locations,
+			)['attendeeAddress.postalCode'];
+		for (const ok of ['04109', '1010', '8001', '1012 AB', 'SW1A 1AA', '123'])
+			expect(check(ok), ok).toBeUndefined();
+		for (const bad of ['A', '12', '-1234', '1234-', '<b>', '12345678901'])
+			expect(check(bad), bad).toMatch(/Postleitzahl|höchstens 10/);
+		const long = termin.validate(
+			{
+				...VALID,
+				locationType: 'attendee_address',
+				attendeeAddress: { ...ADRESSE, street: 'x'.repeat(201) },
+			},
+			[],
+			locations,
+		);
+		expect(long['attendeeAddress.street']).toBe(
+			'„Straße und Hausnummer“ ist zu lang. Erlaubt sind höchstens 200 Zeichen.',
+		);
+	});
+
+	it('sendet die Adresse bereinigt, nur bei einer Ort-Art mit Adresse', async () => {
+		infoData = VOR_ORT;
+		const termin = createBookingClient('erstgespraech');
+		expect(
+			await termin.book({ ...VALID, locationType: 'attendee_address', attendeeAddress: ADRESSE }),
+		).toMatchObject({ ok: true });
+		expect(bookingBodies()[0]).toMatchObject({
+			locationType: 'attendee_address',
+			attendeeAddress: { street: 'Lindenweg 4', postalCode: '04109', city: 'Leipzig' },
+		});
+		const other = createBookingClient('erstgespraech');
+		await other.book({ ...VALID, start: SLOTS[1]!.start, locationType: 'phone', attendeeAddress: ADRESSE });
+		// Ein älterer Core lehnt das Feld ab (strict); bei anderen Ort-Arten geht es nie mit.
+		expect(bookingBodies()[1]).not.toHaveProperty('attendeeAddress');
+	});
+
+	it('422 mit attendeeAddress.*: eigene Texte je Feld, nicht der Text des Servers', async () => {
+		infoData = VOR_ORT;
+		bookingAnswer = () =>
+			jsonResponse(422, {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'attendeeAddress.postalCode', message: 'Server sagt nein' }],
+			});
+		const result = await createBookingClient('erstgespraech').book({
+			...VALID,
+			locationType: 'attendee_address',
+			attendeeAddress: ADRESSE,
+		});
+		expect(result).toMatchObject({
+			ok: false,
+			reason: 'validation',
+			fields: { 'attendeeAddress.postalCode': 'Bitte prüfen Sie Ihre Angabe bei „PLZ“.' },
+		});
+		expect(JSON.stringify(result)).not.toContain('Server sagt nein');
+	});
+});
+
+describe('createBookingClient: Telefon des Gasts', () => {
+	it('Pflicht, wenn die Terminart es verlangt; sonst freiwillig; ein älterer Core meldet nichts = freiwillig', async () => {
+		infoData = { ...INFO, attendeePhone: 'required' };
+		const termin = createBookingClient('erstgespraech');
+		const loaded = await termin.info();
+		expect(loaded.ok && loaded.info.attendeePhone).toBe('required');
+		const missing = await termin.book({ ...VALID, phone: '  ' });
+		expect(missing).toMatchObject({
+			ok: false,
+			reason: 'validation',
+			fields: { phone: 'Bitte geben Sie Ihre Telefonnummer an.' },
+		});
+		expect(bookingBodies()).toHaveLength(0);
+		expect(await termin.book({ ...VALID, phone: '0341 1234567' })).toMatchObject({ ok: true });
+		expect(bookingBodies()[0].attendee.phone).toBe('0341 1234567');
+
+		infoData = INFO; // ohne attendeePhone
+		const old = await createBookingClient('erstgespraech').info();
+		expect(old.ok && old.info.attendeePhone).toBe('optional');
+	});
+
+	it('wie im Core kein Format, nur höchstens 50 Zeichen', async () => {
+		const termin = createBookingClient('erstgespraech');
+		expect(termin.validate({ ...VALID, phone: 'Büro: 0341/123, ab 9 Uhr' })).toEqual({});
+		expect(termin.validate({ ...VALID, phone: '1'.repeat(51) })).toEqual({
+			phone: '„Telefon“ ist zu lang. Erlaubt sind höchstens 50 Zeichen.',
+		});
+	});
+
+	it('422 attendee.phone: eigener Text am Feld Telefon', async () => {
+		bookingAnswer = () =>
+			jsonResponse(422, {
+				error: 'x',
+				message: 'x',
+				status: 422,
+				code: 'validation_error',
+				details: [{ path: 'attendee.phone', message: 'Bitte eine Telefonnummer angeben.' }],
+			});
+		expect(await createBookingClient('erstgespraech').book(VALID)).toMatchObject({
+			ok: false,
+			reason: 'validation',
+			fields: { phone: 'Bitte prüfen Sie Ihre Angabe bei „Telefon“.' },
+		});
 	});
 });

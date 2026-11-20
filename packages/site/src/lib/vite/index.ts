@@ -462,7 +462,10 @@ function devSiteApi(server: ViteDevServer, config: SiteConfig, root: string): vo
 							description: 'Lokale Vorschau: Zeiten und Fragen sind Beispiele.',
 							durationMinutes: 30,
 							timezone: 'Europe/Berlin',
-							locations: [{ type: 'phone', label: 'Telefon' }],
+							locations: [
+								{ type: 'phone', label: 'Telefon', attendeeInput: null },
+								{ type: 'attendee_address', label: 'Bei Ihnen vor Ort', attendeeInput: 'address' },
+							],
 							questions: [
 								{
 									key: 'anliegen',
