@@ -113,6 +113,8 @@ interface SiteConfig {
 	external?: Readonly<Record<string, ExternalDef>>;
 	/** Terminbuchungen für `<Booker>` und `createBookingClient`, je Schlüssel. */
 	booking?: Readonly<Record<string, BookingDef>>;
+	/** Einwilligung: Banner von DealSystem (Standard) oder ein eigenes, z. B. Cookiebot (`rechtstexte.md`). */
+	consent?: ConsentConfig;
 }
 ```
 

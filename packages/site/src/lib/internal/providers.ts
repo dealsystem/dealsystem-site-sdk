@@ -1,6 +1,17 @@
 import type { ConsentCategory, ConsentProvider } from '../consent/consent.svelte.js';
 import { getSiteData } from './siteData.js';
 
+/**
+ * DealSystem selbst: Mit Zustimmung zu „Marketing“ erkennt die Seite wiederkehrende Besuche (Besuchs-ID) und ordnet
+ * sie der Anfrage zu. `<SiteHead />` meldet den Zweck auf jeder Seite, außer bei einem eigenen Banner.
+ * @internal
+ */
+export const DEALSYSTEM_VISITS: ConsentProvider = {
+	name: 'DealSystem (Betreiber der Website-Plattform)',
+	purpose: 'Erkennt wiederkehrende Besuche und ordnet sie einer Anfrage zu.',
+	privacyUrl: null,
+};
+
 /** Anbieter von `<Tracking>`, wenn die Kennung im CRM steht. */
 const GOOGLE_TAG: ConsentProvider = {
 	name: 'Google Ireland Limited, Irland (Google Tag)',

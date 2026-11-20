@@ -228,6 +228,17 @@ export interface SiteConfig {
 	external?: Readonly<Record<string, ExternalDef>>;
 	/** Terminbuchungen für `<Booker>` und `createBookingClient`, je Schlüssel. */
 	booking?: Readonly<Record<string, BookingDef>>;
+	/** Einwilligung: Banner von DealSystem (Standard) oder ein eigenes, z. B. Cookiebot (`rechtstexte.md`). */
+	consent?: ConsentConfig;
+}
+
+/**
+ * `consent` in `dealsystem.config.ts`. `banner: 'own'`: Die Seite nutzt ein eigenes Banner (Cookiebot,
+ * Usercentrics …). `<CookieBanner>` bleibt dann unsichtbar, und das eigene Banner meldet die Wahl mit
+ * `setConsent()`. Bis zum ersten Aufruf gilt keine Einwilligung.
+ */
+export interface ConsentConfig {
+	banner?: 'dealsystem' | 'own';
 }
 
 // ------------------------------------------------- Typen aus der Konfiguration
@@ -612,4 +623,6 @@ export interface SiteData {
 	external: Record<string, ResolvedExternal>;
 	/** Terminbuchungen aus `dealsystem.config.ts`, je Schlüssel. */
 	bookings: Record<string, BookingDef>;
+	/** Welches Banner die Einwilligung einholt. */
+	consent: { banner: 'dealsystem' | 'own' };
 }

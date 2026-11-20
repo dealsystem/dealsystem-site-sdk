@@ -575,16 +575,26 @@ export interface ExternalScriptProps {
 ## CookieBanner
 
 Hinweis zur Einwilligung. Gehört einmal in `src/routes/+layout.svelte`.
-Er erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht:
-Tracking mit Kennung aus dem CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video
-eines anderen Anbieters. Sonst bleibt er unsichtbar, und es wird nichts gespeichert.
-„Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Die Wahl wird im
-Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
-`<SiteFooterLegal />`.
+Er erscheint auf jeder Seite: DealSystem erkennt mit Zustimmung zu „Marketing“ wiederkehrende Besuche und
+ordnet sie einer Anfrage zu. Dazu kommen, was die Seite sonst braucht: Tracking mit Kennung aus dem CRM,
+`<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters.
+„Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet, nichts ist vorausgewählt, und die Seite bleibt
+ohne Wahl benutzbar. Die Wahl wird im Browser gespeichert; ändern lässt sie sich jederzeit über
+„Cookie-Einstellungen“ in `<SiteFooterLegal />`.
 
 ```svelte
 <CookieBanner />
 ```
+
+Duzt die Seite ihre Besucher, schaltet `anrede="du"` alle Texte um. Einzelne Texte überschreibt `texts`:
+
+```svelte
+<CookieBanner anrede="du" texts={{ title: 'Kurz zu Cookies' }} />
+```
+
+Nutzt die Seite ein eigenes Banner (Cookiebot, Usercentrics …), steht in `dealsystem.config.ts`
+`consent: { banner: 'own' }`; dieser Hinweis bleibt dann unsichtbar, und das eigene Banner meldet die Wahl mit
+`setConsent()` (`rechtstexte.md`).
 
 Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lassen sie sich so:
 
@@ -600,6 +610,10 @@ export interface CookieBannerProps {
   categories?: readonly ConsentCategory[];
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
+  /** Anrede wie auf der übrigen Seite: `sie` (Standard) oder `du`. */
+  anrede?: Anrede;
+  /** Einzelne Texte statt der Standardtexte, z. B. `{ title: 'Kurz zu Cookies' }`. */
+  texts?: Partial<CookieBannerTexts>;
 }
 ```
 

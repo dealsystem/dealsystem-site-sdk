@@ -1,6 +1,7 @@
 // Server-Rendering: das ist, was beim Build im fertigen HTML landet.
 import type { Component, ComponentProps } from 'svelte';
 import { render as renderLazy } from 'svelte/server';
+import CookieBanner from '../src/lib/components/CookieBanner.svelte';
 import Datenschutz from '../src/lib/components/Datenschutz.svelte';
 import Impressum from '../src/lib/components/Impressum.svelte';
 import LeadForm from '../src/lib/components/LeadForm.svelte';
@@ -377,12 +378,20 @@ describe('Rechtstexte', () => {
 		expect(body).toContain('aria-label="Rechtliches"');
 	});
 
-	it('ohne Tracking gibt es im fertigen HTML nichts einzustellen', () => {
+	it('auch ohne Tracking-Kennung steht „Cookie-Einstellungen“ im fertigen HTML (Wiedererkennung durch DealSystem)', () => {
 		const footer = render(SiteFooterLegal, { props: {} }).body;
 		expect(footer).toContain('href="/datenschutz"');
-		expect(footer).not.toContain('Cookie-Einstellungen');
+		expect(footer).toContain('Cookie-Einstellungen');
+		setPrivacyForTests('<p>Text</p>');
+		expect(render(Datenschutz, { props: {} }).body).toContain('Cookie-Einstellungen');
+	});
+
+	it('mit eigenem Banner bietet das SDK keine „Cookie-Einstellungen“ an', () => {
+		setSiteDataForTests(testSiteData({ consent: { banner: 'own' } }));
+		expect(render(SiteFooterLegal, { props: {} }).body).not.toContain('Cookie-Einstellungen');
 		setPrivacyForTests('<p>Text</p>');
 		expect(render(Datenschutz, { props: {} }).body).not.toContain('Cookie-Einstellungen');
+		expect(render(CookieBanner, { props: {} }).body).not.toContain('role="dialog"');
 	});
 });
 

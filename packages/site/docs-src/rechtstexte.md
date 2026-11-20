@@ -11,6 +11,10 @@ Für den Teil „Hosting“ bietet das CRM an derselben Stelle einen sachlichen 
 DealSystem“ an (wer die Seite ausliefert, wo, welche Zugriffsdaten dabei anfallen). Der Kunde kann ihn mit
 einem Klick in seinen Datenschutztext übernehmen. Maßgeblich ist der Wortlaut im CRM.
 
+Ebenso gibt es dort den Baustein „Wiedererkennung von Besuchen (DealSystem)“ in Sie- und Du-Form. Fehlt er im
+Datenschutztext, zeigt das CRM einen Hinweis mit „Übernehmen“; veröffentlichen lässt sich die Seite trotzdem.
+Sag dem Kunden, dass er ihn dort übernehmen kann. Du schreibst ihn nicht in den Code.
+
 ## Was die Seite braucht
 
 - `src/routes/impressum/+page.svelte` mit `<Impressum />`
@@ -64,12 +68,33 @@ Eigene Website → Rechtliches einzutragen. Ein Feld, das dort leer ist, lässt 
   `dealsystem.config.ts` und kommen über `<Embed>` oder `<ExternalScript>` auf die Seite (`extern.md`). Der
   Hinweis nennt sie je Zweck mit Anbieter und Datenschutz-Link. Der Kunde muss sie in seiner
   Datenschutzerklärung aufführen; sag ihm das, den Text schreibst du nicht.
-- Der Hinweis erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht: Tracking-Kennungen im
-  CRM, einen Dienst unter `external`, `<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters. Sonst bleibt er unsichtbar, und
-  „Cookie-Einstellungen“ fehlt ebenfalls; es gibt dann nichts einzuwilligen. `<CookieBanner />` und
-  `<SiteFooterLegal />` bleiben trotzdem im Layout. Ein `<ConsentGate category="marketing">` zählt nur mit
-  Tracking-Kennung oder einem Dienst mit `category: 'marketing'` unter `external`.
-- Gefragt wird nur nach den Zwecken, die die Seite braucht. Fest vorgeben: `<CookieBanner categories={['marketing']} />`.
+- Der Hinweis erscheint auf **jeder** Seite: `<SiteHead>` meldet Seitenaufrufe an DealSystem, und mit Zustimmung
+  zu „Marketing“ erkennt DealSystem wiederkehrende Besuche und ordnet sie einer Anfrage zu. „Cookie-Einstellungen“
+  steht deshalb immer im Fußbereich. Dazu fragt er nach den Zwecken, die die Seite sonst braucht: Tracking-Kennungen
+  im CRM, Dienste unter `external`, `<ConsentGate>`, `<MapEmbed>`, Videos anderer Anbieter.
+- Fest vorgeben lassen sich die Zwecke mit `<CookieBanner categories={['marketing']} />`.
+- Duzt die Seite ihre Besucher, schreib `<CookieBanner anrede="du" />`; sonst siezt der Hinweis. Einzelne Texte
+  ersetzt `texts={{ title: '…' }}`. Ablehnen bleibt dabei so deutlich wie Akzeptieren.
+- **Eigenes Banner** (Cookiebot, Usercentrics …) nur, wenn der Kunde es ausdrücklich will. Dann in
+  `dealsystem.config.ts` `consent: { banner: 'own' }`. Das SDK zeigt keinen eigenen Hinweis und keine
+  „Cookie-Einstellungen“ mehr; das eigene Banner muss den Widerruf anbieten. Bis es meldet, gilt nichts als
+  erlaubt. Es meldet die Wahl bei jedem Laden und bei jeder Änderung mit `setConsent()`, z. B. Cookiebot:
+
+  ```ts
+  import { setConsent } from '@dealsystem/site';
+
+  window.addEventListener('CookiebotOnConsentReady', () => {
+  	const c = window.Cookiebot.consent;
+  	setConsent({ statistics: c.statistics, marketing: c.marketing, media: c.marketing });
+  });
+  ```
+
+  Usercentrics: im Admin einen Dienst „DealSystem“ und ein Fenster-Ereignis („Window Event“, z. B. `ucEvent`)
+  anlegen; dann
+  `window.addEventListener('ucEvent', (e) => { if (e.detail?.event === 'consent_status') setConsent({ marketing: e.detail.DealSystem === true }); })`.
+  Beides sind Beispiele; maßgeblich ist die Doku des Anbieters. Welche Kategorie des fremden Banners zu welchem
+  Zweck gehört, legt der Kunde fest; frag ihn.
+
 - **Kampagnen und Seitenaufrufe erfasst das SDK selbst** (`<SiteHead>`, `<LeadForm>`). Bau nichts davon nach:
   kein eigenes Auslesen von `utm_*`, `gclid` oder `fbclid`, kein eigener Speicher, keine eigenen Pixel-Ereignisse.
   - Ohne Einwilligung: nur der aktuelle Besuch (UTM, fremder Referrer, Einstiegsseite, eigene URL-Parameter), nur

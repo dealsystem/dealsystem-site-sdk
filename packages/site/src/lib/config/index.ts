@@ -6,6 +6,7 @@ import type { CollectionFieldType, FieldType, SiteConfig, StandardFieldKey } fro
 
 export type {
 	CollectionDef,
+	ConsentConfig,
 	CollectionFieldDef,
 	CollectionFieldType,
 	ExternalCategory,
@@ -568,6 +569,7 @@ export function validateSiteConfig(config: unknown): ConfigProblem[] {
 	}
 	problems.push(...validateExternal(config.external));
 	problems.push(...validateBooking(config.booking));
+	problems.push(...validateConsent(config.consent));
 	return problems;
 }
 
@@ -707,3 +709,26 @@ export {
 	buildCspDirectives,
 	isGoogleAdsId,
 } from '../external/csp.js';
+
+/** `consent` in `dealsystem.config.ts`: nur `banner: 'dealsystem' | 'own'`. */
+function validateConsent(consent: unknown): ConfigProblem[] {
+	if (consent === undefined) return [];
+	if (!consent || typeof consent !== 'object' || Array.isArray(consent))
+		return [{ path: 'consent', message: "consent ist ein Objekt, z. B. consent: { banner: 'own' }." }];
+	const problems: ConfigProblem[] = [];
+	for (const [key, value] of Object.entries(consent)) {
+		if (key !== 'banner') {
+			problems.push({
+				path: `consent.${key}`,
+				message: `Unbekannte Angabe „${key}“. Erlaubt ist nur banner.`,
+			});
+		} else if (value !== 'dealsystem' && value !== 'own') {
+			problems.push({
+				path: 'consent.banner',
+				message:
+					"banner ist 'dealsystem' (Standard) oder 'own' (eigenes Banner, meldet die Wahl mit setConsent()).",
+			});
+		}
+	}
+	return problems;
+}

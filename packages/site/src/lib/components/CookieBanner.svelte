@@ -1,16 +1,26 @@
 <!--
 @component
 Hinweis zur Einwilligung. Gehört einmal in `src/routes/+layout.svelte`.
-Er erscheint nur, wenn die Seite etwas nutzt, das eine Einwilligung braucht:
-Tracking mit Kennung aus dem CRM, `<ConsentGate>`, `<MapEmbed>` oder ein Video
-eines anderen Anbieters. Sonst bleibt er unsichtbar, und es wird nichts gespeichert.
-„Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet. Die Wahl wird im
-Browser gespeichert; ändern lässt sie sich über „Cookie-Einstellungen“ in
-`<SiteFooterLegal />`.
+Er erscheint auf jeder Seite: DealSystem erkennt mit Zustimmung zu „Marketing“ wiederkehrende Besuche und
+ordnet sie einer Anfrage zu. Dazu kommen, was die Seite sonst braucht: Tracking mit Kennung aus dem CRM,
+`<ConsentGate>`, `<MapEmbed>` oder ein Video eines anderen Anbieters.
+„Alle ablehnen“ und „Alle akzeptieren“ sind gleich gestaltet, nichts ist vorausgewählt, und die Seite bleibt
+ohne Wahl benutzbar. Die Wahl wird im Browser gespeichert; ändern lässt sie sich jederzeit über
+„Cookie-Einstellungen“ in `<SiteFooterLegal />`.
 
 ```svelte
 <CookieBanner />
 ```
+
+Duzt die Seite ihre Besucher, schaltet `anrede="du"` alle Texte um. Einzelne Texte überschreibt `texts`:
+
+```svelte
+<CookieBanner anrede="du" texts={{ title: 'Kurz zu Cookies' }} />
+```
+
+Nutzt die Seite ein eigenes Banner (Cookiebot, Usercentrics …), steht in `dealsystem.config.ts`
+`consent: { banner: 'own' }`; dieser Hinweis bleibt dann unsichtbar, und das eigene Banner meldet die Wahl mit
+`setConsent()` (`rechtstexte.md`).
 
 Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lassen sie sich so:
 
@@ -20,36 +30,36 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 -->
 <script lang="ts" module>
 	import type { ConsentCategory } from '../consent/consent.svelte.js';
+	import type { Anrede, CookieBannerTexts } from '../consent/bannerTexts.js';
 
 	export interface CookieBannerProps {
 		/** Zwecke, nach denen gefragt wird. Standard: die, die Bausteine auf der Seite brauchen. */
 		categories?: readonly ConsentCategory[];
 		/** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
 		privacyHref?: string;
+		/** Anrede wie auf der übrigen Seite: `sie` (Standard) oder `du`. */
+		anrede?: Anrede;
+		/** Einzelne Texte statt der Standardtexte, z. B. `{ title: 'Kurz zu Cookies' }`. */
+		texts?: Partial<CookieBannerTexts>;
 	}
-
-	const LABELS: Record<ConsentCategory, { title: string; text: string }> = {
-		statistics: {
-			title: 'Statistik',
-			text: 'Hilft uns zu verstehen, wie die Website genutzt wird.',
-		},
-		marketing: {
-			title: 'Marketing',
-			text: 'Misst, über welche Anzeigen und Kampagnen Besucher zu uns kommen.',
-		},
-		media: {
-			title: 'Externe Inhalte',
-			text: 'Zeigt eingebettete Inhalte anderer Anbieter, z. B. Karten und Videos.',
-		},
-	};
 </script>
 
 <script lang="ts">
 	import { onMount, tick } from 'svelte';
 	import { CONSENT_CATEGORIES, consent } from '../consent/consent.svelte.js';
-	import { declaredProviders, mergeProviders } from '../internal/providers.js';
+	import { COOKIE_BANNER_TEXTS } from '../consent/bannerTexts.js';
+	import { ownConsentBanner } from '../internal/consentNeed.js';
+	import { DEALSYSTEM_VISITS, declaredProviders, mergeProviders } from '../internal/providers.js';
 
-	let { categories: fixed, privacyHref = '/datenschutz' }: CookieBannerProps = $props();
+	let {
+		categories: fixed,
+		privacyHref = '/datenschutz',
+		anrede = 'sie',
+		texts,
+	}: CookieBannerProps = $props();
+	const t = $derived({ ...COOKIE_BANNER_TEXTS[anrede], ...texts });
+	// Eigenes Banner (`consent: { banner: 'own' }`): Es fragt selbst und meldet die Wahl mit `setConsent()`.
+	const own = ownConsentBanner();
 
 	const categories = $derived(fixed ?? consent.relevant);
 
@@ -73,7 +83,19 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 	let returnFocusTo: HTMLElement | null = null;
 
 	// Ohne etwas, das eine Einwilligung braucht, ist kein Hinweis nötig.
-	const visible = $derived(consent.ready && consent.needed && (!consent.decided || consent.settingsOpen));
+	const visible = $derived(
+		!own && consent.ready && consent.needed && (!consent.decided || consent.settingsOpen),
+	);
+	// Werbe-Dienste neben der Wiedererkennung durch DealSystem: dann sagt „Marketing“ auch das.
+	const hasAds = $derived(providers.marketing.some((p) => p.name !== DEALSYSTEM_VISITS.name));
+	const labels = $derived<Record<ConsentCategory, { title: string; text: string }>>({
+		statistics: { title: t.statistics, text: t.statisticsHint },
+		marketing: {
+			title: t.marketing,
+			text: hasAds ? `${t.marketingHint} ${t.marketingAdsHint}` : t.marketingHint,
+		},
+		media: { title: t.media, text: t.mediaHint },
+	});
 	const showDetails = $derived(detailsOpen || consent.settingsOpen);
 
 	onMount(() => consent.init());
@@ -131,21 +153,21 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 			bind:this={dialog}
 			{onkeydown}
 		>
-			<p class="ds-cookie__title" id="{uid}-title">Cookies und Datenschutz</p>
+			<p class="ds-cookie__title" id="{uid}-title">{t.title}</p>
 			<p class="ds-cookie__text" id="{uid}-text">
-				Manche Funktionen dieser Website übertragen Daten an andere Anbieter. Das geschieht nur, wenn Sie
-				zustimmen. Sie können Ihre Wahl jederzeit über „Cookie-Einstellungen“ am Seitenende ändern. Mehr dazu
-				in der <a href={privacyHref}>Datenschutzerklärung</a>.
+				{t.intro}
+				{t.change}
+				{t.privacyBefore} <a href={privacyHref}>{t.privacyLink}</a>.
 			</p>
 
 			{#if showDetails}
 				<fieldset class="ds-cookie__choices">
-					<legend>Ihre Auswahl</legend>
+					<legend>{t.choices}</legend>
 					<label class="ds-cookie__choice">
 						<input type="checkbox" checked disabled />
 						<span>
-							<strong>Notwendig</strong>
-							<span class="ds-cookie__hint">Speichert Ihre Auswahl. Immer aktiv.</span>
+							<strong>{t.necessary}</strong>
+							<span class="ds-cookie__hint">{t.necessaryHint}</span>
 						</span>
 					</label>
 					{#each categories as category (category)}
@@ -157,18 +179,16 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 								bind:checked={selection[category]}
 							/>
 							<span>
-								<label for="{uid}-{category}"><strong>{LABELS[category].title}</strong></label>
-								<span class="ds-cookie__hint" id="{uid}-{category}-hint">{LABELS[category].text}</span>
+								<label for="{uid}-{category}"><strong>{labels[category].title}</strong></label>
+								<span class="ds-cookie__hint" id="{uid}-{category}-hint">{labels[category].text}</span>
 								{#if providers[category].length > 0}
 									<span class="ds-cookie__providers">
-										Anbieter:
+										{t.providers}
 										{#each providers[category] as provider, i (provider.name)}
 											{#if i > 0}<span aria-hidden="true">, </span>{/if}
 											{#if provider.privacyUrl}
 												<a href={provider.privacyUrl} target="_blank" rel="noopener noreferrer"
-													>{provider.name}<span class="ds-cookie__sr">
-														(Datenschutzerklärung, neues Fenster)</span
-													></a
+													>{provider.name}<span class="ds-cookie__sr"> {t.newWindow}</span></a
 												>
 											{:else}
 												<span>{provider.name}</span>
@@ -183,13 +203,13 @@ Gefragt wird nach den Zwecken, die die Seite gerade braucht. Fest vorgeben lasse
 			{/if}
 
 			<div class="ds-cookie__actions">
-				<button type="button" class="ds-cookie__button" onclick={rejectAll}>Alle ablehnen</button>
-				<button type="button" class="ds-cookie__button" onclick={acceptAll}>Alle akzeptieren</button>
+				<button type="button" class="ds-cookie__button" onclick={rejectAll}>{t.rejectAll}</button>
+				<button type="button" class="ds-cookie__button" onclick={acceptAll}>{t.acceptAll}</button>
 				{#if showDetails}
-					<button type="button" class="ds-cookie__button" onclick={saveSelection}>Auswahl speichern</button>
+					<button type="button" class="ds-cookie__button" onclick={saveSelection}>{t.save}</button>
 				{:else}
 					<button type="button" class="ds-cookie__more" onclick={() => (detailsOpen = true)}>
-						Einstellungen
+						{t.settings}
 					</button>
 				{/if}
 			</div>

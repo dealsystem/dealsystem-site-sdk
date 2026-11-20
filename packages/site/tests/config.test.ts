@@ -192,6 +192,26 @@ describe('booking', () => {
 	});
 });
 
+describe('consent', () => {
+	const base = { siteId: 's1' };
+	it('banner ist dealsystem oder own', () => {
+		expect(validateSiteConfig({ ...base, consent: { banner: 'own' } })).toEqual([]);
+		expect(validateSiteConfig({ ...base, consent: { banner: 'dealsystem' } })).toEqual([]);
+		expect(validateSiteConfig({ ...base, consent: {} })).toEqual([]);
+	});
+
+	it('meldet falsche Werte, unbekannte Angaben und kein Objekt', () => {
+		expect(validateSiteConfig({ ...base, consent: { banner: 'cookiebot' } }).map((p) => p.path)).toEqual([
+			'consent.banner',
+		]);
+		expect(
+			validateSiteConfig({ ...base, consent: { banner: 'own', anrede: 'du' } }).map((p) => p.path),
+		).toEqual(['consent.anrede']);
+		expect(validateSiteConfig({ ...base, consent: 'own' }).map((p) => p.path)).toEqual(['consent']);
+		expect(() => defineSite({ ...base, consent: { banner: 'x' } } as never)).toThrow(/setConsent/);
+	});
+});
+
 describe('versteckte Felder: from.query', () => {
 	const withQuery = (query: string) =>
 		validateSiteConfig({

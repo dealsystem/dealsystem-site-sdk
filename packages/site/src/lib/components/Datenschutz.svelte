@@ -27,7 +27,7 @@ Live schalten lässt sich die Seite erst mit Text.
 
 <script lang="ts">
 	import { consent } from '../consent/consent.svelte.js';
-	import { siteUsesConsent } from '../internal/consentNeed.js';
+	import { ownConsentBanner, siteUsesConsent } from '../internal/consentNeed.js';
 	import { privacyHtml } from '../internal/privacy.js';
 	import { hasVisibleText, nestHeadings } from './legal.js';
 
@@ -49,7 +49,7 @@ Live schalten lässt sich die Seite erst mit Text.
 			ein. Ohne Datenschutzerklärung kann die Seite nicht live geschaltet werden.
 		</p>
 	{/if}
-	{#if hasTracking || consent.needed}
+	{#if !ownConsentBanner() && (hasTracking || consent.needed)}
 		<p>
 			<button type="button" class="ds-legal__link" onclick={() => consent.openSettings()}>
 				Cookie-Einstellungen öffnen
