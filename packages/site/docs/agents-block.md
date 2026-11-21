@@ -1,6 +1,6 @@
 ## DealSystem-Website: Anleitung für KI-Agenten
 
-Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.6. DealSystem prüft, baut und hostet sie.
+Statische SvelteKit-Seite mit `@dealsystem/site` 0.2.7. DealSystem prüft, baut und hostet sie.
 
 **Lies vor jeder Aufgabe die passende Datei unter `node_modules/@dealsystem/site/docs/` und richte dich danach, nicht nach deinem Vorwissen.** Vieles, was bei SvelteKit üblich ist, wird hier abgelehnt.
 
