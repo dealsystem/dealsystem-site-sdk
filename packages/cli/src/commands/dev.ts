@@ -10,7 +10,7 @@ import { dirname, join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { ApiError, CliError, EXIT } from '../api/errors.js';
 import type { FetchLike } from '../api/http.js';
-import type { DeployApi } from '../api/types.js';
+import type { DeployApi, RawResponse, TestRunInput } from '../api/types.js';
 import type { CommandContext, CommandResult } from '../cli/context.js';
 import { lookupWorkspaceQuietly } from '../cli/workspace.js';
 import { readSiteConfig, SITE_CONFIG_FILE } from '../project/siteConfig.js';
@@ -45,6 +45,8 @@ export interface DevMiddlewareOptions {
 		funnel?: (key: string) => { label?: string; fields: unknown[] } | null;
 		/** Fester Link auf die Testläufe im CRM, wenn der Workspace bekannt ist. */
 		testRunsUrl?: string | null;
+		/** Testmail: die echte Bestätigung an die Person hinter der Anmeldung (`--testmail`). */
+		testMail?: boolean;
 	} | null;
 }
 
@@ -125,6 +127,22 @@ const text = (v: unknown): string | null =>
 		: null;
 const named = (v: unknown): string | null => (isRecord(v) ? text(v.name) : null);
 
+/**
+ * Kann der Core keine Testmail schicken, warum (Text für die Konsole), sonst `null`. Nur zwei Fälle: ein älterer
+ * Core kennt `sendMail` nicht (422, unbekannter Schlüssel genau dieses Namens), oder hinter der Anmeldung steht
+ * keine Person (400 `test_mail_no_user`). Jede andere 422 ist ein echter Fehler und bleibt sichtbar.
+ */
+export function testMailUnavailable(r: RawResponse): string | null {
+	const body = isRecord(r.body) ? r.body : {};
+	if (r.status === 400 && body.code === 'test_mail_no_user')
+		return 'Hinter dieser Anmeldung steht keine Person im Workspace (z. B. ein API-Schlüssel ohne Nutzer).';
+	if (r.status !== 422 || !Array.isArray(body.details)) return null;
+	const unknownKey = body.details.some(
+		(d) => isRecord(d) && (d.path === '' || d.path === 'sendMail') && /\bsendMail\b/.test(String(d.message)),
+	);
+	return unknownKey ? 'Dieser DealSystem-Server kennt die Testmail noch nicht.' : null;
+}
+
 /** Zusammenfassung eines Testlaufs für die Konsole, aus `data` von `POST …/test-runs`. */
 export function testRunSummary(body: unknown, testRunsUrl: string | null = null): string {
 	const run = isRecord(body) && isRecord(body.data) ? body.data : {};
@@ -171,6 +189,13 @@ export function testRunSummary(body: unknown, testRunsUrl: string | null = null)
 			if (text(q.redirectUrl)) lines.push(`Weiterleitung an ${text(q.redirectUrl)}`);
 		}
 	}
+	const mail = isRecord(run.mail) ? run.mail : null;
+	if (mail && text(mail.sentTo))
+		lines.push(
+			`Testmail an ${text(mail.sentTo)} verschickt${mail.via === 'mailbox' ? ' (über dein Postfach)' : mail.via === 'dealsystem' ? ' (über DealSystem)' : ''}`,
+		);
+	else if (mail)
+		lines.push(`Keine Testmail: ${text(mail.message) ?? text(mail.notSent) ?? 'unbekannter Grund'}`);
 	const confirmation = isRecord(lead?.confirmation)
 		? lead.confirmation
 		: isRecord(booking?.confirmation)
@@ -185,7 +210,7 @@ export function testRunSummary(body: unknown, testRunsUrl: string | null = null)
 		if (text(confirmation.note)) lines.push(text(confirmation.note)!);
 	}
 	return [
-		`[dealsystem] Testlauf: nichts angelegt, keine Mail verschickt. ${text(run.summary) ?? ''}`.trimEnd(),
+		`[dealsystem] Testlauf: nichts angelegt${mail && text(mail.sentTo) ? ', nur die Testmail an dich verschickt' : ', keine Mail verschickt'}. ${text(run.summary) ?? ''}`.trimEnd(),
 		...lines.map((l) => `  - ${l}`),
 		testRunsUrl
 			? `  So wäre es angekommen: ${testRunsUrl}`
@@ -197,6 +222,7 @@ export function testRunSummary(body: unknown, testRunsUrl: string | null = null)
 export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 	const log = options.log ?? (() => {});
 	const { api, siteId, live } = options;
+	let testMail = live?.testMail === true;
 	const warned = new Set<string>();
 	/** Echte Daten nicht zu haben: einmal sagen, dann Beispieldaten des SDK. */
 	const fallBack = (what: string, reason: string, next: () => void): void => {
@@ -318,13 +344,21 @@ export function createDevMiddleware(options: DevMiddlewareOptions): Middleware {
 						: '';
 				const eventType = isBooking ? (live.eventTypes[key] ?? null) : null;
 				const funnel = !isBooking && key ? (live.funnel?.(key) ?? null) : null;
-				const r = await api.createTestRun(siteId, {
+				const input: TestRunInput = {
 					kind,
 					key,
 					...(eventType ? { eventType } : {}),
 					...(funnel ? { funnel } : {}),
 					payload: testRunPayload(body),
-				});
+				};
+				let r = await api.createTestRun(siteId, testMail ? { ...input, sendMail: true } : input);
+				const noMail = testMail ? testMailUnavailable(r) : null;
+				if (noMail) {
+					// Ohne Testmail weiter, für den Rest der Sitzung: Der Testlauf selbst soll nicht daran scheitern.
+					testMail = false;
+					log(`[dealsystem] Keine Testmail: ${noMail} Testläufe laufen ohne Mail weiter.`);
+					r = await api.createTestRun(siteId, input);
+				}
 				if (await missing(r)) {
 					if (kind === 'lead') {
 						// Älterer Core ohne Testläufe: Probe-Einsendung wie bisher (geprüft, nicht gespeichert).
@@ -528,6 +562,8 @@ export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 		const lookup = await lookupWorkspaceQuietly(ctx);
 		if (lookup.state === 'known') testRunsUrl = testRunsLink(ctx.apiUrl, lookup.workspace.id, mode.siteId);
 	}
+	// Testmail nur auf ausdrücklichen Wunsch: `--testmail` oder `DEALSYSTEM_TEST_MAIL=1`.
+	const testMail = ctx.flag('testmail') || ctx.io.env.DEALSYSTEM_TEST_MAIL === '1';
 	const middleware = createDevMiddleware({
 		api,
 		siteId: mode.siteId ?? '',
@@ -535,7 +571,13 @@ export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 		fetch: ctx.io.fetch,
 		log: (m) => ctx.progress(m),
 		live: mode.live
-			? { eventTypes, labels, testRunsUrl, funnel: (key) => manifestFunnel(ctx.path(MANIFEST_FILE), key) }
+			? {
+					eventTypes,
+					labels,
+					testRunsUrl,
+					testMail,
+					funnel: (key) => manifestFunnel(ctx.path(MANIFEST_FILE), key),
+				}
 			: null,
 	});
 
@@ -553,8 +595,8 @@ export async function devCommand(ctx: CommandContext): Promise<CommandResult> {
 	server.printUrls();
 	ctx.progress(
 		mode.live
-			? 'Echte Daten aus dem CRM: Terminart, Fragen und freie Zeiten. Formulare und Buchungen legen nichts an und verschicken keine Mail; DealSystem hält sie als Testlauf fest (Eigene Website → Formulare, Abschnitt Testläufe). Beenden mit Strg+C.'
-			: `Beispieldaten: ${mode.reason} Formulare und Buchungen gehen nicht ans CRM. Beenden mit Strg+C.`,
+			? `Echte Daten aus dem CRM: Terminart, Fragen und freie Zeiten. Formulare und Buchungen legen nichts an und verschicken keine Mail an Besucher; DealSystem hält sie als Testlauf fest (Eigene Website → Formulare, Abschnitt Testläufe).${testMail ? ' Testmail an: Die Bestätigung kommt als „[Test]“-Mail an dich (höchstens 10 je Stunde).' : ''} Beenden mit Strg+C.`
+			: `Beispieldaten: ${mode.reason} Formulare und Buchungen gehen nicht ans CRM.${testMail ? ' Ohne echte Daten gibt es keine Testmail.' : ''} Beenden mit Strg+C.`,
 	);
 	await new Promise<void>((resolve) => {
 		process.once('SIGINT', () => resolve());

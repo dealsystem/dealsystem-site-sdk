@@ -88,6 +88,11 @@ export interface MockState {
 	testRuns: Record<string, unknown>[];
 	/** Antwort statt 201, z. B. 422 bei falschem Body. */
 	testRunError: { status: number; body: unknown } | null;
+	/**
+	 * Testmail (`sendMail`): `old` = Core ohne das Feld (422 unbekannter Schlüssel), `no_user` = Anmeldung ohne
+	 * Person (400), sonst das Feld `mail` der Antwort.
+	 */
+	testMail: 'old' | 'no_user' | Record<string, unknown>;
 	/** `rejection` des Testlaufs (`outcome: "rejected"`); `null` = angenommen. */
 	testRunRejection: { code: string; message: string; details?: unknown } | null;
 	/** Antwort von `…/dev/booking/{key}/qualify`. */
@@ -196,6 +201,7 @@ export async function startMockServer(): Promise<MockServer> {
 		unknownPathsAs401: false,
 		testRuns: [],
 		testRunError: null,
+		testMail: { sentTo: 'du@beispiel.de', via: 'mailbox' },
 		testRunRejection: null,
 		qualifyAnswer: { qualified: true },
 	};
@@ -592,6 +598,20 @@ export async function startMockServer(): Promise<MockServer> {
 					return res.end(JSON.stringify(e.body));
 				}
 				const b = jsonBody();
+				if (b.sendMail === true && state.testMail === 'old')
+					return reply(422, {
+						error: 'Validation Error',
+						message: 'Unrecognized key: "sendMail"',
+						status: 422,
+						details: [{ path: '', message: 'Unrecognized key: "sendMail"' }],
+					});
+				if (b.sendMail === true && state.testMail === 'no_user')
+					return reply(400, {
+						error: 'Bad Request',
+						message: 'Testmail nur mit einer Person hinter der Anmeldung.',
+						status: 400,
+						code: 'test_mail_no_user',
+					});
 				state.testRuns.push(b);
 				const booking = b.kind === 'booking';
 				return reply(201, {
@@ -601,6 +621,7 @@ export async function startMockServer(): Promise<MockServer> {
 						kind: b.kind,
 						key: b.key,
 						outcome: state.testRunRejection ? 'rejected' : 'accepted',
+						mail: b.sendMail === true ? state.testMail : null,
 						rejection: state.testRunRejection,
 						summary: booking
 							? 'Buchung „Erstgespräch“ wäre angekommen: Termin Di 1.12. 9:00.'

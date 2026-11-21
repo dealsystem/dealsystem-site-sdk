@@ -704,7 +704,10 @@ describe('publish, rollback, status', () => {
 
 describe('dev-Middleware', () => {
 	/** Startet die Middleware vor einem Stellvertreter für Vite, der mit `vite` antwortet. */
-	async function startDev(live: { eventTypes: Record<string, string | null> } | null, log: string[] = []) {
+	async function startDev(
+		live: { eventTypes: Record<string, string | null>; testMail?: boolean } | null,
+		log: string[] = [],
+	) {
 		await loggedIn();
 		const store = new CredentialStore(io.env);
 		const api = new HttpDeployApi(server.url, {
@@ -819,6 +822,100 @@ describe('dev-Middleware', () => {
 		} finally {
 			await dev.close();
 		}
+	});
+
+	describe('Testmail (sendMail)', () => {
+		const lead = { funnelKey: 'kontakt', data: { email: 'a@b.de' }, captcha: 'x' };
+
+		it('nur auf Wunsch: ohne --testmail kein sendMail im Testlauf', async () => {
+			const dev = await startDev({ eventTypes: {} });
+			try {
+				await post(`${dev.url}/api/site/v1/s/dev/leads`, lead);
+				expect(server.state.testRuns[0]).not.toHaveProperty('sendMail');
+				expect(dev.log.join('\n')).toContain('Testlauf: nichts angelegt, keine Mail verschickt.');
+			} finally {
+				await dev.close();
+			}
+		});
+
+		it('mit --testmail: sendMail im Testlauf, Konsole nennt Empfänger und Weg', async () => {
+			const dev = await startDev({ eventTypes: {}, testMail: true });
+			try {
+				const res = await post(`${dev.url}/api/site/v1/s/dev/leads`, lead);
+				expect(await res.json()).toEqual({ data: { accepted: true, dryRun: true } });
+				expect(server.state.testRuns[0]).toMatchObject({ kind: 'lead', sendMail: true });
+				const out = dev.log.join('\n');
+				expect(out).toContain('Testlauf: nichts angelegt, nur die Testmail an dich verschickt.');
+				expect(out).toContain('  - Testmail an du@beispiel.de verschickt (über dein Postfach)');
+			} finally {
+				await dev.close();
+			}
+		});
+
+		it('notSent ist kein Fehler: die Seite sieht Erfolg, die Konsole den Grund', async () => {
+			server.state.testMail = {
+				notSent: 'rate_limited',
+				message: 'Höchstens 10 Testmails je Stunde, wieder ab 14:05.',
+			};
+			const dev = await startDev({ eventTypes: {}, testMail: true });
+			try {
+				const res = await post(`${dev.url}/api/site/v1/s/dev/leads`, lead);
+				expect(res.status).toBe(200);
+				const out = dev.log.join('\n');
+				expect(out).toContain('  - Keine Testmail: Höchstens 10 Testmails je Stunde, wieder ab 14:05.');
+				expect(out).toContain('Testlauf: nichts angelegt, keine Mail verschickt.');
+			} finally {
+				await dev.close();
+			}
+		});
+
+		it('älterer Core ohne sendMail (422 unbekannter Schlüssel): Hinweis, Testlauf ohne Mail, danach nicht mehr fragen', async () => {
+			server.state.testMail = 'old';
+			const dev = await startDev({ eventTypes: {}, testMail: true });
+			try {
+				expect((await post(`${dev.url}/api/site/v1/s/dev/leads`, lead)).status).toBe(200);
+				expect(dev.log.join('\n')).toContain(
+					'Keine Testmail: Dieser DealSystem-Server kennt die Testmail noch nicht. Testläufe laufen ohne Mail weiter.',
+				);
+				expect(server.state.testRuns).toHaveLength(1);
+				expect(server.state.testRuns[0]).not.toHaveProperty('sendMail');
+				await post(`${dev.url}/api/site/v1/s/dev/leads`, lead);
+				expect(server.state.testRuns[1]).not.toHaveProperty('sendMail');
+				expect(dev.log.join('\n').match(/Keine Testmail: Dieser/g)).toHaveLength(1);
+			} finally {
+				await dev.close();
+			}
+		});
+
+		it('Anmeldung ohne Person (400 test_mail_no_user): Hinweis, Testlauf ohne Mail', async () => {
+			server.state.testMail = 'no_user';
+			const dev = await startDev({ eventTypes: {}, testMail: true });
+			try {
+				expect((await post(`${dev.url}/api/site/v1/s/dev/leads`, lead)).status).toBe(200);
+				expect(dev.log.join('\n')).toContain('Keine Testmail: Hinter dieser Anmeldung steht keine Person');
+				expect(server.state.testRuns[0]).not.toHaveProperty('sendMail');
+			} finally {
+				await dev.close();
+			}
+		});
+
+		it('jede andere 422 bleibt sichtbar und wird nicht ohne sendMail wiederholt', async () => {
+			const invalid = {
+				error: 'Validation Error',
+				message: 'payload.data: Pflicht',
+				status: 422,
+				details: [{ path: 'payload.data', message: 'Pflicht' }],
+			};
+			server.state.testRunError = { status: 422, body: invalid };
+			const dev = await startDev({ eventTypes: {}, testMail: true });
+			try {
+				const res = await post(`${dev.url}/api/site/v1/s/dev/leads`, lead);
+				expect(res.status).toBe(422);
+				expect(dev.log.join('\n')).not.toContain('Keine Testmail');
+			} finally {
+				await dev.close();
+			}
+		});
 	});
 
 	it('echte Daten: Einsendung als Testlauf; abgelehnte Angaben gehen unverändert an die Seite', async () => {

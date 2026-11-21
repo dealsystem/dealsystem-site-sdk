@@ -178,6 +178,11 @@ export interface TestRunInput {
 	 */
 	funnel?: { label?: string; fields: unknown[] };
 	payload: Record<string, unknown>;
+	/**
+	 * Echte Bestätigung als „[Test]“-Mail an die Person hinter der Anmeldung (Core #1026). Nur auf ausdrücklichen
+	 * Wunsch; ein älterer Core lehnt das Feld mit 422 ab.
+	 */
+	sendMail?: boolean;
 }
 
 /** Endzustände einer Version. */
