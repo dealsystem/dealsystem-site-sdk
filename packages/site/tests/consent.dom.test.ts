@@ -2,7 +2,8 @@ import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { resetAttributionForTests } from '../src/lib/client/attribution.js';
 import { resetTrackingForTests } from '../src/lib/client/tracking.js';
-import { consent } from '../src/lib/consent/consent.svelte.js';
+import { COOKIE_BANNER_TEXTS, type CookieBannerTexts } from '../src/lib/consent/bannerTexts.js';
+import { consent, setConsent } from '../src/lib/consent/consent.svelte.js';
 import { reloadPage } from '../src/lib/internal/reload.js';
 import { setSiteDataForTests } from '../src/lib/internal/siteData.js';
 import MapEmbed from '../src/lib/components/MapEmbed.svelte';
@@ -92,46 +93,53 @@ describe('vor der Entscheidung', () => {
 	});
 });
 
-describe('nur bei Bedarf', () => {
-	it('ohne Tracking-Kennung und ohne gesperrte Inhalte: kein Hinweis, nichts einzustellen, nichts gespeichert', async () => {
+describe('auf jeder Seite', () => {
+	it('ohne Tracking-Kennung fragt er nach „Marketing“ für die Wiedererkennung von Besuchen', async () => {
 		setSiteDataForTests(testSiteData());
+		const user = userEvent.setup();
 		render(StarterLayoutHarness);
-		await waitFor(() => expect(consent.ready).toBe(true));
-		expect(screen.queryByRole('dialog')).toBeNull();
-		expect(screen.queryByRole('button', { name: 'Cookie-Einstellungen' })).toBeNull();
-		expect(document.querySelector('[data-ds-cookie-banner]')).not.toBeNull();
-		expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
+		expect(await screen.findByRole('dialog', { name: 'Cookies und Datenschutz' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Einstellungen' }));
+		const marketing = screen.getByRole('checkbox', { name: /Marketing/ });
+		expect(marketing).not.toBeChecked();
+		expect(marketing).toHaveAccessibleDescription(COOKIE_BANNER_TEXTS.sie.marketingHint);
+		expect(screen.getByText(/DealSystem/)).toBeInTheDocument();
+		expect(screen.queryByRole('checkbox', { name: /Statistik/ })).toBeNull();
+		expect(screen.queryByRole('checkbox', { name: /Externe Inhalte/ })).toBeNull();
+		// Vor der Wahl nichts gespeichert, keine Besuchs-ID.
 		expect(localStorage.length).toBe(0);
 	});
 
-	it('mit Tracking-Kennung fragt er nur nach „Marketing“', async () => {
+	it('mit Tracking-Kennung nennt „Marketing“ auch die Werbemessung', async () => {
 		const user = userEvent.setup();
 		render(StarterLayoutHarness);
 		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
-		expect(screen.getByRole('checkbox', { name: /Marketing/ })).toBeInTheDocument();
+		expect(screen.getByRole('checkbox', { name: /Marketing/ })).toHaveAccessibleDescription(
+			`${COOKIE_BANNER_TEXTS.sie.marketingHint} ${COOKIE_BANNER_TEXTS.sie.marketingAdsHint}`,
+		);
 		expect(screen.queryByRole('checkbox', { name: /Statistik/ })).toBeNull();
 		expect(screen.queryByRole('checkbox', { name: /Externe Inhalte/ })).toBeNull();
-		expect(screen.getByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
 	});
 
-	it('eine Karte auf der Seite braucht ihn auch ohne Tracking', async () => {
+	it('eine Karte auf der Seite fragt zusätzlich nach „Externe Inhalte“', async () => {
 		setSiteDataForTests(testSiteData());
 		const user = userEvent.setup();
 		render(StarterLayoutHarness, { props: { map: true } });
 		await user.click(await screen.findByRole('button', { name: 'Einstellungen' }));
 		expect(screen.getByRole('checkbox', { name: /Externe Inhalte/ })).toBeInTheDocument();
-		expect(screen.queryByRole('checkbox', { name: /Marketing/ })).toBeNull();
+		expect(screen.getByRole('checkbox', { name: /Marketing/ })).toBeInTheDocument();
 	});
 
-	it('verschwindet mit dem letzten Baustein, der ihn braucht', async () => {
+	it('ohne <SiteHead> verschwindet er mit dem letzten Baustein, der ihn braucht', async () => {
 		setSiteDataForTests(testSiteData());
-		const view = render(StarterLayoutHarness, { props: { map: true } });
+		const view = render(StarterLayoutHarness, { props: { map: true, head: false } });
 		expect(await screen.findByRole('dialog')).toBeInTheDocument();
-		await view.rerender({ map: false });
+		await view.rerender({ map: false, head: false });
 		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 	});
 
-	it('wer schon zugestimmt hat, kann auf jeder Seite widerrufen', async () => {
+	it('wer schon entschieden hat, kann auf jeder Seite widerrufen', async () => {
 		setSiteDataForTests(testSiteData());
 		localStorage.setItem(
 			'ds-consent',
@@ -140,6 +148,127 @@ describe('nur bei Bedarf', () => {
 		render(StarterLayoutHarness);
 		expect(await screen.findByRole('button', { name: 'Cookie-Einstellungen' })).toBeInTheDocument();
 		expect(screen.queryByRole('dialog')).toBeNull();
+	});
+
+	it('hält unten seine Höhe frei, solange er offen ist, und gibt sie nach der Wahl zurück (WCAG 2.4.11)', async () => {
+		document.body.style.paddingBottom = '3px';
+		const user = userEvent.setup();
+		render(StarterLayoutHarness);
+		await screen.findByRole('dialog');
+		await waitFor(() => expect(document.documentElement.style.scrollPaddingBottom).toMatch(/px$/));
+		expect(document.body.style.paddingBottom).not.toBe('3px');
+		await user.click(screen.getByRole('button', { name: 'Alle ablehnen' }));
+		await waitFor(() => expect(document.body.style.paddingBottom).toBe('3px'));
+		expect(document.documentElement.style.scrollPaddingBottom).toBe('');
+		document.body.style.paddingBottom = '';
+	});
+
+	it('blockiert die Seite nicht: kein modaler Dialog, Inhalt bleibt erreichbar', async () => {
+		render(StarterLayoutHarness);
+		const dialog = await screen.findByRole('dialog');
+		expect(dialog).toHaveAttribute('aria-modal', 'false');
+		expect(screen.getByRole('heading', { name: 'Startseite' })).toBeVisible();
+		expect(screen.getByRole('link', { name: 'Datenschutz' })).toBeInTheDocument();
+	});
+});
+
+describe('Anrede und Texte', () => {
+	/** Seite mit Tracking und der Anrede aus dem CRM. */
+	function withSalutation(salutation: 'sie' | 'du') {
+		const data = testSiteData({ tracking: { metaPixelId: '1234567890', googleTagId: null } });
+		setSiteDataForTests({ ...data, site: { ...data.site, salutation } });
+	}
+
+	it('duzt, wenn im CRM „Du“ eingestellt ist', async () => {
+		withSalutation('du');
+		const user = userEvent.setup();
+		render(LayoutHarness, { props: { categories: ['marketing'] } });
+		const dialog = await screen.findByRole('dialog');
+		expect(dialog).toHaveTextContent(COOKIE_BANNER_TEXTS.du.intro);
+		expect(dialog).toHaveTextContent(COOKIE_BANNER_TEXTS.du.change);
+		await user.click(screen.getByRole('button', { name: 'Einstellungen' }));
+		expect(screen.getByRole('group', { name: 'Deine Auswahl' })).toBeInTheDocument();
+		expect(dialog).not.toHaveTextContent(/\b(Sie|Ihre?[nrms]?)\b/);
+	});
+
+	it('die Prop anrede geht ausnahmsweise vor der Einstellung im CRM', async () => {
+		withSalutation('du');
+		render(LayoutHarness, { props: { anrede: 'sie', categories: ['marketing'] } });
+		expect(await screen.findByRole('dialog')).toHaveTextContent(COOKIE_BANNER_TEXTS.sie.intro);
+	});
+
+	it('siezt ohne Angabe, und einzelne Texte lassen sich überschreiben', async () => {
+		render(LayoutHarness, {
+			props: { categories: ['marketing'], texts: { title: 'Kurz zu Cookies', rejectAll: 'Nein danke' } },
+		});
+		const dialog = await screen.findByRole('dialog', { name: 'Kurz zu Cookies' });
+		expect(dialog).toHaveTextContent(COOKIE_BANNER_TEXTS.sie.intro);
+		expect(screen.getByRole('button', { name: 'Nein danke' })).toBeInTheDocument();
+		expect(screen.getByRole('button', { name: 'Alle akzeptieren' })).toBeInTheDocument();
+	});
+
+	it('beide Anreden haben jeden Text', () => {
+		const keys = Object.keys(COOKIE_BANNER_TEXTS.sie).sort();
+		expect(Object.keys(COOKIE_BANNER_TEXTS.du).sort()).toEqual(keys);
+		for (const anrede of ['sie', 'du'] as const) {
+			for (const key of keys)
+				expect(COOKIE_BANNER_TEXTS[anrede][key as keyof CookieBannerTexts].trim(), key).not.toBe('');
+		}
+	});
+});
+
+describe('eigenes Banner', () => {
+	beforeEach(() => {
+		setSiteDataForTests(
+			testSiteData({
+				tracking: { metaPixelId: '1234567890', googleTagId: 'G-ABCDEF1234' },
+				consent: { banner: 'own' },
+			}),
+		);
+	});
+
+	it('zeigt weder Hinweis noch „Cookie-Einstellungen“ und lädt ohne Meldung nichts', async () => {
+		render(StarterLayoutHarness, { props: { map: true } });
+		await waitFor(() => expect(consent.ready).toBe(true));
+		expect(screen.queryByRole('dialog')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cookie-Einstellungen' })).toBeNull();
+		expect(consent.has('marketing')).toBe(false);
+		expect(externalRequests()).toEqual([]);
+		expect(document.querySelector('iframe')).toBeNull();
+		expect(localStorage.getItem('ds-attr')).toBeNull();
+	});
+
+	it('übernimmt die Wahl aus setConsent(), auch nur für einzelne Zwecke', async () => {
+		render(StarterLayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		setConsent({ marketing: true });
+		expect(consent.has('marketing')).toBe(true);
+		expect(consent.has('statistics')).toBe(false);
+		expect(consent.has('media')).toBe(false);
+		await waitFor(() => expect(externalRequests().length).toBeGreaterThan(0));
+		// Speichern ist Sache des eigenen Banners.
+		expect(stored()).toBeNull();
+	});
+
+	it('Widerruf über setConsent() löscht die Besuchs-ID', async () => {
+		render(StarterLayoutHarness);
+		await waitFor(() => expect(consent.ready).toBe(true));
+		setConsent({ marketing: true });
+		const visitorId = () => JSON.parse(localStorage.getItem('ds-attr') ?? '{}').visitorId;
+		expect(visitorId()?.id).toMatch(/^[0-9a-f-]{36}$/);
+		setConsent({ marketing: false });
+		expect(consent.has('marketing')).toBe(false);
+		expect(visitorId()).toBeUndefined();
+	});
+});
+
+describe('setConsent() mit dem Banner von DealSystem', () => {
+	it('speichert die Wahl wie ein Klick und schließt den Hinweis', async () => {
+		render(StarterLayoutHarness);
+		await screen.findByRole('dialog');
+		setConsent({ marketing: false, media: true });
+		await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+		expect(stored()?.granted).toEqual({ statistics: false, marketing: false, media: true });
 	});
 });
 

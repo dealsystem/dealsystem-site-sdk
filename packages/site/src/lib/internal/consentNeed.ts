@@ -1,4 +1,5 @@
 import type { ConsentCategory } from '../consent/consent.svelte.js';
+import type { Anrede } from '../types.js';
 import { getSiteData } from './siteData.js';
 
 /**
@@ -33,16 +34,37 @@ export function gateNeedsConsent(category: ConsentCategory): boolean {
 }
 
 /**
- * Nutzt die Seite überhaupt etwas, das eine Einwilligung braucht (Tracking-Kennung oder ein fremder Dienst unter
- * `external`)? Dann steht „Cookie-Einstellungen“ schon im fertigen HTML jeder Seite, damit der Widerruf überall
- * erreichbar ist, auch auf Seiten ohne den Dienst.
+ * Holt ein eigenes Banner die Einwilligung ein (`consent: { banner: 'own' }` in `dealsystem.config.ts`)? Dann zeigt
+ * das SDK weder `<CookieBanner>` noch „Cookie-Einstellungen“; das eigene Banner meldet die Wahl mit `setConsent()`.
+ * @internal
+ */
+export function ownConsentBanner(): boolean {
+	try {
+		return getSiteData().consent?.banner === 'own';
+	} catch {
+		return false;
+	}
+}
+
+/**
+ * Fragt das Banner von DealSystem auf dieser Seite nach einer Einwilligung? Ja, außer bei einem eigenen Banner:
+ * Jede Seite mit `<SiteHead />` sendet Seitenaufrufe an DealSystem, und mit Zustimmung zu „Marketing“ erkennt sie
+ * wiederkehrende Besuche (Entscheidung vom 19.11.2026: Hinweis immer, wenn DealSystem-Tracking läuft). Dann steht
+ * „Cookie-Einstellungen“ schon im fertigen HTML jeder Seite, damit der Widerruf überall erreichbar ist.
  * @internal
  */
 export function siteUsesConsent(): boolean {
-	if (siteHasTracking()) return true;
+	return !ownConsentBanner();
+}
+
+/**
+ * Anrede der Besucher aus dem CRM (`site.salutation` im Inhalts-Schnappschuss). Ohne Daten `sie`.
+ * @internal
+ */
+export function siteSalutation(): Anrede {
 	try {
-		return Object.keys(getSiteData().external ?? {}).length > 0;
+		return getSiteData().site.salutation === 'du' ? 'du' : 'sie';
 	} catch {
-		return false;
+		return 'sie';
 	}
 }

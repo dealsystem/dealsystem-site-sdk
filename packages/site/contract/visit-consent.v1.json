@@ -1,0 +1,183 @@
+{
+	"$comment": "Vertrag Wiedererkennung von Besuchen (Fassung 1). Quelle: SDK packages/site (consent/, client/attribution.ts, components/CookieBanner.svelte), erzeugt von tests/visitConsentContract.test.ts (UPDATE_CONTRACT=1). Der Core hält eine byte-gleiche Kopie und bietet privacyBlock unter „Rechtliches“ an.",
+	"banner": {
+		"when": "always",
+		"whenRule": "Jede Seite mit <SiteHead /> fragt nach „Marketing“ für die Wiedererkennung von Besuchen, auch ohne Tracking-Kennung. Ausnahme: consent.banner = 'own' in dealsystem.config.ts, dann fragt das eigene Banner.",
+		"provider": {
+			"name": "DealSystem (Betreiber der Website-Plattform)",
+			"purpose": "Erkennt wiederkehrende Besuche und ordnet sie einer Anfrage zu.",
+			"privacyUrl": null
+		},
+		"adds": [
+			"marketing"
+		],
+		"rules": {
+			"rejectAllEqualToAcceptAll": true,
+			"rejectAllFirst": true,
+			"preselected": false,
+			"blocksPage": false,
+			"ariaModal": false,
+			"escapeClosesUndecided": false,
+			"wcag": "AA",
+			"revoke": "„Cookie-Einstellungen“ in <SiteFooterLegal /> auf jeder Seite und in <Datenschutz />",
+			"revokeReloads": true
+		},
+		"anrede": {
+			"source": "site.salutation im Inhalts-Schnappschuss (GET /api/v1/websites/{id}/content), beim Build gelesen",
+			"values": [
+				"sie",
+				"du"
+			],
+			"default": "sie",
+			"rule": "Nur 'du' weicht ab; fehlt das Feld oder ist der Wert unbekannt, gilt 'sie'.",
+			"override": {
+				"prop": "anrede",
+				"rule": "Nur ausnahmsweise; geht vor der Einstellung im CRM."
+			}
+		},
+		"overrides": {
+			"prop": "texts",
+			"keys": [
+				"title",
+				"intro",
+				"change",
+				"privacyBefore",
+				"privacyLink",
+				"choices",
+				"necessary",
+				"necessaryHint",
+				"statistics",
+				"statisticsHint",
+				"marketing",
+				"marketingHint",
+				"marketingAdsHint",
+				"media",
+				"mediaHint",
+				"providers",
+				"newWindow",
+				"rejectAll",
+				"acceptAll",
+				"save",
+				"settings"
+			]
+		},
+		"texts": {
+			"sie": {
+				"title": "Cookies und Datenschutz",
+				"intro": "Mit Ihrer Zustimmung speichert diese Website Angaben in Ihrem Browser, etwa um wiederkehrende Besuche zu erkennen, und lädt gegebenenfalls Inhalte anderer Anbieter. Ohne Ihre Zustimmung geschieht das nicht.",
+				"change": "Sie können Ihre Wahl jederzeit über „Cookie-Einstellungen“ am Seitenende ändern.",
+				"privacyBefore": "Mehr dazu in der",
+				"privacyLink": "Datenschutzerklärung",
+				"choices": "Ihre Auswahl",
+				"necessary": "Notwendig",
+				"necessaryHint": "Speichert Ihre Auswahl. Immer aktiv.",
+				"statistics": "Statistik",
+				"statisticsHint": "Hilft uns zu verstehen, wie die Website genutzt wird.",
+				"marketing": "Marketing",
+				"marketingHint": "Erkennt wieder, wenn Sie die Website erneut besuchen, und ordnet Ihre Besuche Ihrer Anfrage zu.",
+				"marketingAdsHint": "Misst außerdem, über welche Anzeigen und Kampagnen Besucher zu uns kommen.",
+				"media": "Externe Inhalte",
+				"mediaHint": "Zeigt eingebettete Inhalte anderer Anbieter, z. B. Karten und Videos.",
+				"providers": "Anbieter:",
+				"newWindow": "(Datenschutzerklärung, neues Fenster)",
+				"rejectAll": "Alle ablehnen",
+				"acceptAll": "Alle akzeptieren",
+				"save": "Auswahl speichern",
+				"settings": "Einstellungen"
+			},
+			"du": {
+				"title": "Cookies und Datenschutz",
+				"intro": "Mit deiner Zustimmung speichert diese Website Angaben in deinem Browser, etwa um wiederkehrende Besuche zu erkennen, und lädt gegebenenfalls Inhalte anderer Anbieter. Ohne deine Zustimmung geschieht das nicht.",
+				"change": "Du kannst deine Wahl jederzeit über „Cookie-Einstellungen“ am Seitenende ändern.",
+				"privacyBefore": "Mehr dazu in der",
+				"privacyLink": "Datenschutzerklärung",
+				"choices": "Deine Auswahl",
+				"necessary": "Notwendig",
+				"necessaryHint": "Speichert deine Auswahl. Immer aktiv.",
+				"statistics": "Statistik",
+				"statisticsHint": "Hilft uns zu verstehen, wie die Website genutzt wird.",
+				"marketing": "Marketing",
+				"marketingHint": "Erkennt wieder, wenn du die Website erneut besuchst, und ordnet deine Besuche deiner Anfrage zu.",
+				"marketingAdsHint": "Misst außerdem, über welche Anzeigen und Kampagnen Besucher zu uns kommen.",
+				"media": "Externe Inhalte",
+				"mediaHint": "Zeigt eingebettete Inhalte anderer Anbieter, z. B. Karten und Videos.",
+				"providers": "Anbieter:",
+				"newWindow": "(Datenschutzerklärung, neues Fenster)",
+				"rejectAll": "Alle ablehnen",
+				"acceptAll": "Alle akzeptieren",
+				"save": "Auswahl speichern",
+				"settings": "Einstellungen"
+			}
+		}
+	},
+	"consent": {
+		"categories": [
+			"statistics",
+			"marketing",
+			"media"
+		],
+		"storage": {
+			"type": "localStorage",
+			"key": "ds-consent"
+		},
+		"visitorId": {
+			"category": [
+				"marketing"
+			],
+			"storage": "localStorage",
+			"storageKey": "ds-attr",
+			"durationDays": 395,
+			"sentWith": [
+				"POST /s/{key}/track",
+				"POST /s/{key}/leads (attribution.visitorId)"
+			],
+			"rule": "Der Seitenaufruf (track) und die Anfrage tragen eine visitorId nur mit Einwilligung „Marketing“, auch wenn noch eine alte im Speicher liegt."
+		},
+		"withoutConsent": "Nur der aktuelle Besuch im Arbeitsspeicher; keine Besuchs-ID, nichts im Browser-Speicher. Seitenaufrufe zählt der Core ohne Wiedererkennung."
+	},
+	"own": {
+		"config": {
+			"key": "consent.banner",
+			"values": [
+				"dealsystem",
+				"own"
+			],
+			"default": "dealsystem"
+		},
+		"api": "setConsent(choice: Partial<Record<\"statistics\" | \"marketing\" | \"media\", boolean>>): void",
+		"rules": [
+			"Mit eigenem Banner zeigt das SDK weder <CookieBanner> noch „Cookie-Einstellungen“.",
+			"Bis zur ersten Meldung gilt nichts als erlaubt; eine frühere Wahl des DealSystem-Banners zählt nicht.",
+			"Das eigene Banner meldet die Wahl bei jedem Laden und bei jeder Änderung; das SDK speichert sie nicht.",
+			"Fehlende Zwecke in choice bleiben, wie sie sind."
+		]
+	},
+	"revoke": {
+		"rule": "Wird „Marketing“ zurückgenommen, löscht das SDK die Besuchs-ID sofort aus ds-attr; mit dem Banner von DealSystem lädt die Seite danach neu.",
+		"deletes": [
+			"ds-attr.visitorId"
+		]
+	},
+	"privacyBlock": {
+		"renderedBySdk": false,
+		"shownIn": "CRM: Eigene Website → Rechtliches, Knopf „Übernehmen“; Hinweis auch im Website-Status (MCP), nie blockierend",
+		"showWhen": "Die Seite nutzt das Banner von DealSystem oder consent.banner = 'own', und der Datenschutztext enthält marker nicht.",
+		"marker": "Wiedererkennung von Besuchen (DealSystem)",
+		"facts": {
+			"provider": "DealSystem",
+			"role": "Auftragsverarbeiter",
+			"purpose": "Erkennt wiederkehrende Besuche und ordnet sie einer Anfrage zu.",
+			"storage": "localStorage",
+			"storageKey": "ds-attr",
+			"durationDays": 395,
+			"category": [
+				"marketing"
+			]
+		},
+		"htmlRules": "Nur <h2>, <p>, <ul>, <li>, <strong>, ohne Attribute und Links; beginnt mit <h2>{marker}</h2>. Der Core erkennt den Baustein am Marker (Tags entfernt, Groß-/Kleinschreibung und Leerraum egal).",
+		"html": {
+			"sie": "<h2>Wiedererkennung von Besuchen (DealSystem)</h2>\n<p>Wenn Sie im Cookie-Hinweis dieser Website „Marketing“ zustimmen, speichert die Website im lokalen Speicher Ihres Browsers (localStorage, Eintrag „ds-attr“) eine zufällige Besuchs-ID, den ersten und letzten Besuch sowie Kampagnen-Angaben wie Klick-IDs von Anzeigen. Damit erkennt sie wiederkehrende Besuche und ordnet sie einer Anfrage zu, die Sie über ein Formular dieser Website senden. DealSystem verarbeitet diese Daten in unserem Auftrag.</p>\n<p>Die Besuchs-ID wird höchstens 13 Monate (395 Tage) verwendet, Besuche und Klick-IDs 90 Tage. Ohne Zustimmung wird nichts davon gespeichert. Sie können Ihre Zustimmung jederzeit in den Cookie-Einstellungen dieser Website widerrufen; dann werden diese Angaben aus Ihrem Browser gelöscht.</p>",
+			"du": "<h2>Wiedererkennung von Besuchen (DealSystem)</h2>\n<p>Wenn du im Cookie-Hinweis dieser Website „Marketing“ zustimmst, speichert die Website im lokalen Speicher deines Browsers (localStorage, Eintrag „ds-attr“) eine zufällige Besuchs-ID, den ersten und letzten Besuch sowie Kampagnen-Angaben wie Klick-IDs von Anzeigen. Damit erkennt sie wiederkehrende Besuche und ordnet sie einer Anfrage zu, die du über ein Formular dieser Website sendest. DealSystem verarbeitet diese Daten in unserem Auftrag.</p>\n<p>Die Besuchs-ID wird höchstens 13 Monate (395 Tage) verwendet, Besuche und Klick-IDs 90 Tage. Ohne Zustimmung wird nichts davon gespeichert. Du kannst deine Zustimmung jederzeit in den Cookie-Einstellungen dieser Website widerrufen; dann werden diese Angaben aus deinem Browser gelöscht.</p>"
+		}
+	}
+}

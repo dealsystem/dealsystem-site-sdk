@@ -24,7 +24,8 @@ export { default as Text, type TextElement, type TextProps } from './components/
 export { default as Zeitfenster, type ZeitfensterProps } from './components/Zeitfenster.svelte';
 export { default as Tracking } from './components/Tracking.svelte';
 
-export { consent, type ConsentCategory, type ConsentProvider } from './consent/consent.svelte.js';
+export { consent, setConsent, type ConsentCategory, type ConsentProvider } from './consent/consent.svelte.js';
+export type { Anrede, CookieBannerTexts } from './consent/bannerTexts.js';
 export type { ExternalScriptAttrs } from './client/externalScript.js';
 export { loadCollection, loadEntry, type LoadedCollection } from './client/collections.js';
 export { getCampaignParam } from './client/attribution.js';

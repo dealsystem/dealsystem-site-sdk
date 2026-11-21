@@ -2,6 +2,7 @@
 // und <Tracking>. Gespeichert wird nur die Wahl selbst (technisch nötig).
 import { untrack } from 'svelte';
 import { syncAttribution } from '../client/attribution.js';
+import { ownConsentBanner } from '../internal/consentNeed.js';
 import { reloadPage } from '../internal/reload.js';
 
 /**
@@ -14,7 +15,9 @@ export type ConsentCategory = 'statistics' | 'marketing' | 'media';
 /** Alle Zwecke in der Reihenfolge der Anzeige. */
 export const CONSENT_CATEGORIES: readonly ConsentCategory[] = ['statistics', 'marketing', 'media'];
 
-const STORAGE_KEY = 'ds-consent';
+/** @internal Eintrag in `localStorage` (Vertrag `visit-consent.v1.json`). */
+export const CONSENT_STORAGE_KEY = 'ds-consent';
+const STORAGE_KEY = CONSENT_STORAGE_KEY;
 const STORAGE_VERSION = 1;
 /** Nach zwölf Monaten wird neu gefragt. */
 const MAX_AGE_MS = 365 * 24 * 60 * 60 * 1000;
@@ -211,6 +214,13 @@ export const consent = {
 	 */
 	init(): void {
 		if (state.ready || typeof window === 'undefined') return;
+		if (ownConsentBanner()) {
+			// Eigenes Banner: Es ist die Quelle der Wahl und meldet sie mit `setConsent()` bei jedem Laden. Bis dahin
+			// gilt nichts als erlaubt, und eine früher gespeicherte Wahl des DealSystem-Banners zählt nicht.
+			state.ready = true;
+			syncAttribution(state.granted);
+			return;
+		}
 		const stored = read();
 		if (stored) {
 			state.granted = stored.granted;
@@ -231,3 +241,36 @@ export const consent = {
 		state.providers = [];
 	},
 };
+
+/**
+ * Meldet die Wahl eines eigenen Cookie-Banners (Cookiebot, Usercentrics …), wenn in `dealsystem.config.ts`
+ * `consent: { banner: 'own' }` steht. Nur genannte Zwecke ändern sich. Bis zum ersten Aufruf gilt keine Einwilligung.
+ * Die Wahl speichert das SDK nicht selbst: Das eigene Banner ruft `setConsent()` bei jedem Laden der Seite auf.
+ * Ein Widerruf (`marketing: false`) löscht die Besuchs-ID sofort aus dem Browser.
+ *
+ * Ohne eigenes Banner wirkt der Aufruf wie eine Wahl im Banner von DealSystem (gespeichert, nach einem Widerruf
+ * lädt die Seite neu).
+ *
+ * @example
+ * // Cookiebot: nach jeder Wahl und beim Laden
+ * window.addEventListener('CookiebotOnConsentReady', () => {
+ * 	setConsent({ statistics: Cookiebot.consent.statistics, marketing: Cookiebot.consent.marketing });
+ * });
+ */
+export function setConsent(choice: Partial<Record<ConsentCategory, boolean>>): void {
+	if (typeof window === 'undefined') return;
+	const granted: Granted = { ...state.granted };
+	for (const category of CONSENT_CATEGORIES) {
+		const value = choice?.[category];
+		if (typeof value === 'boolean') granted[category] = value;
+	}
+	if (!ownConsentBanner()) {
+		decide(granted);
+		return;
+	}
+	state.granted = granted;
+	state.decided = true;
+	state.decidedAt = Date.now();
+	state.ready = true;
+	syncAttribution(granted);
+}

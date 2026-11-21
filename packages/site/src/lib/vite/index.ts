@@ -337,6 +337,7 @@ export function buildSiteData(
 		bookings: Object.fromEntries(
 			Object.entries(config.booking ?? {}).map(([key, booking]) => [key, { ...booking }]),
 		),
+		consent: { banner: config.consent?.banner === 'own' ? 'own' : 'dealsystem' },
 	};
 }
 

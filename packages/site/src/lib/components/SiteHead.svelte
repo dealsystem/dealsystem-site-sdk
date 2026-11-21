@@ -36,6 +36,8 @@ Einstieg und Kampagne. Die Besuchs-ID geht nur mit Einwilligung „Marketing“ 
 	import { page } from '$app/state';
 	import { trackPageview } from '../client/pageview.js';
 	import { consent } from '../consent/consent.svelte.js';
+	import { ownConsentBanner } from '../internal/consentNeed.js';
+	import { DEALSYSTEM_VISITS } from '../internal/providers.js';
 	import { getSiteData } from '../internal/siteData.js';
 	import { faviconLinks, iconType, WEB_MANIFEST_PATH } from '../internal/seo.js';
 	import { CONTENT_BLOCK_VERSION, contentBlockTag } from '../contentBlock.js';
@@ -49,6 +51,13 @@ Einstieg und Kampagne. Die Besuchs-ID geht nur mit Einwilligung „Marketing“ 
 	const hasManifest = seo.favicon?.icons.some((i) => i.size >= 192) ?? false;
 
 	onMount(() => consent.init());
+
+	// DealSystem-Tracking läuft auf jeder Seite: Mit Zustimmung zu „Marketing“ erkennt sie wiederkehrende Besuche.
+	// Deshalb fragt das Banner von DealSystem immer danach (bei einem eigenen Banner fragt das eigene).
+	$effect(() => {
+		if (ownConsentBanner()) return;
+		return consent.require('marketing', DEALSYSTEM_VISITS);
+	});
 
 	// Jeder Seitenwechsel ist ein Seitenaufruf für die Statistik im CRM. Nur im Browser, nie beim Build.
 	$effect(() => {

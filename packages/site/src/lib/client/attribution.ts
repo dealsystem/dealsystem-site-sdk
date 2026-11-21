@@ -41,7 +41,9 @@ export const ATTRIBUTION_RETENTION_DAYS = { history: 90, clickIds: 90, visitorId
 const VISIT_GAP_MS = 30 * 60 * 1000;
 const DAY_MS = 86_400_000;
 
-const STORAGE_KEY = 'ds-attr';
+/** @internal Eintrag in `localStorage` (Vertrag `visit-consent.v1.json`). */
+export const ATTRIBUTION_STORAGE_KEY = 'ds-attr';
+const STORAGE_KEY = ATTRIBUTION_STORAGE_KEY;
 /** Fassung 1 lag in `sessionStorage`; wird nicht mehr geschrieben und beim Start entfernt. */
 const LEGACY_KEY = 'ds-first-touch';
 

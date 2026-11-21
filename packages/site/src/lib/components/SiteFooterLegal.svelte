@@ -23,7 +23,7 @@ Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellunge
 
 <script lang="ts">
 	import { consent } from '../consent/consent.svelte.js';
-	import { siteUsesConsent } from '../internal/consentNeed.js';
+	import { ownConsentBanner, siteUsesConsent } from '../internal/consentNeed.js';
 
 	let {
 		impressumHref = '/impressum',
@@ -33,13 +33,15 @@ Die Pflicht-Links jeder Seite: Impressum, Datenschutz und „Cookie-Einstellunge
 
 	// Mit Tracking-Kennung oder fremdem Dienst schon im fertigen HTML; sonst erst, wenn ein Baustein eine Einwilligung braucht.
 	const hasTracking = siteUsesConsent();
+	// Eigenes Banner (Cookiebot …): Den Widerruf bietet es selbst an.
+	const ownBanner = ownConsentBanner();
 </script>
 
 <nav class={['ds-footer-legal', className]} aria-label="Rechtliches" data-ds-footer-legal>
 	<ul role="list">
 		<li><a href={impressumHref}>Impressum</a></li>
 		<li><a href={datenschutzHref}>Datenschutz</a></li>
-		{#if hasTracking || consent.needed}
+		{#if !ownBanner && (hasTracking || consent.needed)}
 			<li><button type="button" onclick={() => consent.openSettings()}>Cookie-Einstellungen</button></li>
 		{/if}
 	</ul>

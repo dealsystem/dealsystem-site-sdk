@@ -16,3 +16,5 @@ packages/site/contract/ds-content.v1.json
 packages/site/contract/slot-order.v1.json
 # Erzeugt von tests/attributionParamsContract.test.ts; der Core nutzt dieselbe Regel.
 packages/site/contract/attribution-params.v1.json
+# Erzeugt von tests/visitConsentContract.test.ts; der Core hält eine byte-gleiche Kopie.
+packages/site/contract/visit-consent.v1.json

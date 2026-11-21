@@ -137,6 +137,8 @@ describe('dealsystem() im Build', () => {
 			{ key: 'rueckruf' },
 		]);
 		expect(data.bookings).toEqual(config.booking);
+		// Ohne `consent` fragt das Banner von DealSystem.
+		expect(data.consent).toEqual({ banner: 'dealsystem' });
 
 		expect(data.api).toEqual({
 			baseUrl: 'https://app.dealsystem.io',
