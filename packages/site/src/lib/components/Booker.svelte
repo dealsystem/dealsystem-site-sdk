@@ -59,6 +59,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 		createBookingClient,
 		needsAttendeeAddress,
 		type BookingFailure,
+		type BookingFailureReason,
 	} from '../client/bookingClient.svelte.js';
 	import {
 		BOOKING_RANGE_MAX_DAYS,
@@ -122,7 +123,8 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 	let loadingMore = $state(false);
 	let selectedDay = $state<string | null>(null);
 	let selected = $state<BookingSlotView | null>(null);
-	let problem = $state<BookingFailure | null>(null);
+	/** Fehlerkasten; auch für eine Ablehnung, die kein Feld auf der Seite markiert. */
+	let problem = $state<(Pick<BookingFailure, 'message'> & { reason: BookingFailureReason }) | null>(null);
 	let notice = $state('');
 
 	const PERSON_FIELDS = [
@@ -354,7 +356,20 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 				step = 'details';
 				await focusHeading();
 			}
-			return focusFirstInvalid();
+			await tick();
+			const field = form?.querySelector<HTMLElement>('[aria-invalid="true"]');
+			// Eine markierte Gruppe (Ort-Art) bekommt den Fokus auf ihrer ersten Auswahl.
+			const target = field?.matches('input, select, textarea')
+				? field
+				: field?.querySelector<HTMLElement>('input');
+			if (target) return target.focus();
+			// Kein Feld auf der Seite markiert (unbekannter Pfad, ein Feld, das gerade nicht zu sehen ist): nie stumm
+			// bleiben, sondern den Fehlerkasten mit Ausweichkontakt zeigen.
+			errors = {};
+			problem = { reason: 'validation', message: Object.values(result.fields)[0] ?? result.message };
+			await tick();
+			problemElement?.focus();
+			return;
 		}
 		problem = result;
 		if (result.reason === 'slot_taken') {
@@ -601,7 +616,12 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 			{/each}
 
 			{#if info.locations.length > 1}
-				<fieldset class="ds-booker__field">
+				<fieldset
+					class="ds-booker__field"
+					role="radiogroup"
+					aria-invalid={errors.locationType ? 'true' : undefined}
+					aria-describedby={errors.locationType ? `${uid}-location-error` : undefined}
+				>
 					<legend>{t.locationLegend}</legend>
 					{#each info.locations as location (location.type)}
 						<label class="ds-booker__check">
@@ -609,6 +629,7 @@ CSS-Variablen, z. B. `--ds-color-primary`.
 							{locationLabel(location)}
 						</label>
 					{/each}
+					{@render fieldError('locationType', `${uid}-location`)}
 				</fieldset>
 			{:else if info.locations.length === 1}
 				<p class="ds-booker__hint">

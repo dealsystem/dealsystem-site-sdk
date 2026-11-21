@@ -523,6 +523,9 @@ export function createBookingClient<K extends BookingKey>(
 					fields[`answers.${name}`] = fillText(t.checkField, { label: question?.label ?? name });
 				} else if (head === 'start') {
 					fields.start = t.pickTime;
+				} else if (head === 'locationType') {
+					// Z. B. „Beim Kunden vor Ort“ bei einer Terminart mit mehreren Plätzen (Core #1039).
+					fields.locationType = fillText(t.checkField, { label: t.locationLegend });
 				} else if (
 					head === 'attendeeAddress' &&
 					name &&
