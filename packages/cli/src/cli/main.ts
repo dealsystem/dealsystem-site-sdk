@@ -84,11 +84,12 @@ export const COMMANDS: Record<string, CommandDef> = {
 	},
 	dev: {
 		summary: 'Dev-Server starten; Formulare gehen als Probe an das CRM',
-		usage: 'dealsystem dev [--port <port>] [--media-origin <https://…>]',
-		options: { port: { type: 'string' }, 'media-origin': { type: 'string' } },
+		usage: 'dealsystem dev [--port <port>] [--media-origin <https://…>] [--testmail]',
+		options: { port: { type: 'string' }, 'media-origin': { type: 'string' }, testmail: { type: 'boolean' } },
 		flags: [
 			'--port <port>  Port des Vite-Dev-Servers',
 			'--media-origin <url>  woher /_ds/media/* kommt (Standard: Hauptadresse der Seite)',
+			'--testmail  echte Bestätigung als „[Test]“-Mail an dich (auch DEALSYSTEM_TEST_MAIL=1)',
 		],
 		run: devCommand,
 	},

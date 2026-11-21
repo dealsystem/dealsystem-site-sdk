@@ -136,6 +136,10 @@ Buchung legt nichts an, keinen Kontakt, keinen Termin, keine Mail. DealSystem h�
   fehlt, falsche Pipeline), sag es in einem Satz.
 - Dann zeigst du ihm, wo er es nachsieht: „Unter Eigene Website → Formulare, Abschnitt Testläufe sehen Sie, wie die Anfrage
   angekommen wäre.“
+- **Testmail:** Will er sehen, wie die Bestätigung beim Besucher ankommt, starte `npm run dev -- --testmail`
+  (oder mit `DEALSYSTEM_TEST_MAIL=1`). Dann schickt DealSystem die echte Bestätigung als „[Test]“-Mail an ihn
+  selbst, nie an die Adresse im Formular; angelegt wird weiter nichts. Höchstens 10 Testmails je Stunde. Kommt
+  keine, nennt die Konsole den Grund. Nur auf seinen Wunsch, nicht von dir aus.
 - Vor dem ersten Hochladen nimmt der Testlauf die Terminart aus `booking.<schlüssel>.eventType` in
   `dealsystem.config.ts`. Ein Formular rechnet DealSystem bis dahin mit den Standard-Einstellungen eines neuen
   Formulars: kein Deal, keine Eingangsbestätigung. Was unter `crm` steht, gilt erst nach dem Hochladen; sag ihm

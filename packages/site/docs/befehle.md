@@ -31,12 +31,13 @@ Inhalte holen, CRM mit dealsystem.config.ts abgleichen, AGENTS.md-Block erneuern
 - `--offline` – nicht ins Netz; Abgleich mit der vorhandenen .dealsystem/content.json
 - `--fix-config` – svelte.config.js und vite.config.ts aus dem Starter wiederherstellen
 
-## `dealsystem dev [--port <port>] [--media-origin <https://…>]`
+## `dealsystem dev [--port <port>] [--media-origin <https://…>] [--testmail]`
 
 Dev-Server starten; Formulare gehen als Probe an das CRM.
 
 - `--port <port>` – Port des Vite-Dev-Servers
 - `--media-origin <url>` – woher /_ds/media/* kommt (Standard: Hauptadresse der Seite)
+- `--testmail` – echte Bestätigung als „[Test]“-Mail an dich (auch DEALSYSTEM_TEST_MAIL=1)
 
 ## `dealsystem check [--output build] [--allowed] [--rules]`
 
