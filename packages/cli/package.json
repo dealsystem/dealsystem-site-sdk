@@ -1,6 +1,6 @@
 {
 	"name": "dealsystem",
-	"version": "0.2.5",
+	"version": "0.2.7",
 	"publishConfig": {
 		"access": "public"
 	},
@@ -50,7 +50,7 @@
 		"build": "node scripts/clean.mjs && tsc -p tsconfig.build.json && node scripts/postbuild.mjs"
 	},
 	"dependencies": {
-		"@dealsystem/site": "^0.2.5",
+		"@dealsystem/site": "^0.2.7",
 		"htmlparser2": "^12.0.0",
 		"semver": "^7.8.0",
 		"sharp": "^0.34.5",

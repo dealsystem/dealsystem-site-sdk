@@ -9,14 +9,14 @@
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
 	},
 	"dependencies": {
-		"@dealsystem/site": "^0.2.6",
+		"@dealsystem/site": "^0.2.7",
 		"@fontsource-variable/inter": "^5.2.8"
 	},
 	"devDependencies": {
 		"@sveltejs/adapter-static": "^3.0.10",
 		"@sveltejs/kit": "^2.60.1",
 		"@sveltejs/vite-plugin-svelte": "^7.3.0",
-		"dealsystem": "^0.2.5",
+		"dealsystem": "^0.2.7",
 		"svelte": "^5.57.0",
 		"svelte-check": "^4.7.6",
 		"typescript": "^6.0.3",
