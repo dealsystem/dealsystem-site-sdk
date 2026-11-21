@@ -15,8 +15,9 @@ Arbeitszeiten.** Die Seite nennt nur, welche Terminart wo gebucht wird.
 **Termin beim Besucher** (Handwerk, Gutachten, Besichtigung): Hat die Terminart im CRM den Ort „Beim Kunden vor
 Ort“, fragt `<Booker>` Straße und Hausnummer, PLZ und Ort ab, sobald der Besucher diesen Ort wählt (oder es der
 einzige ist). Die Adresse steht dann im Termin, in den Mails und am Kontakt. Die Site-API nennt den Ort
-„Bei Ihnen vor Ort“; duzt die Seite ihre Besucher, gib `locationLabels={{ attendee_address: 'Bei dir vor Ort' }}`
-mit, eigene Feldnamen über `addressLabels`. Eigene Oberfläche: `needsAttendeeAddress(info.locations, locationType)`
+„Bei Ihnen vor Ort“ bzw. „Bei dir vor Ort“, je nach Anrede der Website im CRM. Wie alle Texte des Bookers folgt
+sie der Anrede von selbst. Einzelne Texte ersetzt `texts` (Typ `BookerTexts`), die Feldnamen der Adresse auch
+`addressLabels`, die Bezeichnung einer Ort-Art `locationLabels`. Eigene Oberfläche: `needsAttendeeAddress(info.locations, locationType)`
 sagt, ob die Adresse nötig ist; sie geht als `attendeeAddress` an `book()`.
 
 **Telefon als Pflicht:** Stellt der Kunde an der Terminart im CRM ein, dass Besucher ihre Telefonnummer angeben

@@ -167,6 +167,53 @@ describe('Prüfung im Browser', () => {
 	});
 });
 
+describe('Anrede aus dem CRM', () => {
+	const du = () => {
+		const data = testSiteData();
+		return { site: { ...data.site, salutation: 'du' as const } };
+	};
+
+	it('duzt in Hinweis, Prüfmeldungen, Fehlerzahl und Erfolg, wenn im CRM „Du“ eingestellt ist', async () => {
+		const { user } = setup(du());
+		expect(
+			screen.getByText(/Deine Angaben verwenden wir, um deine Anfrage zu bearbeiten/),
+		).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(await screen.findByText('Bitte fülle das Feld „E-Mail“ aus.')).toBeInTheDocument();
+		expect(screen.getByText('Bitte prüfe das markierte Feld.')).toBeInTheDocument();
+		await user.type(screen.getByLabelText(/E-Mail/), 'anna@beispiel.de');
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(await screen.findByRole('status')).toHaveTextContent(
+			'Vielen Dank. Deine Anfrage ist bei uns angekommen.',
+		);
+	});
+
+	it('duzt auch die Fehler vom Server, mit Ausweichkontakt', async () => {
+		fetchSpy.mockRejectedValue(new TypeError('offline'));
+		const { user } = setup(du());
+		await fillAndSubmit(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Deine Anfrage wurde nicht gesendet.');
+		expect(alert).toHaveTextContent('Bitte prüfe deine Internetverbindung und versuche es erneut.');
+		expect(alert).toHaveTextContent('Du erreichst uns auch direkt:');
+		expect(alert).not.toHaveTextContent(/\b(Sie|Ihre?[nrms]?|Ihnen)\b/);
+	});
+
+	it('einzelne Texte lassen sich überschreiben, Platzhalter setzt das SDK ein', async () => {
+		const { user } = setup(du(), {
+			texts: {
+				fillRequired: '{label} fehlt noch.',
+				privacy: 'Wir nutzen deine Angaben nur hierfür. Mehr in der',
+			},
+		});
+		expect(screen.getByText(/Wir nutzen deine Angaben nur hierfür/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Anfrage senden' }));
+		expect(await screen.findByText('E-Mail fehlt noch.')).toBeInTheDocument();
+		// Nicht überschrieben: bleibt in der Anrede der Seite.
+		expect(screen.getByText('Bitte prüfe das markierte Feld.')).toBeInTheDocument();
+	});
+});
+
 describe('Versand', () => {
 	it('schickt die Angaben laut Vertrag und zeigt erst nach accepted die Bestätigung', async () => {
 		window.history.replaceState({}, '', '/?utm_source=google&utm_medium=cpc');

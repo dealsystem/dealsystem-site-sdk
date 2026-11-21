@@ -14,6 +14,8 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 ```
 -->
 <script lang="ts" module>
+	import type { MapEmbedTexts } from '../texts/embeds.js';
+
 	export interface MapEmbedProps {
 		/** Breitengrad des Ortes, z. B. `53.8676`. */
 		lat: number;
@@ -23,6 +25,8 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 		title: string;
 		/** Zoomstufe von 3 (Kontinent) bis 18 (Hausnummer). Standard 16. */
 		zoom?: number;
+		/** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+		texts?: Partial<MapEmbedTexts>;
 		class?: string;
 	}
 
@@ -41,8 +45,11 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 	import { onMount } from 'svelte';
 	import { consent } from '../consent/consent.svelte.js';
 	import { usageError } from '../internal/usage.js';
+	import { MAP_EMBED_TEXTS } from '../texts/embeds.js';
+	import { pickTexts } from '../texts/resolve.js';
 
-	let { lat, lon, title, zoom = 16, class: className }: MapEmbedProps = $props();
+	let { lat, lon, title, zoom = 16, texts, class: className }: MapEmbedProps = $props();
+	const t = $derived(pickTexts(MAP_EMBED_TEXTS, texts));
 
 	const valid = $derived.by(() => {
 		const ok = Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
@@ -82,16 +89,13 @@ nicht, frag den Kunden danach oder verlinke stattdessen die Adresse; rate sie ni
 			<iframe {title} src={embedUrl} loading="lazy" referrerpolicy="no-referrer"></iframe>
 		{:else if consent.ready}
 			<div class="ds-map__gate">
-				<p>
-					Die Karte kommt von OpenStreetMap. Beim Anzeigen werden Daten, zum Beispiel Ihre IP-Adresse, an
-					OpenStreetMap übertragen.
-				</p>
-				<button type="button" onclick={() => consent.grant('media')}>Karte anzeigen</button>
+				<p>{t.notice}</p>
+				<button type="button" onclick={() => consent.grant('media')}>{t.show}</button>
 			</div>
 		{/if}
 		<p class="ds-map__link">
 			<a href={linkUrl} target="_blank" rel="noopener noreferrer">
-				Karte in OpenStreetMap öffnen<span class="ds-map__hint"> (neues Fenster): {title}</span>
+				{t.open}<span class="ds-map__hint"> {t.newWindow}: {title}</span>
 			</a>
 		</p>
 	</div>

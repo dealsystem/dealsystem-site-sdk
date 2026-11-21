@@ -31,7 +31,7 @@ export default defineSite({
 				{ name: 'lastName', type: 'text', label: 'Nachname', standardField: 'lastName', required: true },
 				{ name: 'email', type: 'email', label: 'E-Mail', standardField: 'email', required: true },
 				{ name: 'phone', type: 'tel', label: 'Telefon', standardField: 'phone' },
-				{ name: 'nachricht', type: 'textarea', label: 'Ihre Nachricht', required: true },
+				{ name: 'nachricht', type: 'textarea', label: 'Nachricht', required: true },
 			],
 		},
 	},

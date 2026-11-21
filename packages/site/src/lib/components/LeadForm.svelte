@@ -9,10 +9,13 @@ Schreibe kein eigenes `<form>` und kein eigenes `fetch`.
 ```
 
 Neue Felder trägst du in `dealsystem.config.ts` unter `funnels.<schlüssel>.fields` ein.
+Alle Texte für Besucher (Hinweise, Fehler, Erfolg) folgen der Anrede aus dem CRM (Sie oder Du). Einzelne
+ersetzt `texts`, z. B. `texts={{ privacy: 'Wir nutzen Ihre Angaben nur für Ihre Anfrage. Mehr in der' }}`.
 Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 -->
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
+	import type { FormTexts } from '../texts/form.js';
 	import type { FunnelKey } from '../types.js';
 
 	export interface LeadFormProps {
@@ -20,6 +23,8 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 		funnel: FunnelKey;
 		/** Text der Schaltfläche. Standard „Absenden“. */
 		submitLabel?: string;
+		/** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). Platzhalter wie `{label}` setzt das SDK ein. */
+		texts?: Partial<FormTexts>;
 		/**
 		 * Text nach erfolgreichem Versand. Standard „Vielen Dank. Ihre Anfrage ist bei uns angekommen.“; verspricht
 		 * das Formular eine Datei (`leadmagnet`), kündigt der Standard sie per E-Mail an.
@@ -54,10 +59,13 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	import { labelOf, maxLengthOf, type FieldValue } from '../client/validation.js';
 	import { consent } from '../consent/consent.svelte.js';
 	import { getSiteData } from '../internal/siteData.js';
+	import { FORM_TEXTS } from '../texts/form.js';
+	import { fillText, pickTexts } from '../texts/resolve.js';
 
 	let {
 		funnel,
-		submitLabel = 'Absenden',
+		submitLabel,
+		texts,
 		successMessage,
 		privacyHref = '/datenschutz',
 		success,
@@ -74,11 +82,16 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	const client = createLeadClient(funnel, {
 		captchaElement: () => captchaElement,
 		caller: `<LeadForm funnel="${funnel}">`,
+		texts,
 	});
+	// Texte in der Anrede der Seite (`texts/form.ts`), einzelne aus `texts`.
+	// svelte-ignore state_referenced_locally
+	const t = pickTexts(FORM_TEXTS, texts);
+	const [requiredBefore, requiredAfter = ''] = t.requiredHint.split('{star}');
 	const fields = client.fields;
 	const hasRequired = fields.some((field) => field.required);
 
-	let texts = $state<Record<string, string>>({});
+	let textValues = $state<Record<string, string>>({});
 	let checks = $state<Record<string, boolean>>({});
 	let multis = $state<Record<string, string[]>>({});
 	let honeypot = $state('');
@@ -102,7 +115,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 	function valueOf(name: string, type: string): FieldValue | undefined {
 		if (type === 'checkbox') return checks[name] ?? false;
 		if (type === 'multiselect') return multis[name] ?? [];
-		return texts[name] ?? '';
+		return textValues[name] ?? '';
 	}
 
 	function values(): Record<string, FieldValue | undefined> {
@@ -162,12 +175,12 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 {#snippet contactFallback()}
 	{#if contact.phone || contact.email}
 		<p class="ds-form__contact">
-			Sie erreichen uns auch direkt:
+			{t.contactDirect}
 			{#if contact.phone}
 				<a href="tel:{contact.phone.replace(/[^+0-9]/g, '')}">{contact.phone}</a>
 			{/if}
 			{#if contact.phone && contact.email}
-				oder
+				{t.contactOr}
 			{/if}
 			{#if contact.email}
 				<a href="mailto:{contact.email}">{contact.email}</a>
@@ -179,7 +192,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 <div class={['ds-form', className]} data-ds-lead-form={funnel}>
 	{#if !client.available}
 		<div class="ds-form__notice">
-			<p>Dieses Formular ist zurzeit nicht verfügbar.</p>
+			<p>{t.unavailable}</p>
 			{@render contactFallback()}
 		</div>
 	{:else if status === 'success'}
@@ -190,13 +203,13 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 				<p>{successMessage ?? client.successMessage}</p>
 			{/if}
 			{#if dryRun}
-				<p class="ds-form__hint">Vorschau: Diese Anfrage wurde geprüft, aber nicht gespeichert.</p>
+				<p class="ds-form__hint">{t.dryRun}</p>
 			{/if}
 		</div>
 	{:else}
 		<form bind:this={form} novalidate {onsubmit} onfocusin={startCaptcha} aria-busy={status === 'submitting'}>
 			{#if hasRequired}
-				<p class="ds-form__hint">Pflichtfelder sind mit <span aria-hidden="true">*</span> markiert.</p>
+				<p class="ds-form__hint">{requiredBefore}<span aria-hidden="true">*</span>{requiredAfter}</p>
 			{/if}
 
 			{#each fields as field (field.name)}
@@ -256,7 +269,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 								{id}
 								name={field.name}
 								rows="5"
-								bind:value={texts[field.name]}
+								bind:value={textValues[field.name]}
 								required={field.required}
 								maxlength={maxLengthOf(field)}
 								placeholder={field.placeholder}
@@ -266,12 +279,12 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 							<select
 								{id}
 								name={field.name}
-								bind:value={texts[field.name]}
+								bind:value={textValues[field.name]}
 								required={field.required}
 								aria-invalid={error ? 'true' : undefined}
 								aria-describedby={describedBy}
 							>
-								<option value="">Bitte wählen</option>
+								<option value="">{t.choose}</option>
 								{#each field.options ?? [] as option (option)}
 									<option value={option}>{option}</option>
 								{/each}
@@ -281,7 +294,7 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 								{id}
 								type={field.type}
 								name={field.name}
-								bind:value={texts[field.name]}
+								bind:value={textValues[field.name]}
 								required={field.required}
 								maxlength={field.type === 'date' ? undefined : maxLengthOf(field)}
 								placeholder={field.placeholder}
@@ -316,27 +329,25 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			<div bind:this={captchaElement} hidden></div>
 
 			<p class="ds-form__privacy">
-				Ihre Angaben verwenden wir, um Ihre Anfrage zu bearbeiten. Mehr dazu in der
-				<a href={privacyHref}>Datenschutzerklärung</a>.
+				{t.privacy}
+				<a href={privacyHref}>{t.privacyLink}</a>.
 			</p>
 
 			<div class="ds-form__status" aria-live="polite">
 				{#if errorCount > 0}
 					<p class="ds-form__error">
-						{errorCount === 1
-							? 'Bitte prüfen Sie das markierte Feld.'
-							: `Bitte prüfen Sie die ${errorCount} markierten Felder.`}
+						{errorCount === 1 ? t.errorOne : fillText(t.errorMany, { count: errorCount })}
 					</p>
 				{:else if waitingForCaptcha}
-					<p>Die Sicherheitsprüfung läuft. Ihre Anfrage wird gleich gesendet.</p>
+					<p>{t.captchaRunning}</p>
 				{:else if status === 'submitting'}
-					<p>Ihre Anfrage wird gesendet.</p>
+					<p>{t.sending}</p>
 				{/if}
 			</div>
 
 			{#if status === 'error' && failure && errorCount === 0}
 				<div class="ds-form__failure" role="alert" tabindex="-1" bind:this={errorElement}>
-					<p><strong>Ihre Anfrage wurde nicht gesendet.</strong> {failure.message}</p>
+					<p><strong>{t.notSent}</strong> {failure.message}</p>
 					{#if failure.kind !== 'validation'}
 						{@render contactFallback()}
 					{/if}
@@ -344,11 +355,11 @@ Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 			{/if}
 
 			<button type="submit" class="ds-form__submit" aria-disabled={status === 'submitting'}>
-				{submitLabel}
+				{submitLabel ?? t.submit}
 			</button>
 		</form>
 		<noscript>
-			<p>Das Formular braucht JavaScript.</p>
+			<p>{t.noScript}</p>
 			{@render contactFallback()}
 		</noscript>
 	{/if}

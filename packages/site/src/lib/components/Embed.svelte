@@ -22,6 +22,7 @@ external: { video: { preset: 'youtube' } },
 ```
 -->
 <script lang="ts" module>
+	import type { EmbedTexts } from '../texts/embeds.js';
 	import type { ExternalKey } from '../types.js';
 
 	export interface EmbedProps {
@@ -37,6 +38,8 @@ external: { video: { preset: 'youtube' } },
 		height?: string;
 		/** Bild im Platzhalter, ein Pfad der eigenen Seite (`/bilder/vorschau.jpg`). Nie ein Bild des Anbieters. */
 		poster?: string;
+		/** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+		texts?: Partial<EmbedTexts>;
 		class?: string;
 	}
 </script>
@@ -48,8 +51,11 @@ external: { video: { preset: 'youtube' } },
 	import { resolveEmbedSource } from '../external/resolve.js';
 	import { getSiteData } from '../internal/siteData.js';
 	import { usageError } from '../internal/usage.js';
+	import { EMBED_TEXTS } from '../texts/embeds.js';
+	import { fillText, pickTexts } from '../texts/resolve.js';
 
-	let { id, src, title, aspect, height, poster, class: className }: EmbedProps = $props();
+	let { id, src, title, aspect, height, poster, texts, class: className }: EmbedProps = $props();
+	const t = $derived(pickTexts(EMBED_TEXTS, texts));
 
 	const uid = $props.id();
 
@@ -137,27 +143,26 @@ external: { video: { preset: 'youtube' } },
 				<div class="ds-embed__box">
 					<p class="ds-embed__title" id="{uid}-title">{title}</p>
 					<p class="ds-embed__text">
-						{settings?.noun ?? 'Der Inhalt'} kommt von {entry.provider ?? 'einem anderen Anbieter'}. Beim
-						Laden werden Daten, zum Beispiel Ihre IP-Adresse, dorthin übertragen.
+						{fillText(t.notice, {
+							noun: settings?.noun ?? t.noun,
+							provider: entry.provider ?? t.unknownProvider,
+						})}
 						{#if entry.privacyUrl}
 							<a href={entry.privacyUrl} target="_blank" rel="noopener noreferrer"
-								>Datenschutzerklärung des Anbieters<span class="ds-embed__hint"> (neues Fenster)</span></a
+								>{t.privacyLink}<span class="ds-embed__hint"> {t.newWindow}</span></a
 							>
 						{/if}
 					</p>
 					{#if resolved}
 						<div class="ds-embed__actions">
 							<button type="button" onclick={() => consent.grant(entry.category)}>
-								{settings?.loadLabel ?? 'Inhalt laden'}
+								{settings?.loadLabel ?? t.load}
 							</button>
 							<a href={resolved.original} target="_blank" rel="noopener noreferrer">
-								Beim Anbieter öffnen<span class="ds-embed__hint"> (neues Fenster): {title}</span>
+								{t.open}<span class="ds-embed__hint"> {t.newWindow}: {title}</span>
 							</a>
 						</div>
-						<p class="ds-embed__note">
-							Damit stimmen Sie „{categoryLabel}“ zu. Ändern können Sie das jederzeit über
-							„Cookie-Einstellungen“.
-						</p>
+						<p class="ds-embed__note">{fillText(t.consentNote, { category: categoryLabel })}</p>
 					{/if}
 				</div>
 			</div>

@@ -368,6 +368,47 @@ describe('<Booker>: Termin beim Gast (Ort-Art mit Adresse)', () => {
 	});
 });
 
+describe('<Booker>: Anrede aus dem CRM', () => {
+	beforeEach(() => {
+		const data = testSiteData();
+		setSiteDataForTests({ ...data, site: { ...data.site, salutation: 'du' } });
+	});
+
+	it('duzt in Zeitzone, Schritten, Prüfmeldungen und Bestätigung', async () => {
+		const user = userEvent.setup();
+		render(Booker, { booking: 'erstgespraech' });
+		expect(await screen.findByText(/Zeiten in deiner Zeitzone/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: new RegExp(`${time(0)} Uhr$`) }));
+		await waitFor(() => expect(screen.getByRole('heading', { name: 'Deine Angaben' })).toHaveFocus());
+		expect(screen.getByText(/Deine Angaben verwenden wir, um den Termin zu vereinbaren/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Termin buchen' }));
+		await waitFor(() => expect(screen.getByLabelText(/^Vorname/)).toHaveFocus());
+		expect(screen.getByLabelText(/^Vorname/)).toHaveAccessibleDescription('Bitte gib deinen Vornamen an.');
+		expect(screen.getByLabelText(/^E-Mail/)).toHaveAccessibleDescription(
+			'Bitte gib deine E-Mail-Adresse an.',
+		);
+		await fillAndBook(user);
+		expect(await screen.findByRole('heading', { name: 'Dein Termin ist gebucht' })).toBeInTheDocument();
+		expect(screen.getByText(/Du erhältst gleich eine Bestätigung per E-Mail/)).toBeInTheDocument();
+		expect(document.querySelector('[data-ds-booker]')).not.toHaveTextContent(/\b(Sie|Ihre?[nrms]?|Ihnen)\b/);
+	});
+
+	it('einzelne Texte lassen sich überschreiben; addressLabels bleibt die Kurzform', async () => {
+		const user = userEvent.setup();
+		render(Booker, {
+			booking: 'erstgespraech',
+			texts: { phone: 'Handynummer', firstNameRequired: 'Wie heißt du?', street: 'Straße' },
+			addressLabels: { street: 'Deine Straße' },
+		});
+		await user.click(await screen.findByRole('button', { name: new RegExp(`${time(0)} Uhr$`) }));
+		expect(await screen.findByLabelText(/^Handynummer/)).toBeInTheDocument();
+		await user.click(screen.getByRole('button', { name: 'Termin buchen' }));
+		await waitFor(() =>
+			expect(screen.getByLabelText(/^Vorname/)).toHaveAccessibleDescription('Wie heißt du?'),
+		);
+	});
+});
+
 describe('<Booker>: Telefon als Pflicht', () => {
 	it('Terminart verlangt Telefon: Sternchen, Fehler am Feld, nichts gesendet', async () => {
 		const user = userEvent.setup();

@@ -3912,7 +3912,8 @@
                       ]
                     },
                     "label": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "Art des Orts als Wort in der Anrede der Website (Sie/Du, `mail_salutation`): `attendee_address` → „Bei Ihnen vor Ort“ bzw. „Bei dir vor Ort“; die übrigen sind neutral (Videoanruf, Telefon, Vor Ort, Online)."
                     },
                     "attendeeInput": {
                       "anyOf": [

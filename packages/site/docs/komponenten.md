@@ -310,6 +310,8 @@ export interface MediaVideoProps {
   media: MediaRef | null | undefined;
   /** Kurzer Name des Videos, z. B. „Rundgang“. */
   title: string;
+  /** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+  texts?: Partial<MediaVideoTexts>;
   class?: string;
 }
 ```
@@ -325,6 +327,8 @@ Schreibe kein eigenes `<form>` und kein eigenes `fetch`.
 ```
 
 Neue Felder trägst du in `dealsystem.config.ts` unter `funnels.<schlüssel>.fields` ein.
+Alle Texte für Besucher (Hinweise, Fehler, Erfolg) folgen der Anrede aus dem CRM (Sie oder Du). Einzelne
+ersetzt `texts`, z. B. `texts={{ privacy: 'Wir nutzen Ihre Angaben nur für Ihre Anfrage. Mehr in der' }}`.
 Farben und Rundungen steuerst du mit CSS-Variablen, z. B. `--ds-color-primary`.
 
 Eigenschaften:
@@ -335,6 +339,8 @@ export interface LeadFormProps {
   funnel: FunnelKey;
   /** Text der Schaltfläche. Standard „Absenden“. */
   submitLabel?: string;
+  /** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). Platzhalter wie `{label}` setzt das SDK ein. */
+  texts?: Partial<FormTexts>;
   /**
    * Text nach erfolgreichem Versand. Standard „Vielen Dank. Ihre Anfrage ist bei uns angekommen.“; verspricht
    * das Formular eine Datei (`leadmagnet`), kündigt der Standard sie per E-Mail an.
@@ -404,13 +410,18 @@ export interface BookerProps {
   /** Adresse der Datenschutzerklärung. Standard `/datenschutz`. */
   privacyHref?: string;
   /**
+   * Einzelne Texte statt der Standardtexte, z. B. `{ phone: 'Mobilnummer' }`. Alle Texte folgen der Anrede aus
+   * dem CRM (Sie oder Du); Platzhalter wie `{label}` setzt das SDK ein.
+   */
+  texts?: Partial<BookerTexts>;
+  /**
    * Beschriftungen der Adressfelder, wenn der Termin beim Gast stattfindet (Ort-Art mit Adresse). Standard
-   * „Straße und Hausnummer“, „PLZ“, „Ort“.
+   * „Straße und Hausnummer“, „PLZ“, „Ort“. Kurzform für `texts={{ street, postalCode, city }}`.
    */
   addressLabels?: { street?: string; postalCode?: string; city?: string };
   /**
-   * Eigene Bezeichnung je Ort-Art statt der aus dem CRM, z. B. `{ attendee_address: 'Bei dir vor Ort' }`, wenn die
-   * Seite ihre Besucher duzt.
+   * Eigene Bezeichnung je Ort-Art statt der aus dem CRM, z. B. `{ attendee_address: 'Beim Kunden zu Hause' }`. Die
+   * Bezeichnungen aus dem CRM folgen schon der Anrede der Website.
    */
   locationLabels?: Partial<Record<BookingLocationType, string>>;
   /** Eigene Anzeige nach der Buchung; bekommt Datum und Uhrzeit als Text. */
@@ -462,6 +473,8 @@ export interface CollectionListProps<K extends CollectionKey> {
   item: Snippet<[CollectionEntry<K>]>;
   /** Anzeige, wenn es keine Einträge gibt. */
   empty?: Snippet;
+  /** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+  texts?: Partial<CollectionListTexts>;
   class?: string;
 }
 ```
@@ -493,6 +506,8 @@ export interface MapEmbedProps {
   title: string;
   /** Zoomstufe von 3 (Kontinent) bis 18 (Hausnummer). Standard 16. */
   zoom?: number;
+  /** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+  texts?: Partial<MapEmbedTexts>;
   class?: string;
 }
 ```
@@ -536,6 +551,8 @@ export interface EmbedProps {
   height?: string;
   /** Bild im Platzhalter, ein Pfad der eigenen Seite (`/bilder/vorschau.jpg`). Nie ein Bild des Anbieters. */
   poster?: string;
+  /** Einzelne Texte statt der Standardtexte (Anrede aus dem CRM). */
+  texts?: Partial<EmbedTexts>;
   class?: string;
 }
 ```
