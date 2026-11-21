@@ -2,6 +2,17 @@
 
 Frühere Versionen sind in den Release-PRs beschrieben (bis 0.2.6, #21).
 
+## Nicht veröffentlicht (für 0.2.8)
+
+### @dealsystem/site
+
+- **`<Booker>` bleibt bei einer Ablehnung nie stumm:** Lehnt der Server Angaben ab, die der Booker keinem sichtbaren
+  Feld zuordnen kann (ein unbekannter Pfad, oder ein Feld, das gerade nicht zu sehen ist, etwa die Zeit),
+  erscheint der Fehlerkasten mit Ausweichkontakt, und der Fokus geht darauf. Vorher zeigte der Booker dann gar
+  nichts.
+- **Ort-Art abgelehnt** (`locationType`, z. B. „Beim Kunden vor Ort“ bei mehreren Plätzen, Core #1039): Fehler an der
+  Gruppe „Wie findet der Termin statt?“ (jetzt `radiogroup`), Fokus auf die erste Auswahl.
+
 ## 0.2.7 (21.11.2026)
 
 Gilt für `@dealsystem/site`, `create-dealsystem-site` und die CLI `dealsystem` (vorher 0.2.5). Setzt einen Core
