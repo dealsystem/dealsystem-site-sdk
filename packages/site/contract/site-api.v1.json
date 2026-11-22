@@ -2923,7 +2923,8 @@
                     "start": "2026-12-01T09:00:00.000Z",
                     "end": "2026-12-01T09:30:00.000Z",
                     "status": "booked",
-                    "canChange": true
+                    "canChange": true,
+                    "canReschedule": true
                   }
                 }
               }
@@ -3035,7 +3036,8 @@
                     "start": "2026-12-01T09:00:00.000Z",
                     "end": "2026-12-01T09:30:00.000Z",
                     "status": "cancelled",
-                    "canChange": false
+                    "canChange": false,
+                    "canReschedule": false
                   }
                 }
               }
@@ -3189,6 +3191,7 @@
                     "end": "2026-12-02T10:30:00.000Z",
                     "status": "booked",
                     "canChange": true,
+                    "canReschedule": true,
                     "token": "9f2c4e6a8b0d1f3a5c7e9b1d3f5a7c9e"
                   }
                 }
@@ -3228,7 +3231,7 @@
             }
           },
           "409": {
-            "description": "`slot_taken`: die Zeit ist inzwischen vergeben oder nicht (mehr) buchbar — freie Zeiten neu laden.",
+            "description": "`slot_taken`: die Zeit ist nicht mehr frei (freie Zeiten neu laden). `reschedule_unavailable`: der Termin hat mehrere Plätze, verschieben geht nur über den Gastgeber (absagen und neu buchen).",
             "content": {
               "application/json": {
                 "schema": {
@@ -3414,7 +3417,8 @@
               "invalid_timezone",
               "not_qualified",
               "appointment_not_found",
-              "appointment_closed"
+              "appointment_closed",
+              "reschedule_unavailable"
             ]
           },
           "details": {
@@ -4202,6 +4206,11 @@
                 ]
               },
               "canChange": {
+                "type": "boolean",
+                "description": "Absagen geht (bei mehreren Plätzen: nur der eigene Platz, der Termin bleibt für die anderen)."
+              },
+              "canReschedule": {
+                "description": "Verschieben geht. `false` bei Terminen mit mehreren Plätzen (dort verschiebt nur der Gastgeber; absagen und neu buchen). Neu; ältere Server schicken das Feld nicht, dann gilt `canChange`.",
                 "type": "boolean"
               },
               "token": {
