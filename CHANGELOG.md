@@ -6,9 +6,15 @@ Frühere Versionen sind in den Release-PRs beschrieben (bis 0.2.6, #21).
 
 ### @dealsystem/site
 
+- **`<Booker>` bleibt bei einer Ablehnung nie stumm:** Lehnt der Server Angaben ab, die der Booker keinem sichtbaren
+  Feld zuordnen kann (ein unbekannter Pfad, oder ein Feld, das gerade nicht zu sehen ist, etwa die Zeit),
+  erscheint der Fehlerkasten mit Ausweichkontakt, und der Fokus geht darauf. Vorher zeigte der Booker dann gar
+  nichts (#26).
+- **Ort-Art abgelehnt** (`locationType`, z. B. „Beim Kunden vor Ort“ bei mehreren Plätzen, Core #1039): Fehler an der
+  Gruppe „Wie findet der Termin statt?“ (jetzt `radiogroup`), Fokus auf die erste Auswahl (#26).
 - **Vertrag** `site-api.v1.json` aus Core b845fb76f (#1048): optionales Feld `canReschedule` an der Termin-Antwort,
   Fehlercode `reschedule_unavailable` (409 beim Verschieben eines Platzes). Der Client ordnet ihn als `rejected` ein,
-  nicht als „Zeit vergeben“. Das SDK selbst verschiebt keine Termine.
+  nicht als „Zeit vergeben“. Das SDK selbst verschiebt keine Termine (#27).
 
 ## 0.2.7 (21.11.2026)
 

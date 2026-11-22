@@ -323,7 +323,7 @@ describe('<Booker>: Termin beim Gast (Ort-Art mit Adresse)', () => {
 		expect(screen.getByLabelText(/^PLZ/)).toHaveAttribute('autocomplete', 'postal-code');
 		expect(screen.getByLabelText(/^Ort/)).toHaveAttribute('autocomplete', 'address-level2');
 		// Ortsart-Auswahl und Adresse als benannte Gruppen, wie auf der Buchungsseite im CRM.
-		expect(screen.getByRole('group', { name: 'Wie findet der Termin statt?' })).toBeInTheDocument();
+		expect(screen.getByRole('radiogroup', { name: 'Wie findet der Termin statt?' })).toBeInTheDocument();
 		const adresse = screen.getByRole('group', { name: 'Wo findet der Termin statt?' });
 		expect(within(adresse).getAllByRole('textbox')).toHaveLength(3);
 		expect(within(adresse).getByLabelText(/^Straße und Hausnummer/)).toBe(street);
@@ -406,6 +406,79 @@ describe('<Booker>: Anrede aus dem CRM', () => {
 		await waitFor(() =>
 			expect(screen.getByLabelText(/^Vorname/)).toHaveAccessibleDescription('Wie heißt du?'),
 		);
+	});
+});
+
+describe('<Booker>: Ablehnung ohne passendes Feld bleibt nie stumm', () => {
+	const VOR_ORT = {
+		...INFO,
+		locations: [
+			{ type: 'phone', label: 'Telefon', attendeeInput: null },
+			{ type: 'attendee_address', label: 'Bei Ihnen vor Ort', attendeeInput: 'address' },
+		],
+	};
+	const reject = (path: string) => () =>
+		jsonResponse(422, {
+			error: 'x',
+			message: 'x',
+			status: 422,
+			code: 'validation_error',
+			details: [{ path, message: 'x' }],
+		});
+
+	it('locationType (z. B. vor Ort bei mehreren Plätzen): Fehler an der Ort-Auswahl, Fokus darauf', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () => jsonResponse(200, { data: VOR_ORT });
+		bookingAnswer = reject('locationType');
+		await toDetails(user);
+		await fillAndBook(user);
+		const group = await screen.findByRole('radiogroup', { name: 'Wie findet der Termin statt?' });
+		await waitFor(() => expect(group).toHaveAttribute('aria-invalid', 'true'));
+		expect(group).toHaveAccessibleDescription(
+			'Bitte prüfen Sie Ihre Angabe bei „Wie findet der Termin statt?“.',
+		);
+		expect(screen.getAllByRole('radio')[0]).toHaveFocus();
+		expect(screen.queryByRole('alert')).toBeNull();
+	});
+
+	it('ein künftiger, unbekannter Pfad: Fehlerkasten mit Ausweichkontakt, Fokus darauf', async () => {
+		const user = userEvent.setup();
+		bookingAnswer = reject('zukunft.neuesFeld');
+		await toDetails(user);
+		await fillAndBook(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Der Termin wurde nicht gebucht. Bitte prüfen Sie Ihre Angaben.');
+		expect(within(alert).getByRole('link', { name: '0341 1234567' })).toBeInTheDocument();
+		await waitFor(() => expect(alert).toHaveFocus());
+		expect(document.querySelector('[aria-invalid="true"]')).toBeNull();
+	});
+
+	it('ein bekanntes Feld, das gerade nicht zu sehen ist (nur eine Ort-Art): ebenfalls der Fehlerkasten', async () => {
+		const user = userEvent.setup();
+		infoAnswer = () =>
+			jsonResponse(200, {
+				data: { ...INFO, locations: [{ type: 'phone', label: 'Telefon', attendeeInput: null }] },
+			});
+		bookingAnswer = reject('locationType');
+		await toDetails(user);
+		await fillAndBook(user);
+		const alert = await screen.findByRole('alert');
+		expect(alert).toHaveTextContent('Bitte prüfen Sie Ihre Angabe bei „Wie findet der Termin statt?“.');
+		await waitFor(() => expect(alert).toHaveFocus());
+	});
+
+	it('in Du, wenn im CRM so eingestellt', async () => {
+		const data = testSiteData();
+		setSiteDataForTests({ ...data, site: { ...data.site, salutation: 'du' } });
+		const user = userEvent.setup();
+		bookingAnswer = reject('zukunft.neuesFeld');
+		render(Booker, { booking: 'erstgespraech' });
+		await user.click(await screen.findByRole('button', { name: new RegExp(`${time(0)} Uhr$`) }));
+		await user.type(await screen.findByLabelText(/^Vorname/), 'Erika');
+		await user.type(screen.getByLabelText(/^E-Mail/), 'erika@beispiel.de');
+		await user.type(screen.getByLabelText(/^Worum geht es\?/), 'Wohnung verkaufen');
+		await user.click(screen.getByRole('button', { name: 'Termin buchen' }));
+		expect(await screen.findByRole('alert')).toHaveTextContent('Bitte prüfe deine Angaben.');
 	});
 });
 
