@@ -19,7 +19,10 @@ export type SiteApiErrorKind =
 	| 'validation'
 	/** 400 `captcha_failed`. */
 	| 'captcha_failed'
-	/** 400, 405, 413, 415: der Server nimmt die Anfrage so nicht an (z. B. `payload_too_large`). */
+	/**
+	 * 400, 405, 413, 415: der Server nimmt die Anfrage so nicht an (z. B. `payload_too_large`); auch 409
+	 * `reschedule_unavailable` (Termin mit mehreren Plätzen lässt sich nicht verschieben).
+	 */
 	| 'rejected'
 	/** 404: Formular, Sammlung, Eintrag oder Buchung gibt es nicht (oder sie ist ausgeschaltet). */
 	| 'not_found'
@@ -324,6 +327,8 @@ function fail(
 
 function kindOf(status: number, code: string | null): SiteApiErrorKind {
 	if (code === 'captcha_failed') return 'captcha_failed';
+	// 409 beim Verschieben eines Platzes (Core #1048): nicht „Zeit vergeben“, sondern so nicht möglich.
+	if (code === 'reschedule_unavailable') return 'rejected';
 	if (status === 429) return 'rate_limited';
 	if (status === 404) return 'not_found';
 	if (status === 409) return 'conflict';

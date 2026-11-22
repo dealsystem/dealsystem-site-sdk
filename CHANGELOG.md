@@ -2,6 +2,14 @@
 
 Frühere Versionen sind in den Release-PRs beschrieben (bis 0.2.6, #21).
 
+## Nicht veröffentlicht (für 0.2.8)
+
+### @dealsystem/site
+
+- **Vertrag** `site-api.v1.json` aus Core b845fb76f (#1048): optionales Feld `canReschedule` an der Termin-Antwort,
+  Fehlercode `reschedule_unavailable` (409 beim Verschieben eines Platzes). Der Client ordnet ihn als `rejected` ein,
+  nicht als „Zeit vergeben“. Das SDK selbst verschiebt keine Termine.
+
 ## 0.2.7 (21.11.2026)
 
 Gilt für `@dealsystem/site`, `create-dealsystem-site` und die CLI `dealsystem` (vorher 0.2.5). Setzt einen Core

@@ -35,6 +35,7 @@ const BOOKING_CODES: Record<string, [status: number, kind: SiteApiErrorKind]> = 
 	not_qualified: [422, 'validation'],
 	appointment_not_found: [404, 'not_found'],
 	appointment_closed: [410, 'gone'],
+	reschedule_unavailable: [409, 'rejected'],
 };
 const validateLeadBody = ajv.compile(leadOperation.requestBody.content['application/json'].schema);
 const SITE_KEY = 'dsp_abcd1234_abcdefghijklmnopqrstuvwx';
