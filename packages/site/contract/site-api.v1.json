@@ -2208,8 +2208,8 @@
                       "google_meet",
                       "in_person",
                       "phone",
-                      "link",
-                      "attendee_address"
+                      "attendee_address",
+                      "link"
                     ]
                   },
                   "attendeeAddress": {
@@ -3911,8 +3911,8 @@
                         "google_meet",
                         "in_person",
                         "phone",
-                        "link",
-                        "attendee_address"
+                        "attendee_address",
+                        "link"
                       ]
                     },
                     "label": {
