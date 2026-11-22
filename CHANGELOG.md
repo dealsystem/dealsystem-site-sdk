@@ -2,6 +2,13 @@
 
 Frühere Versionen sind in den Release-PRs beschrieben (bis 0.2.6, #21).
 
+## Nicht veröffentlicht
+
+### @dealsystem/site
+
+- **Vertrag** `site-api.v1.json` aus Core ca2122bf9 (#1056): Die Ort-Arten stehen in neuer Reihenfolge (aus einer
+  Liste im Core); Werte, Felder und Grenzen sind gleich. Am Client ändert sich nichts.
+
 ## 0.2.8 (22.11.2026)
 
 Nur `@dealsystem/site`. Die CLI `dealsystem` und `create-dealsystem-site` bleiben 0.2.7: Ihr Code ist unverändert,
